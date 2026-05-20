@@ -52,7 +52,7 @@ export function WorkLocationsPage() {
   const { data, create, update, isLoading } = useWorkLocations();
   if (isLoading) return <div>Loading...</div>;
 
-  return <SettingsPage title="Work Locations" columns={['Name', 'Active']} data={data.map(d => ({ name: d.name, active: d.is_active !== false }))}
+  return <SettingsPage title="Work Locations" columns={['Name', 'Active']} data={data.map(d => ({ name: d.name ?? d.location_name ?? d.work_location_name ?? d.title, active: d.is_active !== false }))}
     modalFields={[{ label: 'Name' }, { label: 'Address' }]}
     onAdd={(row) => create({ name: row.Name || row.name, address: row.Address })}
     onEdit={(idx, row) => update({ id: data[idx].id, updates: { name: row.Name || data[idx].name, address: row.Address || data[idx].address } })}

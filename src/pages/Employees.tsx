@@ -171,7 +171,7 @@ export default function Employees() {
   }));
   const locations = locData.map((d: any) => ({
     id: d.id ?? d.work_location_id ?? d.code ?? d.name,
-    name: d.name ?? d.title ?? d.work_location_name,
+    name: d.name ?? d.title ?? d.location_name ?? d.work_location_name,
   }));
   const selectedDeptName = departments.find(
     (d) => String(d.id) === String(deptFilter),

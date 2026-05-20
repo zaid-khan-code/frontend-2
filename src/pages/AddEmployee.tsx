@@ -154,7 +154,14 @@ export default function AddEmployee() {
   const employmentTypes = empTypeData.map((d: any) => d.name);
   const jobStatuses = jobStatData.map((d: any) => d.name);
   const workModes = wModeData.map((d: any) => d.name);
-  const workLocations = wLocData.map((d: any) => d.name);
+  const workLocations = wLocData.map(
+    (d: any) =>
+      d.name ??
+      d.title ??
+      d.location_name ??
+      d.work_location_name ??
+      d.workLocation,
+  );
   const shifts = shiftsData;
   const reportingManagers = rmData.map((d: any) => d.name);
 
