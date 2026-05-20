@@ -37,7 +37,16 @@ export function useEmployees(params?: any) {
   const query = useQuery({
     queryKey: ["employees", params],
     queryFn: async () => {
-      const { data } = await apiClient.get("/employees", { params });
+      const cleanParams = params
+        ? Object.fromEntries(
+            Object.entries(params).filter(
+              ([, value]) => value !== undefined && value !== null && value !== "",
+            ),
+          )
+        : undefined;
+      const { data } = await apiClient.get("/employees", {
+        params: cleanParams,
+      });
       // Depending on backend, it might return { data: { employees: [], total: x, page: y } }
       // The instructions say "Implement pagination and search/filter parameters" so we can assume it takes query params.
       return data;

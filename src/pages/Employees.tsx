@@ -1,9 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useData } from "../context/DataContext";
 import { useAuth } from "../context/AuthContext";
 import { getVisibleEmployees } from "../utils/utils";
-import { getStatusColor } from "../services/api";
 import {
   Plus,
   Search,
@@ -16,6 +14,7 @@ import {
 } from "lucide-react";
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import { useToastContext } from "../context/ToastContext";
+import { useAuthStore } from "../store/useAuthStore";
 
 // ─── Global CSS ───────────────────────────────────────────────────────────────
 const CSS = `
@@ -74,6 +73,8 @@ const CSS = `
   .emp-btn-ghost:disabled { opacity:.4; cursor:not-allowed; transform:none; }
   .emp-btn-pg      { height:30px; min-width:30px; padding:0 10px; border-radius:8px; font-size:11px; }
   .emp-btn-pg-active { background:#6366f1; color:#fff; box-shadow:0 2px 8px rgba(99,102,241,.3); }
+  .emp-skel { background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%); background-size:200% 100%; animation:pulse 1.2s ease-in-out infinite; }
+  .emp-skel-row td { padding:12px; }
   .emp-bulk { background:#eff6ff; border:1.5px solid #c7d2fe; border-radius:14px; padding:10px 16px; margin-bottom:12px; display:flex; align-items:center; gap:12px; animation:fadeUp .2s ease both; }
   .emp-check { accent-color:#6366f1; width:14px; height:14px; cursor:pointer; }
   ::-webkit-scrollbar { height:4px; width:4px; }
@@ -128,30 +129,25 @@ type SortKey =
   | "name"
   | "department"
   | "designation"
-  | "employmentType"
   | "jobStatus"
-  | "shift"
   | "dateOfJoining";
 type SortDir = "asc" | "desc";
 
 import { useEmployees } from "../hooks/useEmployees";
-import {
-  useDepartments,
-  useJobStatuses,
-  useWorkModes,
-} from "../hooks/useConfig";
+import { useDepartments } from "../hooks/useConfig";
 
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Employees() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
   const { user, activeRole } = useAuth();
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+  const canWrite = hasPermission("employees:write");
 
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [modeFilter, setModeFilter] = useState("");
-  const [showTerminated, setShowTerminated] = useState(false);
+  const [isActiveOnly, setIsActiveOnly] = useState(true);
   const [terminateConfirm, setTerminateConfirm] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>("id");
@@ -160,12 +156,14 @@ export default function Employees() {
   const [perPage, setPerPage] = useState(25);
 
   const { data: deptData = [] } = useDepartments();
-  const { data: statusData = [] } = useJobStatuses();
-  const { data: modeData = [] } = useWorkModes();
 
-  const departments = deptData.map((d: any) => d.name);
-  const jobStatuses = statusData.map((d: any) => d.name);
-  const workModes = modeData.map((d: any) => d.name);
+  const departments = deptData.map((d: any) => ({
+    id: d.id ?? d.department_id ?? d.code ?? d.name,
+    name: d.name ?? d.title ?? d.department_name,
+  }));
+  const selectedDeptName = departments.find(
+    (d) => String(d.id) === String(deptFilter),
+  )?.name;
 
   // You can either pass these filters to the backend or filter on the frontend.
   // The instructions specify "Implement pagination and search/filter parameters",
@@ -174,17 +172,17 @@ export default function Employees() {
     data: employees = [],
     pagination,
     isLoading,
+    isError,
     bulkUpdate,
   } = useEmployees({
     page: page + 1, // Backend uses 1-based page
     limit: perPage,
-    search,
-    department: deptFilter,
-    status: statusFilter,
-    work_mode: modeFilter,
-    include_terminated: showTerminated,
-    sort_by: sortKey,
-    sort_order: sortDir,
+    search: debouncedSearch,
+    department_id: deptFilter || undefined,
+    // Avoid sending filters the backend may not support yet.
+    // Local filtering + sorting still apply for UX.
+    sort_by: undefined,
+    sort_order: undefined,
   });
 
   const visibleEmployees = useMemo(
@@ -192,14 +190,36 @@ export default function Employees() {
     [user, activeRole, employees],
   );
 
+  const [errorShown, setErrorShown] = useState(false);
+  useEffect(() => {
+    if (isError && !errorShown) {
+      showToast("Failed to load employees", "error");
+      setErrorShown(true);
+    }
+    if (!isError && errorShown) {
+      setErrorShown(false);
+    }
+  }, [isError, errorShown, showToast]);
+
   // Frontend filtering logic is reduced because we are passing it to the backend.
   // However, `getVisibleEmployees` (RBAC) might still filter results.
-  const filtered = visibleEmployees;
+  const searchTerm = debouncedSearch.toLowerCase();
+  const filtered = visibleEmployees.filter((e) => {
+    const isActiveMatch = isActiveOnly
+      ? String(e.jobStatus || e.status || "").toLowerCase() !== "terminated"
+      : true;
+    const deptMatch = deptFilter ? e.department === selectedDeptName : true;
+    const searchMatch = searchTerm
+      ? `${e.id || ""} ${e.name || ""}`.toLowerCase().includes(searchTerm)
+      : true;
+    return isActiveMatch && deptMatch && searchMatch;
+  });
 
   // Since backend handles pagination, we use backend total if available, else local
+  const totalCount = pagination?.total ?? filtered.length;
   const totalPages =
-    pagination?.totalPages || Math.ceil(filtered.length / perPage) || 1;
-  const paged = pagination ? filtered : filtered.slice(0, perPage);
+    pagination?.totalPages || Math.ceil(totalCount / perPage) || 1;
+  const paged = filtered;
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -222,6 +242,10 @@ export default function Employees() {
   };
 
   const terminateSelected = async () => {
+    if (!canWrite) {
+      showToast("Insufficient permissions", "error");
+      return;
+    }
     try {
       await bulkUpdate({
         ids: Array.from(selected),
@@ -238,8 +262,7 @@ export default function Employees() {
   const clearFilters = () => {
     setSearch("");
     setDeptFilter("");
-    setStatusFilter("");
-    setModeFilter("");
+    setIsActiveOnly(true);
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -255,7 +278,12 @@ export default function Employees() {
   const activeCount = visibleEmployees.filter(
     (e) => e.jobStatus !== "Terminated",
   ).length;
-  const hasFilters = search || deptFilter || statusFilter || modeFilter;
+  const hasFilters = search || deptFilter || !isActiveOnly;
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [search]);
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -293,9 +321,14 @@ export default function Employees() {
           </div>
           <button
             className="emp-btn emp-btn-primary"
-            onClick={() => navigate("/employees/add")}
+            onClick={() =>
+              canWrite
+                ? navigate("/employees/add")
+                : showToast("Insufficient permissions", "error")
+            }
+            disabled={!canWrite}
           >
-            <Plus size={13} /> Add Employee
+            <Plus size={13} /> Create Employee
           </button>
         </div>
 
@@ -367,50 +400,14 @@ export default function Employees() {
               }}
             >
               <option value="">All Departments</option>
-              {departments.map((d, i) => (
-                <option key={`${d}-${i}`} value={d}>
-                  {d}
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
                 </option>
               ))}
             </select>
 
-            {/* Status */}
-            <select
-              className="emp-input emp-select"
-              style={{ width: 140 }}
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(0);
-              }}
-            >
-              <option value="">All Statuses</option>
-              {jobStatuses.map((s, i) => (
-                <option key={`${s}-${i}`} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-
-            {/* Work Mode */}
-            <select
-              className="emp-input emp-select"
-              style={{ width: 140 }}
-              value={modeFilter}
-              onChange={(e) => {
-                setModeFilter(e.target.value);
-                setPage(0);
-              }}
-            >
-              <option value="">All Work Modes</option>
-              {workModes.map((m, i) => (
-                <option key={`${m}-${i}`} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-
-            {/* Show terminated */}
+            {/* Active only */}
             <label
               style={{
                 fontSize: 11,
@@ -425,10 +422,13 @@ export default function Employees() {
               <input
                 type="checkbox"
                 className="emp-check"
-                checked={showTerminated}
-                onChange={(e) => setShowTerminated(e.target.checked)}
+                checked={isActiveOnly}
+                onChange={(e) => {
+                  setIsActiveOnly(e.target.checked);
+                  setPage(0);
+                }}
               />
-              Show terminated
+              Active only
             </label>
 
             {/* Clear filters */}
@@ -468,6 +468,7 @@ export default function Employees() {
                   className="emp-btn emp-btn-danger"
                   style={{ height: 30, fontSize: 11 }}
                   onClick={() => setTerminateConfirm(true)}
+                  disabled={!canWrite}
                 >
                   <UserX size={11} /> Terminate Selected
                 </button>
@@ -510,17 +511,10 @@ export default function Employees() {
                   </th>
                   <th
                     className="sortable"
-                    onClick={() => toggleSort("employmentType")}
-                  >
-                    Type <SortIcon col="employmentType" />
-                  </th>
-                  <th
-                    className="sortable"
                     onClick={() => toggleSort("jobStatus")}
                   >
                     Status <SortIcon col="jobStatus" />
                   </th>
-                  <th>Shift</th>
                   <th
                     className="sortable"
                     onClick={() => toggleSort("dateOfJoining")}
@@ -531,10 +525,21 @@ export default function Employees() {
                 </tr>
               </thead>
               <tbody>
-                {paged.length === 0 ? (
+                {isLoading ? (
+                  Array.from({ length: 6 }).map((_, idx) => (
+                    <tr key={`skel-${idx}`} className="emp-skel-row">
+                      <td colSpan={8}>
+                        <div
+                          className="emp-skel"
+                          style={{ height: 18, borderRadius: 10 }}
+                        />
+                      </td>
+                    </tr>
+                  ))
+                ) : paged.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={8}
                       style={{ textAlign: "center", padding: "48px 20px" }}
                     >
                       <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
@@ -636,32 +641,11 @@ export default function Employees() {
                         </span>
                       </td>
 
-                      {/* Employment Type */}
-                      <td>
-                        <span
-                          style={{
-                            fontSize: 10,
-                            background: "#f3f4f6",
-                            padding: "2px 8px",
-                            borderRadius: 20,
-                            color: "#6b7280",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {e.employmentType || "-"}
-                        </span>
-                      </td>
-
                       {/* Status */}
                       <td>
                         <span className={pillClass(e.jobStatus)}>
                           {e.jobStatus}
                         </span>
-                      </td>
-
-                      {/* Shift */}
-                      <td style={{ fontSize: 11, color: "#6b7280" }}>
-                        {e.shift || "-"}
                       </td>
 
                       {/* Joined */}
@@ -688,7 +672,12 @@ export default function Employees() {
                           <button
                             className="emp-ico-btn"
                             title="Edit"
-                            onClick={() => navigate("/employees/add")}
+                            onClick={() =>
+                              canWrite
+                                ? navigate("/employees/add")
+                                : showToast("Insufficient permissions", "error")
+                            }
+                            disabled={!canWrite}
                           >
                             <Pencil size={13} />
                           </button>
@@ -724,11 +713,11 @@ export default function Employees() {
               <span>
                 Showing&nbsp;
                 <strong style={{ color: "#374151" }}>
-                  {filtered.length === 0 ? 0 : page * perPage + 1}–
-                  {Math.min((page + 1) * perPage, filtered.length)}
+                  {totalCount === 0 ? 0 : page * perPage + 1}–
+                  {Math.min((page + 1) * perPage, totalCount)}
                 </strong>
                 &nbsp;of&nbsp;
-                <strong style={{ color: "#374151" }}>{filtered.length}</strong>
+                <strong style={{ color: "#374151" }}>{totalCount}</strong>
               </span>
               <select
                 className="emp-input"
