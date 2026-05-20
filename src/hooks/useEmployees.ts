@@ -1,6 +1,36 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../services/apiClient";
 
+function normalizeEmployee(raw: any) {
+  if (!raw || typeof raw !== "object") return raw;
+  return {
+    ...raw,
+    id: raw.id ?? raw.employee_id ?? raw.emp_id ?? raw.code,
+    name: raw.name ?? raw.full_name ?? raw.employee_name,
+    department:
+      raw.department ?? raw.department_name ?? raw.department?.name ?? raw.dept,
+    designation:
+      raw.designation ??
+      raw.designation_name ??
+      raw.designation_title ??
+      raw.designation?.name ??
+      raw.title,
+    employmentType:
+      raw.employmentType ??
+      raw.employment_type ??
+      raw.employment_type_name ??
+      raw.employment_type?.name,
+    jobStatus:
+      raw.jobStatus ?? raw.job_status ?? raw.job_status?.name ?? raw.status,
+    shift: raw.shift ?? raw.shift_name ?? raw.shift_label ?? raw.shift?.name,
+    dateOfJoining:
+      raw.dateOfJoining ??
+      raw.date_of_joining ??
+      raw.joined_at ??
+      raw.joining_date,
+  };
+}
+
 export function useEmployees(params?: any) {
   const queryClient = useQueryClient();
 
@@ -18,7 +48,7 @@ export function useEmployees(params?: any) {
   const dataNode = payload?.data ?? payload;
   const list =
     dataNode?.employees ?? dataNode?.items ?? dataNode?.data ?? dataNode ?? [];
-  const employees = Array.isArray(list) ? list : [];
+  const employees = Array.isArray(list) ? list.map(normalizeEmployee) : [];
   const rawPagination =
     payload?.pagination ??
     dataNode?.pagination ??

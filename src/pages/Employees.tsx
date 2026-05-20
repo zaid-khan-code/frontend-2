@@ -90,6 +90,17 @@ const getInitials = (name: string) =>
     .slice(0, 2)
     .toUpperCase();
 
+const formatJoinDate = (value?: string) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleDateString("en-PK", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
 // ── Avatar color from name hash ──
 const avatarGradients = [
   "linear-gradient(135deg,#6366f1,#8b5cf6)",
@@ -578,7 +589,7 @@ export default function Employees() {
                             fontWeight: 600,
                           }}
                         >
-                          {e.id}
+                          {e.id || "-"}
                         </span>
                       </td>
 
@@ -621,7 +632,7 @@ export default function Employees() {
                       {/* Designation */}
                       <td>
                         <span style={{ fontSize: 11, color: "#374151" }}>
-                          {e.designation}
+                          {e.designation || "-"}
                         </span>
                       </td>
 
@@ -637,7 +648,7 @@ export default function Employees() {
                             fontWeight: 600,
                           }}
                         >
-                          {e.employmentType}
+                          {e.employmentType || "-"}
                         </span>
                       </td>
 
@@ -650,7 +661,7 @@ export default function Employees() {
 
                       {/* Shift */}
                       <td style={{ fontSize: 11, color: "#6b7280" }}>
-                        {e.shift}
+                        {e.shift || "-"}
                       </td>
 
                       {/* Joined */}
@@ -661,7 +672,7 @@ export default function Employees() {
                           color: "#9ca3af",
                         }}
                       >
-                        {e.dateOfJoining}
+                        {formatJoinDate(e.dateOfJoining)}
                       </td>
 
                       {/* Actions */}
