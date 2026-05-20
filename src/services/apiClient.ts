@@ -1,14 +1,14 @@
-import axios from 'axios';
-import { useAuthStore } from '../store/useAuthStore';
+import axios from "axios";
+import { useAuthStore } from "../store/useAuthStore";
 
 // Use env var or fallback to absolute API URL
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
 export const apiClient = axios.create({
   baseURL,
   withCredentials: true, // For httpOnly cookies
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -35,14 +35,16 @@ apiClient.interceptors.response.use(
     if (status === 401) {
       // Clear auth state and redirect
       useAuthStore.getState().logout();
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
       }
     } else if (status === 403) {
-      console.error('Permission denied', data);
-      // Optional: show a global toast for 403 here
+      console.error("Permission denied", data);
+      if (window.location.pathname !== "/unauthorized") {
+        window.location.href = "/unauthorized";
+      }
     }
 
     return Promise.reject(error);
-  }
+  },
 );

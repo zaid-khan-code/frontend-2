@@ -25,7 +25,11 @@ export default function Login() {
       try {
         const result = await login(email, password);
         if (result.ok) {
-          navigate("/");
+          if (result.mustChangePassword) {
+            navigate("/change-password");
+          } else {
+            navigate("/");
+          }
         } else {
           setError(result.error);
         }

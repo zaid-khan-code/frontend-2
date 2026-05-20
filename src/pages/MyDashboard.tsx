@@ -30,14 +30,18 @@ export default function MyDashboard() {
   const [time, setTime] = useState(new Date());
   const { globalDays, employees = [] } = useData();
   const { data: metrics } = useEmployeeSelfMetrics();
-  
+
   // Real data hooks
   const { data: myLeavesData } = useLeaves({ employee_id: user?.employeeId });
-  const { data: myAttendanceData } = useAttendance({ employee_id: user?.employeeId });
-  
+  const { data: myAttendanceData } = useAttendance({
+    employee_id: user?.employeeId,
+  });
+
   const leaveRequests = Array.isArray(myLeavesData) ? myLeavesData : [];
-  const attendanceData = Array.isArray(myAttendanceData) ? myAttendanceData : [];
-  
+  const attendanceData = Array.isArray(myAttendanceData)
+    ? myAttendanceData
+    : [];
+
   const [leaveModal, setLeaveModal] = useState(false);
   const [leaveType, setLeaveType] = useState("Annual Leave");
   const [fromDate, setFromDate] = useState("");
@@ -73,7 +77,12 @@ export default function MyDashboard() {
         type: b.name,
         remaining: b.remaining,
         total: b.balance,
-        color: b.name === 'Annual' ? 'var(--p)' : b.name === 'Casual' ? 'var(--green)' : 'var(--teal)'
+        color:
+          b.name === "Annual"
+            ? "var(--p)"
+            : b.name === "Casual"
+              ? "var(--green)"
+              : "var(--teal)",
       }));
     }
     return [
@@ -168,7 +177,10 @@ export default function MyDashboard() {
 
   // Calendar events
   const calendarEvents = useMemo(() => {
-    const events: Record<string, { type: string; label: string; color: string }[]> = {};
+    const events: Record<
+      string,
+      { type: string; label: string; color: string }[]
+    > = {};
     // Birthdays from employees
     employees.forEach((emp: any) => {
       if (!emp.dob) return;
@@ -176,7 +188,11 @@ export default function MyDashboard() {
       if (dobDate.getMonth() === calMonth) {
         const day = dobDate.getDate();
         if (!events[day]) events[day] = [];
-        events[day].push({ type: "birthday", label: `${emp.name}`, color: "#e91e63" });
+        events[day].push({
+          type: "birthday",
+          label: `${emp.name}`,
+          color: "#e91e63",
+        });
       }
     });
     // Global days (holidays, emergencies)
@@ -189,24 +205,35 @@ export default function MyDashboard() {
         events[day].push({
           type: gd.type,
           label: gd.title,
-          color: gd.type === "emergency" ? "#b71c1c" : gd.type === "holiday" ? "#1b7a4e" : "#1565c0",
+          color:
+            gd.type === "emergency"
+              ? "#b71c1c"
+              : gd.type === "holiday"
+                ? "#1b7a4e"
+                : "#1565c0",
         });
       }
     });
     // Approved leaves (show team members on leave)
-    leaveRequests.filter((l: any) => l.status === "Approved").forEach((l: any) => {
-      const from = new Date(l.from);
-      const to = new Date(l.to);
-      for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-        if (d.getMonth() === calMonth && d.getFullYear() === calYear) {
-          const day = d.getDate();
-          if (!events[day]) events[day] = [];
-          if (!events[day].find((e) => e.label === `${l.empName} (Leave)`)) {
-            events[day].push({ type: "leave", label: `${l.empName} (Leave)`, color: "#1565c0" });
+    leaveRequests
+      .filter((l: any) => l.status === "Approved")
+      .forEach((l: any) => {
+        const from = new Date(l.from);
+        const to = new Date(l.to);
+        for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+          if (d.getMonth() === calMonth && d.getFullYear() === calYear) {
+            const day = d.getDate();
+            if (!events[day]) events[day] = [];
+            if (!events[day].find((e) => e.label === `${l.empName} (Leave)`)) {
+              events[day].push({
+                type: "leave",
+                label: `${l.empName} (Leave)`,
+                color: "#1565c0",
+              });
+            }
           }
         }
-      }
-    });
+      });
     return events;
   }, [employees, globalDays, leaveRequests, calMonth, calYear]);
 
@@ -214,25 +241,57 @@ export default function MyDashboard() {
   const upcomingBirthdays = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const birthdays: { name: string; date: Date; daysUntil: number; initials: string }[] = [];
+    const birthdays: {
+      name: string;
+      date: Date;
+      daysUntil: number;
+      initials: string;
+    }[] = [];
     employees.forEach((emp: any) => {
       if (!emp.dob) return;
       const dob = new Date(emp.dob);
-      let birthday = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
+      let birthday = new Date(
+        today.getFullYear(),
+        dob.getMonth(),
+        dob.getDate(),
+      );
       if (birthday < today) {
-        birthday = new Date(today.getFullYear() + 1, dob.getMonth(), dob.getDate());
+        birthday = new Date(
+          today.getFullYear() + 1,
+          dob.getMonth(),
+          dob.getDate(),
+        );
       }
-      const daysUntil = Math.ceil((birthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const daysUntil = Math.ceil(
+        (birthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+      );
       if (daysUntil <= 30) {
         const nameParts = emp.name.split(" ");
-        const initials = nameParts.map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+        const initials = nameParts
+          .map((n: string) => n[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
         birthdays.push({ name: emp.name, date: birthday, daysUntil, initials });
       }
     });
     return birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
   }, [employees]);
 
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(calYear, calMonth, 1).getDay();
 
@@ -260,7 +319,10 @@ export default function MyDashboard() {
             <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
               {[
                 { label: "Employee ID", value: user?.employeeId || "—" },
-                { label: "Department", value: user?.departments?.[0] || "Unassigned" },
+                {
+                  label: "Department",
+                  value: user?.departments?.[0] || "Unassigned",
+                },
                 { label: "Shift", value: "Morning Shift (09:00-18:00)" },
               ].map((item, i) => (
                 <span
@@ -379,12 +441,13 @@ export default function MyDashboard() {
             >
               <User size={13} /> Update Profile
             </button>
-            <button
+            <Link
               className="btn btn-ghost"
               style={{ justifyContent: "flex-start" }}
+              to="/change-password"
             >
               <Lock size={13} /> Change Password
-            </button>
+            </Link>
           </div>
         </div>
       </div>
@@ -716,7 +779,9 @@ export default function MyDashboard() {
               date: "Mar 15",
               fullDate: new Date(2026, 2, 15),
               days: 0,
-              initials: (user?.name || user?.username || "Me").slice(0,2).toUpperCase(),
+              initials: (user?.name || user?.username || "Me")
+                .slice(0, 2)
+                .toUpperCase(),
             },
           ].filter((b) => b.days === 0).length > 0 && (
             <div
@@ -740,44 +805,124 @@ export default function MyDashboard() {
       <div className="card" style={{ marginBottom: 12 }}>
         <div className="ch">
           <div className="ct">
-            <div className="ct-ico blue"><CalendarDays size={13} /></div>
+            <div className="ct-ico blue">
+              <CalendarDays size={13} />
+            </div>
             Calendar — Birthdays, Holidays & Leave
           </div>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <button className="btn btn-sm btn-ghost" onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear((y) => y - 1); } else setCalMonth((m) => m - 1); }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 12,
+          }}
+        >
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => {
+              if (calMonth === 0) {
+                setCalMonth(11);
+                setCalYear((y) => y - 1);
+              } else setCalMonth((m) => m - 1);
+            }}
+          >
             <ChevronLeft size={14} />
           </button>
-          <span style={{ fontSize: 13, fontWeight: 700 }}>{monthNames[calMonth]} {calYear}</span>
-          <button className="btn btn-sm btn-ghost" onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear((y) => y + 1); } else setCalMonth((m) => m + 1); }}>
+          <span style={{ fontSize: 13, fontWeight: 700 }}>
+            {monthNames[calMonth]} {calYear}
+          </span>
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => {
+              if (calMonth === 11) {
+                setCalMonth(0);
+                setCalYear((y) => y + 1);
+              } else setCalMonth((m) => m + 1);
+            }}
+          >
             <ChevronRight size={14} />
           </button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, textAlign: "center" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, 1fr)",
+            gap: 3,
+            textAlign: "center",
+          }}
+        >
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => (
-            <div key={i} style={{ fontSize: 10, fontWeight: 700, color: "var(--t3)", padding: 6 }}>{d}</div>
+            <div
+              key={i}
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "var(--t3)",
+                padding: 6,
+              }}
+            >
+              {d}
+            </div>
           ))}
-          {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e${i}`} />)}
+          {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+            <div key={`e${i}`} />
+          ))}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
             const evts = calendarEvents[day] || [];
-            const isToday = day === new Date().getDate() && calMonth === new Date().getMonth() && calYear === new Date().getFullYear();
+            const isToday =
+              day === new Date().getDate() &&
+              calMonth === new Date().getMonth() &&
+              calYear === new Date().getFullYear();
             const hasBirthday = evts.some((e) => e.type === "birthday");
-            const hasHoliday = evts.some((e) => e.type === "holiday" || e.type === "emergency");
+            const hasHoliday = evts.some(
+              (e) => e.type === "holiday" || e.type === "emergency",
+            );
             return (
               <div
                 key={day}
                 style={{
                   padding: 5,
                   borderRadius: 8,
-                  background: isToday ? "var(--pl)" : hasBirthday ? "#fce4ec" : hasHoliday ? "#e8f5e9" : evts.length > 0 ? "#f8fafc" : "transparent",
+                  background: isToday
+                    ? "var(--pl)"
+                    : hasBirthday
+                      ? "#fce4ec"
+                      : hasHoliday
+                        ? "#e8f5e9"
+                        : evts.length > 0
+                          ? "#f8fafc"
+                          : "transparent",
                   minHeight: 52,
                   cursor: evts.length > 0 ? "pointer" : "default",
-                  border: isToday ? "2px solid var(--p)" : hasBirthday ? "1px solid #f48fb1" : hasHoliday ? "1px solid #81c784" : "1px solid transparent",
+                  border: isToday
+                    ? "2px solid var(--p)"
+                    : hasBirthday
+                      ? "1px solid #f48fb1"
+                      : hasHoliday
+                        ? "1px solid #81c784"
+                        : "1px solid transparent",
                   transition: "all 0.15s ease",
                 }}
-                title={evts.map((e) => e.type === "birthday" ? `🎂 ${e.label}'s Birthday` : e.label).join("\n")}
+                title={evts
+                  .map((e) =>
+                    e.type === "birthday"
+                      ? `🎂 ${e.label}'s Birthday`
+                      : e.label,
+                  )
+                  .join("\n")}
               >
-                <div style={{ fontSize: 12, fontWeight: isToday ? 700 : 500, color: isToday ? "var(--p)" : "var(--t2)", marginBottom: 2 }}>{day}</div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: isToday ? 700 : 500,
+                    color: isToday ? "var(--p)" : "var(--t2)",
+                    marginBottom: 2,
+                  }}
+                >
+                  {day}
+                </div>
                 {evts.slice(0, 2).map((e, ei) => (
                   <div
                     key={ei}
@@ -798,19 +943,79 @@ export default function MyDashboard() {
                     }}
                   >
                     {e.type === "birthday" && <Cake size={8} />}
-                    {e.type === "birthday" ? e.label.split(" ")[0] : e.label.length > 8 ? e.label.slice(0, 8) + "..." : e.label}
+                    {e.type === "birthday"
+                      ? e.label.split(" ")[0]
+                      : e.label.length > 8
+                        ? e.label.slice(0, 8) + "..."
+                        : e.label}
                   </div>
                 ))}
-                {evts.length > 2 && <div style={{ fontSize: 7, color: "var(--t3)", marginTop: 2 }}>+{evts.length - 2} more</div>}
+                {evts.length > 2 && (
+                  <div
+                    style={{ fontSize: 7, color: "var(--t3)", marginTop: 2 }}
+                  >
+                    +{evts.length - 2} more
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
-        <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 10, padding: "8px 12px", background: "#f8fafc", borderRadius: 8 }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#e91e63" }} />Birthday</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1b7a4e" }} />Holiday</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#b71c1c" }} />Emergency</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1565c0" }} />Leave</span>
+        <div
+          style={{
+            display: "flex",
+            gap: 16,
+            marginTop: 12,
+            fontSize: 10,
+            padding: "8px 12px",
+            background: "#f8fafc",
+            borderRadius: 8,
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#e91e63",
+              }}
+            />
+            Birthday
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#1b7a4e",
+              }}
+            />
+            Holiday
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#b71c1c",
+              }}
+            />
+            Emergency
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#1565c0",
+              }}
+            />
+            Leave
+          </span>
         </div>
       </div>
 
@@ -818,50 +1023,214 @@ export default function MyDashboard() {
       <div className="card" style={{ marginBottom: 12 }}>
         <div className="ch">
           <div className="ct">
-            <div className="ct-ico" style={{ background: "#ffebee", color: "#c62828" }}><AlertTriangle size={13} /></div>
+            <div
+              className="ct-ico"
+              style={{ background: "#ffebee", color: "#c62828" }}
+            >
+              <AlertTriangle size={13} />
+            </div>
             My Penalties
           </div>
-          <Link to="/my-penalties" className="btn btn-sm btn-ghost">View All →</Link>
+          <Link to="/my-penalties" className="btn btn-sm btn-ghost">
+            View All →
+          </Link>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 12 }}>
-          <div style={{ padding: "12px 16px", background: "#ffebee", borderRadius: 8, borderLeft: "3px solid #c62828" }}>
-            <div style={{ fontSize: 10, color: "var(--t3)", textTransform: "uppercase", fontWeight: 600 }}>This Month</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#c62828", marginTop: 4 }}>Rs. 800</div>
-            <div style={{ fontSize: 10, color: "var(--t3)", marginTop: 2 }}>2 penalties</div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <div
+            style={{
+              padding: "12px 16px",
+              background: "#ffebee",
+              borderRadius: 8,
+              borderLeft: "3px solid #c62828",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                color: "var(--t3)",
+                textTransform: "uppercase",
+                fontWeight: 600,
+              }}
+            >
+              This Month
+            </div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: "#c62828",
+                marginTop: 4,
+              }}
+            >
+              Rs. 800
+            </div>
+            <div style={{ fontSize: 10, color: "var(--t3)", marginTop: 2 }}>
+              2 penalties
+            </div>
           </div>
-          <div style={{ padding: "12px 16px", background: "#fff3e0", borderRadius: 8, borderLeft: "3px solid #e65100" }}>
-            <div style={{ fontSize: 10, color: "var(--t3)", textTransform: "uppercase", fontWeight: 600 }}>Total Deducted</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#e65100", marginTop: 4 }}>Rs. 3,500</div>
-            <div style={{ fontSize: 10, color: "var(--t3)", marginTop: 2 }}>All time</div>
+          <div
+            style={{
+              padding: "12px 16px",
+              background: "#fff3e0",
+              borderRadius: 8,
+              borderLeft: "3px solid #e65100",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                color: "var(--t3)",
+                textTransform: "uppercase",
+                fontWeight: 600,
+              }}
+            >
+              Total Deducted
+            </div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: "#e65100",
+                marginTop: 4,
+              }}
+            >
+              Rs. 3,500
+            </div>
+            <div style={{ fontSize: 10, color: "var(--t3)", marginTop: 2 }}>
+              All time
+            </div>
           </div>
-          <div style={{ padding: "12px 16px", background: "#e8f5e9", borderRadius: 8, borderLeft: "3px solid #4caf50" }}>
-            <div style={{ fontSize: 10, color: "var(--t3)", textTransform: "uppercase", fontWeight: 600 }}>Total Waived</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#4caf50", marginTop: 4 }}>Rs. 1,500</div>
-            <div style={{ fontSize: 10, color: "var(--t3)", marginTop: 2 }}>All time</div>
+          <div
+            style={{
+              padding: "12px 16px",
+              background: "#e8f5e9",
+              borderRadius: 8,
+              borderLeft: "3px solid #4caf50",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                color: "var(--t3)",
+                textTransform: "uppercase",
+                fontWeight: 600,
+              }}
+            >
+              Total Waived
+            </div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: "#4caf50",
+                marginTop: 4,
+              }}
+            >
+              Rs. 1,500
+            </div>
+            <div style={{ fontSize: 10, color: "var(--t3)", marginTop: 2 }}>
+              All time
+            </div>
           </div>
         </div>
-        <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, color: "var(--t2)" }}>Recent Penalties</div>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            marginBottom: 8,
+            color: "var(--t2)",
+          }}
+        >
+          Recent Penalties
+        </div>
         {[
-          { date: "2026-03-24", type: "Late Arrival", amount: 500, status: "Applied" },
-          { date: "2026-03-18", type: "Late Arrival", amount: 300, status: "Applied" },
+          {
+            date: "2026-03-24",
+            type: "Late Arrival",
+            amount: 500,
+            status: "Applied",
+          },
+          {
+            date: "2026-03-18",
+            type: "Late Arrival",
+            amount: 300,
+            status: "Applied",
+          },
         ].map((p, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 1 ? "1px solid var(--br2)" : "none" }}>
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "8px 0",
+              borderBottom: i < 1 ? "1px solid var(--br2)" : "none",
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#ffebee", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: "#ffebee",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <AlertTriangle size={14} style={{ color: "#c62828" }} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: p.type === "Late Arrival" ? "#e65100" : "#c62828" }}>{p.type}</div>
-                <div className="mono" style={{ fontSize: 10, color: "var(--t3)" }}>{p.date}</div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: p.type === "Late Arrival" ? "#e65100" : "#c62828",
+                  }}
+                >
+                  {p.type}
+                </div>
+                <div
+                  className="mono"
+                  style={{ fontSize: 10, color: "var(--t3)" }}
+                >
+                  {p.date}
+                </div>
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div className="mono" style={{ fontSize: 12, fontWeight: 600, color: "#c62828" }}>Rs. {p.amount.toLocaleString()}</div>
-              <span className="pill pill-red" style={{ fontSize: 9 }}>Deducted</span>
+              <div
+                className="mono"
+                style={{ fontSize: 12, fontWeight: 600, color: "#c62828" }}
+              >
+                Rs. {p.amount.toLocaleString()}
+              </div>
+              <span className="pill pill-red" style={{ fontSize: 9 }}>
+                Deducted
+              </span>
             </div>
           </div>
         ))}
-        <Link to="/my-penalties" style={{ display: "block", textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--p)", fontWeight: 600, textDecoration: "none" }}>
+        <Link
+          to="/my-penalties"
+          style={{
+            display: "block",
+            textAlign: "center",
+            marginTop: 12,
+            fontSize: 11,
+            color: "var(--p)",
+            fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
           View full penalty history →
         </Link>
       </div>
@@ -981,14 +1350,3 @@ export default function MyDashboard() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-

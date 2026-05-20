@@ -19,6 +19,7 @@ interface AuthState {
 
   setAuth: (user: User, token?: string) => void;
   setPermissions: (permissions: string[]) => void;
+  setMustChangePassword: (mustChange: boolean) => void;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
   isRole: (role: string) => boolean;
@@ -45,6 +46,14 @@ export const useAuthStore = create<AuthState>()(
 
       setPermissions: (permissions) => {
         set({ permissions });
+      },
+
+      setMustChangePassword: (mustChange) => {
+        set((state) => ({
+          user: state.user
+            ? { ...state.user, must_change_password: mustChange }
+            : state.user,
+        }));
       },
 
       logout: () => {

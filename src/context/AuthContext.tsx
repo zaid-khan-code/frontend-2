@@ -9,9 +9,12 @@ export interface User {
   employeeId?: string;
   branch?: string | null;
   departments?: string[];
+  mustChangePassword?: boolean;
 }
 
-export type LoginResult = { ok: true } | { ok: false; error: string };
+export type LoginResult =
+  | { ok: true; mustChangePassword?: boolean }
+  | { ok: false; error: string };
 
 interface AuthContextType {
   user: User | null;
@@ -66,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     activeRole: zActiveRole,
     setAuth,
     setPermissions,
+    setMustChangePassword,
     logout: zLogout,
   } = useAuthStore();
   const [loading, setLoading] = React.useState(true);
@@ -96,7 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: roleName || udata.role || "employee",
             role_name: roleName || udata.role,
             employee_id: udata.employee_id || existingEmployeeId,
+            must_change_password: !!udata.must_change_password,
           });
+          setMustChangePassword(!!udata.must_change_password);
         } else {
           zLogout();
         }
@@ -109,6 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     initSession();
+
+    const heartbeat = setInterval(initSession, 5 * 60 * 1000);
+    return () => clearInterval(heartbeat);
   }, []);
 
   const login = async (
@@ -127,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = res.data.token;
         const udata = res.data.user || {};
         let roleName = udata.role_name || udata.role || "employee";
+        const mustChangePassword = !!udata.must_change_password;
 
         // Fetch permissions right after login (authoritative role_name)
         try {
@@ -146,11 +156,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: roleName,
             role_name: roleName,
             employee_id: udata.employee_id,
+            must_change_password: mustChangePassword,
           },
           token,
         );
 
-        return { ok: true };
+        setMustChangePassword(mustChangePassword);
+
+        return { ok: true, mustChangePassword };
       } else {
         return { ok: false, error: "Login failed" };
       }
@@ -182,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name: (zUser as any).name || zUser.email,
       role: mapRole(zUser.role),
       employeeId: zUser.employee_id,
+      mustChangePassword: zUser.must_change_password,
     };
   }
 

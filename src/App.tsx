@@ -7,6 +7,7 @@ import {
   Outlet,
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { useAuthStore } from "./store/useAuthStore";
 import { ToastProvider } from "./context/ToastContext";
 import { DataProvider } from "./context/DataContext";
 
@@ -16,6 +17,8 @@ import EmployeeLayout from "./layouts/EmployeeLayout";
 
 // Pages
 import Login from "./pages/Login";
+import ChangePassword from "./pages/ChangePassword";
+import Unauthorized from "./pages/Unauthorized";
 import Dashboard from "./pages/Dashboard";
 import Launchpad from "./pages/Launchpad";
 import Employees from "./pages/Employees";
@@ -74,13 +77,27 @@ import CustomFields from "./pages/settings/CustomFields";
  * 1. Protected Route Wrapper
  * Checks if user is logged in.
  */
-const ProtectedRoute = ({ allowedRoles }: { allowedRoles: string[] }) => {
+const ProtectedRoute = ({
+  allowedRoles,
+  requiredPermissions,
+}: {
+  allowedRoles: string[];
+  requiredPermissions?: string[];
+}) => {
   const { user, activeRole, loading } = useAuth();
+  const hasPermission = useAuthStore((state) => state.hasPermission);
 
   if (loading) return <div>Loading...</div>; // Ya koi professional spinner
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (
+    user.mustChangePassword &&
+    window.location.pathname !== "/change-password"
+  ) {
+    return <Navigate to="/change-password" replace />;
   }
 
   if (!allowedRoles.includes(activeRole)) {
@@ -92,6 +109,14 @@ const ProtectedRoute = ({ allowedRoles }: { allowedRoles: string[] }) => {
     );
   }
 
+  if (
+    requiredPermissions &&
+    requiredPermissions.length > 0 &&
+    !requiredPermissions.every((permission) => hasPermission(permission))
+  ) {
+    return <Unauthorized />;
+  }
+
   return <Outlet />;
 };
 
@@ -101,6 +126,10 @@ const ProtectedRoute = ({ allowedRoles }: { allowedRoles: string[] }) => {
 function RootRedirect() {
   const { user, activeRole } = useAuth();
   if (!user) return <Navigate to="/login" />;
+
+  if (user.mustChangePassword) {
+    return <Navigate to="/change-password" />;
+  }
 
   // Route based on role to appropriate dashboard
   if (activeRole === "employee") {
@@ -130,6 +159,8 @@ const App = () => (
           <Routes>
             {/* Public Route */}
             <Route path="/login" element={<Login />} />
+            <Route path="/change-password" element={<ChangePassword />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="/" element={<RootRedirect />} />
 
             {/* --- ADMIN & HR ROUTES (MainLayout) --- */}
