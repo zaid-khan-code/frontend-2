@@ -179,12 +179,27 @@ export default function AddEmployee() {
   const { data: shiftsData = [] } = useShifts();
   const { data: roleData = [] } = useRoles();
 
-  const departments = deptData.map((d: any) => ({ id: d.id, name: d.name ?? d.title }));
-  const designations = desigData.map((d: any) => ({ id: d.id, name: d.name ?? d.title }));
+  const departments = deptData.map((d: any) => ({
+    id: d.id,
+    name: d.name ?? d.title,
+  }));
+  const designations = desigData.map((d: any) => ({
+    id: d.id,
+    name: d.name ?? d.title,
+  }));
   const roles = roleData.map((d: any) => d.name ?? d.title ?? d.role ?? d.id);
-  const employmentTypes = empTypeData.map((d: any) => ({ id: d.id, name: d.name ?? d.title }));
-  const jobStatuses = jobStatData.map((d: any) => ({ id: d.id, name: d.name ?? d.title }));
-  const workModes = wModeData.map((d: any) => ({ id: d.id, name: d.name ?? d.title }));
+  const employmentTypes = empTypeData.map((d: any) => ({
+    id: d.id,
+    name: d.name ?? d.title,
+  }));
+  const jobStatuses = jobStatData.map((d: any) => ({
+    id: d.id,
+    name: d.name ?? d.title,
+  }));
+  const workModes = wModeData.map((d: any) => ({
+    id: d.id,
+    name: d.name ?? d.title,
+  }));
   const workLocations = wLocData.map((d: any) => ({
     id: d.id,
     name:
@@ -1315,7 +1330,8 @@ export default function AddEmployee() {
                 <strong style={{ color: "#1e1b4b" }}>{fullName}</strong>
                 <span style={{ color: "#6b7280" }}>
                   {" "}
-                  · {selectedDept?.name || ""} · {selectedDesig?.name || ""} · {selectedShift?.name || ""}
+                  · {selectedDept?.name || ""} · {selectedDesig?.name || ""} ·{" "}
+                  {selectedShift?.name || ""}
                 </span>
                 <br />
                 <span style={{ color: "#6366f1", fontWeight: 700 }}>
