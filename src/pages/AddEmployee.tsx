@@ -135,12 +135,12 @@ const S = `
 const STEPS = [
   "Personal Info",
   "Job Info",
-  "Account",
   "Emergency Contacts",
   "Bank Info",
   "Medical Info",
   "Salary",
   "Allowances",
+  "Account",
 ];
 
 const STEP_COLORS = [
@@ -504,7 +504,7 @@ export default function AddEmployee() {
   // ── Step colors for section badge ──
   const stepColor = STEP_COLORS[step];
 
-  const STEP_CONTENT = [0, 4, 5, 1, 2, 3, 6, 7] as const;
+  const STEP_CONTENT = [0, 4, 1, 2, 3, 6, 7, 5] as const;
 
   const renderStep = () => {
     switch (STEP_CONTENT[step]) {
@@ -615,7 +615,7 @@ export default function AddEmployee() {
                   marginLeft: "auto",
                 }}
               >
-                Step 4 of 8
+                Step 3 of 8
               </span>
             </div>
             <div className="add-form-row">
@@ -707,7 +707,7 @@ export default function AddEmployee() {
                   marginLeft: "auto",
                 }}
               >
-                Step 5 of 8
+                Step 4 of 8
               </span>
             </div>
             <div className="add-form-row">
@@ -765,7 +765,7 @@ export default function AddEmployee() {
                   marginLeft: "auto",
                 }}
               >
-                Step 6 of 8
+                Step 5 of 8
               </span>
             </div>
             <div className="add-form-row">
@@ -994,7 +994,7 @@ export default function AddEmployee() {
                   marginLeft: "auto",
                 }}
               >
-                Step 7 of 8
+                Step 6 of 8
               </span>
             </div>
             <div className="add-form-row">
@@ -1131,7 +1131,7 @@ export default function AddEmployee() {
                   marginLeft: "auto",
                 }}
               >
-                Step 8 of 8
+                Step 7 of 8
               </span>
             </div>
             {allowances.map((row, idx) => (
@@ -1212,7 +1212,7 @@ export default function AddEmployee() {
                   marginLeft: "auto",
                 }}
               >
-                Step 3 of 8
+                Step 8 of 8
               </span>
             </div>
             <div className="acc-toggle">
