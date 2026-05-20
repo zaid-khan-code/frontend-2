@@ -1,26 +1,50 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../services/apiClient';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "../services/apiClient";
 
 export function useEmployees(params?: any) {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['employees', params],
+    queryKey: ["employees", params],
     queryFn: async () => {
-      const { data } = await apiClient.get('/employees', { params });
+      const { data } = await apiClient.get("/employees", { params });
       // Depending on backend, it might return { data: { employees: [], total: x, page: y } }
       // The instructions say "Implement pagination and search/filter parameters" so we can assume it takes query params.
       return data;
     },
   });
 
+  const payload = query.data;
+  const dataNode = payload?.data ?? payload;
+  const list =
+    dataNode?.employees ?? dataNode?.items ?? dataNode?.data ?? dataNode ?? [];
+  const employees = Array.isArray(list) ? list : [];
+  const rawPagination =
+    payload?.pagination ??
+    dataNode?.pagination ??
+    dataNode?.meta ??
+    payload?.meta;
+  const pagination = rawPagination
+    ? {
+        ...rawPagination,
+        totalPages:
+          rawPagination.totalPages ??
+          rawPagination.pages ??
+          rawPagination.total_pages ??
+          rawPagination.last_page,
+        total: rawPagination.total ?? rawPagination.count,
+        page: rawPagination.page ?? rawPagination.current_page,
+        limit: rawPagination.limit ?? rawPagination.per_page,
+      }
+    : undefined;
+
   const createMutation = useMutation({
     mutationFn: async (newEmployee: any) => {
-      const { data } = await apiClient.post('/employees', newEmployee);
+      const { data } = await apiClient.post("/employees", newEmployee);
       return data.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
     },
   });
 
@@ -30,23 +54,26 @@ export function useEmployees(params?: any) {
       return data.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
     },
   });
 
   const bulkUpdateMutation = useMutation({
     mutationFn: async ({ ids, updates }: { ids: string[]; updates: any }) => {
-      const { data } = await apiClient.patch('/employees/bulk', { ids, updates });
+      const { data } = await apiClient.patch("/employees/bulk", {
+        ids,
+        updates,
+      });
       return data.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
     },
   });
 
   return {
-    data: query.data?.data || [],
-    pagination: query.data?.pagination,
+    data: employees,
+    pagination,
     isLoading: query.isLoading,
     isError: query.isError,
     create: createMutation.mutateAsync,
@@ -59,13 +86,15 @@ export function useEmployee(id?: string) {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['employee', id],
+    queryKey: ["employee", id],
     queryFn: async () => {
       if (!id) return null;
-      const { data } = await apiClient.get(`/employees/${encodeURIComponent(id)}`);
+      const { data } = await apiClient.get(
+        `/employees/${encodeURIComponent(id)}`,
+      );
       return data.data;
     },
-    enabled: !!id
+    enabled: !!id,
   });
 
   return {
