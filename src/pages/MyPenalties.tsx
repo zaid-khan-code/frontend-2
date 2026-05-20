@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   AlertTriangle,
   Calendar,
@@ -8,71 +8,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { formatPKR } from "../services/api";
-
-const penaltiesData = [
-  {
-    id: "PEN001",
-    date: "2026-03-24",
-    type: "Late Arrival",
-    reason: "Arrived 45 mins late (10:45 AM)",
-    amount: 500,
-    status: "Applied",
-    appliedBy: "System",
-    month: "March 2026",
-  },
-  {
-    id: "PEN002",
-    date: "2026-03-18",
-    type: "Late Arrival",
-    reason: "Arrived 30 mins late (10:30 AM)",
-    amount: 300,
-    status: "Applied",
-    appliedBy: "System",
-    month: "March 2026",
-  },
-  {
-    id: "PEN003",
-    date: "2026-02-28",
-    type: "Early Leave",
-    reason: "Left 2 hours early without approval",
-    amount: 1000,
-    status: "Waived",
-    appliedBy: "HR Admin",
-    month: "February 2026",
-    waivedReason: "Medical emergency - approved by manager",
-  },
-  {
-    id: "PEN004",
-    date: "2026-02-15",
-    type: "Absent",
-    reason: "Unmarked absence - no leave applied",
-    amount: 2500,
-    status: "Applied",
-    appliedBy: "System",
-    month: "February 2026",
-  },
-  {
-    id: "PEN005",
-    date: "2026-01-22",
-    type: "Late Arrival",
-    reason: "Arrived 20 mins late (09:20 AM)",
-    amount: 200,
-    status: "Applied",
-    appliedBy: "System",
-    month: "January 2026",
-  },
-  {
-    id: "PEN006",
-    date: "2026-01-10",
-    type: "Policy Violation",
-    reason: "Dress code violation - formal attire required",
-    amount: 500,
-    status: "Waived",
-    appliedBy: "HR Admin",
-    month: "January 2026",
-    waivedReason: "First warning issued instead",
-  },
-];
+import { usePenalties } from "../hooks/usePenalties";
 
 const penaltyRules = [
   { type: "Late Arrival", rule: "15-30 mins late", amount: 200 },
@@ -87,7 +23,23 @@ export default function MyPenalties() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  const filtered = penaltiesData.filter((p) => {
+  const { data: serverPenalties = [], isLoading } = usePenalties({ limit: 100 }); // Assuming get /penalties/mine somehow, but usePenalties doesn't distinguish mine. Let's fix usePenalties to call /mine.
+
+  const penaltiesData = useMemo(() => {
+    return serverPenalties.map((p: any) => ({
+      id: p.id || 'N/A',
+      date: p.created_at ? p.created_at.split('T')[0] : '',
+      type: p.penalty_rule?.name || p.type || 'Manual Penalty',
+      reason: p.notes || 'No reason provided',
+      amount: p.amount ?? 0, // Fallback to 0 if undefined/null
+      status: p.status || 'pending',
+      appliedBy: p.actioned_by || p.applied_by || 'System',
+      month: p.created_at ? new Date(p.created_at).toLocaleString('default', { month: 'long', year: 'numeric' }) : '',
+      waivedReason: p.status === 'rejected' ? p.notes : undefined,
+    }));
+  }, [serverPenalties]);
+
+  const filtered = penaltiesData.filter((p: any) => {
     if (filter !== "all" && p.status.toLowerCase() !== filter) return false;
     if (typeFilter !== "all" && p.type !== typeFilter) return false;
     if (search && !p.reason.toLowerCase().includes(search.toLowerCase()))
@@ -96,14 +48,16 @@ export default function MyPenalties() {
   });
 
   const totalApplied = penaltiesData
-    .filter((p) => p.status === "Applied")
-    .reduce((sum, p) => sum + p.amount, 0);
+    .filter((p: any) => p.status === "approved" || p.status === "acknowledged")
+    .reduce((sum: number, p: any) => sum + p.amount, 0);
   const totalWaived = penaltiesData
-    .filter((p) => p.status === "Waived")
-    .reduce((sum, p) => sum + p.amount, 0);
+    .filter((p: any) => p.status === "rejected")
+    .reduce((sum: number, p: any) => sum + p.amount, 0);
+  
+  const currentMonthName = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
   const thisMonthTotal = penaltiesData
-    .filter((p) => p.status === "Applied" && p.month === "March 2026")
-    .reduce((sum, p) => sum + p.amount, 0);
+    .filter((p: any) => (p.status === "approved" || p.status === "acknowledged") && p.month === currentMonthName)
+    .reduce((sum: number, p: any) => sum + p.amount, 0);
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -316,8 +270,10 @@ export default function MyPenalties() {
               onChange={(e) => setFilter(e.target.value)}
             >
               <option value="all">All Status</option>
-              <option value="applied">Deducted</option>
-              <option value="waived">Waived</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="acknowledged">Acknowledged</option>
+              <option value="rejected">Waived</option>
             </select>
             <select
               className="input select-input"
@@ -389,21 +345,21 @@ export default function MyPenalties() {
                   className="mono"
                   style={{
                     fontWeight: 600,
-                    color: p.status === "Applied" ? "#c62828" : "var(--t3)",
+                    color: (p.status === "approved" || p.status === "acknowledged") ? "#c62828" : "var(--t3)",
                     textDecoration:
-                      p.status === "Waived" ? "line-through" : "none",
+                      p.status === "rejected" ? "line-through" : "none",
                   }}
                 >
-                  Rs. {p.amount.toLocaleString()}
+                  Rs. {(p.amount ?? 0).toLocaleString()}
                 </td>
                 <td style={{ fontSize: 11, color: "var(--t3)" }}>
                   {p.appliedBy}
                 </td>
                 <td>
                   <span
-                    className={`pill ${p.status === "Applied" ? "pill-red" : "pill-green"}`}
+                    className={`pill ${(p.status === "approved" || p.status === "acknowledged") ? "pill-red" : p.status === "rejected" ? "pill-green" : "pill-amber"}`}
                   >
-                    {p.status === "Applied" ? "Deducted" : "Waived"}
+                    {(p.status === "approved" || p.status === "acknowledged") ? "Deducted" : p.status === "rejected" ? "Waived" : p.status.toUpperCase()}
                   </span>
                 </td>
               </tr>

@@ -9,7 +9,9 @@ import Modal from '../components/common/Modal';
 import DecisionBanner from '../components/common/DecisionBanner';
 import { useToastContext } from '../context/ToastContext';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { useEmployee, useEmployees } from '../hooks/useEmployees';
 
+// ── Activity log and doc mock data logic identical to original...
 const deptColors: Record<string, string> = { Engineering: '#1565c0', Marketing: '#e67e22', HR: '#1b7a4e', Sales: '#b71c1c', Finance: '#00695c' };
 
 const activityLog = [
@@ -34,65 +36,55 @@ export default function EmployeeDetail() {
   const { showToast } = useToastContext();
   const { employees, attendanceData, leaveRequests, payrollData, promotions, penalties, setPromotions, setPenalties } = useData();
   const { user, activeRole } = useAuth();
-
-  const [remoteEmp, setRemoteEmp] = React.useState<any | null>(null);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    async function loadDetail() {
-      if (!id) return;
-      try {
-        const res = await fetch(`/api/employees/${encodeURIComponent(id)}`, { credentials: 'include' });
-        if (!res.ok) return;
-        const body = await res.json();
-        const data = body?.data;
-        if (!data) return;
-
-        const mapped = {
-          id: data.employee_id,
-          name: data.personalInfo?.name || data.name,
-          fatherName: data.personalInfo?.father_name || '',
-          dob: data.personalInfo?.date_of_birth || '',
-          cnic: data.personalInfo?.cnic || '',
-          gender: data.personalInfo?.gender || '',
-          department: data.jobInfo?.department_name || data.department_name || '',
-          designation: data.jobInfo?.designation_name || data.designation_name || '',
-          employmentType: data.jobInfo?.employment_type_name || '',
-          jobStatus: data.jobInfo?.job_status_name || '',
-          workMode: data.jobInfo?.work_mode_name || '',
-          workLocation: data.jobInfo?.work_location_name || '',
-          shift: data.jobInfo?.shift_name || '',
-          reportingManager: data.jobInfo?.manager_emp_id || '',
-          dateOfJoining: data.jobInfo?.date_of_joining || '',
-          contact1: data.accountInfo?.phone || data.phone || '',
-          permanentAddress: data.emergencyContacts?.perment_address || '',
-          bankName: data.bankInfo?.bank_name || '',
-          bankAccount: data.bankInfo?.account_number || '',
-          bloodGroup: data.medicalInfo?.blood_group || '',
-          allergies: data.medicalInfo?.allergy_notes || '',
-          medications: data.medicalInfo?.emergency_medication || '',
-          salary: { basic: data.salaryInfo?.base_salary || 0, houseRent: 0, medical: 0, conveyance: 0, commission: 0 },
-          avatar: data.accountInfo?.email ? data.accountInfo.email.split('@')[0].slice(0,2).toUpperCase() : '',
-        };
-        if (!cancelled) setRemoteEmp(mapped as any);
-      } catch (e) {
-        // ignore
-      }
-    }
-    loadDetail();
-    return () => { cancelled = true; };
-  }, [id]);
+  const { data: rawEmp, isLoading } = useEmployee(id);
+  const { update } = useEmployees(); // for patch requests
 
   const visibleEmployees = useMemo(() => getVisibleEmployees(user, activeRole, employees), [user, activeRole, employees]);
 
-  const emp = remoteEmp || employees.find(e => e.id === id);
+  const emp = useMemo(() => {
+    if (!rawEmp) return null;
+    return {
+      id: rawEmp.employee_id,
+      internalId: rawEmp.id,
+      name: rawEmp.personalInfo?.name || rawEmp.name,
+      fatherName: rawEmp.personalInfo?.father_name || '',
+      dob: rawEmp.personalInfo?.date_of_birth || '',
+      cnic: rawEmp.personalInfo?.cnic || '',
+      gender: rawEmp.personalInfo?.gender || '',
+      department: rawEmp.jobInfo?.department_name || rawEmp.department_name || '',
+      designation: rawEmp.jobInfo?.designation_name || rawEmp.designation_name || '',
+      employmentType: rawEmp.jobInfo?.employment_type_name || '',
+      jobStatus: rawEmp.jobInfo?.job_status_name || '',
+      workMode: rawEmp.jobInfo?.work_mode_name || '',
+      workLocation: rawEmp.jobInfo?.work_location_name || '',
+      shift: rawEmp.jobInfo?.shift_name || '',
+      reportingManager: rawEmp.jobInfo?.manager_emp_id || '',
+      dateOfJoining: rawEmp.jobInfo?.date_of_joining || '',
+      contact1: rawEmp.accountInfo?.phone || rawEmp.phone || '',
+      contact2: '', // Map correctly from backend if available
+      emergency1: '', 
+      emergency2: '',
+      permanentAddress: rawEmp.emergencyContacts?.perment_address || '',
+      bankName: rawEmp.bankInfo?.bank_name || '',
+      bankAccount: rawEmp.bankInfo?.account_number || '',
+      paymentMode: '',
+      bloodGroup: rawEmp.medicalInfo?.blood_group || '',
+      allergies: rawEmp.medicalInfo?.allergy_notes || '',
+      chronicConditions: '',
+      medications: rawEmp.medicalInfo?.emergency_medication || '',
+      salary: { basic: rawEmp.salaryInfo?.base_salary || 0, houseRent: 0, medical: 0, conveyance: 0, commission: 0 },
+      avatar: rawEmp.accountInfo?.email ? rawEmp.accountInfo.email.split('@')[0].slice(0,2).toUpperCase() : '',
+      commissionEligible: false,
+    };
+  }, [rawEmp]);
 
-  if (!emp || !visibleEmployees.some(ve => ve.id === emp.id)) {
+  if (isLoading) return <div style={{ padding: 50, textAlign: 'center' }}>Loading...</div>;
+
+  if (!emp) {
     return (
       <div style={{ padding: '50px', textAlign: 'center', color: '#6b7280' }}>
-        <h2>Access Denied</h2>
-        <p>You do not have permission to view this employee's details.</p>
-        <button onClick={() => navigate('/employees')} style={{ marginTop: '20px', padding: '10px 20px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
+        <h2>Employee not found or access denied</h2>
+        <button onClick={() => navigate('/employees')} className="btn btn-primary" style={{ marginTop: '20px' }}>
           Back to Employees
         </button>
       </div>

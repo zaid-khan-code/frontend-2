@@ -1,8 +1,19 @@
-import React from "react";
-import { useData } from "../context/DataContext";
+import React, { useMemo } from "react";
+import { usePenalties } from "../hooks/usePenalties";
 
 export default function PenaltyLedger() {
-  const { penalties } = useData();
+  const { data: serverPenalties = [] } = usePenalties();
+
+  const penalties = useMemo(() => {
+    return serverPenalties.map((p: any) => ({
+      id: p.id,
+      empName: p.employee?.name || p.employee_id,
+      type: p.penalty_rule?.name || 'Manual Penalty',
+      amount: p.amount,
+      date: p.created_at ? p.created_at.split('T')[0] : '',
+      status: p.status,
+    }));
+  }, [serverPenalties]);
 
   return (
     <div>
@@ -23,7 +34,7 @@ export default function PenaltyLedger() {
                 <td>{row.type}</td>
                 <td className="mono">PKR {row.amount.toLocaleString()}</td>
                 <td className="mono">{row.date}</td>
-                <td><span className="pill pill-red">{row.status}</span></td>
+                <td><span className={`pill ${row.status === 'approved' ? 'pill-green' : row.status === 'rejected' ? 'pill-red' : 'pill-amber'}`}>{row.status}</span></td>
               </tr>
             ))}
           </tbody>

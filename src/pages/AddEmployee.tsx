@@ -129,10 +129,37 @@ const STEP_COLORS = [
   '#6366f1','#ec4899','#f97316','#14b8a6','#10b981','#a855f7','#06b6d4','#8b5cf6'
 ];
 
+import { 
+  useDepartments, useDesignations, useEmploymentTypes, 
+  useJobStatuses, useWorkModes, useWorkLocations, 
+  useShifts, useReportingManagers 
+} from '../hooks/useConfig';
+import { useEmployees } from '../hooks/useEmployees';
+
 export default function AddEmployee() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
-  const { departments, designations, employmentTypes, jobStatuses, workModes, workLocations, shifts, reportingManagers, addEmployee } = useData();
+  
+  const { data: deptData = [] } = useDepartments();
+  const { data: desigData = [] } = useDesignations();
+  const { data: empTypeData = [] } = useEmploymentTypes();
+  const { data: jobStatData = [] } = useJobStatuses();
+  const { data: wModeData = [] } = useWorkModes();
+  const { data: wLocData = [] } = useWorkLocations();
+  const { data: shiftsData = [] } = useShifts();
+  const { data: rmData = [] } = useReportingManagers();
+
+  const departments = deptData.map((d: any) => d.name);
+  const designations = desigData.map((d: any) => d.name);
+  const employmentTypes = empTypeData.map((d: any) => d.name);
+  const jobStatuses = jobStatData.map((d: any) => d.name);
+  const workModes = wModeData.map((d: any) => d.name);
+  const workLocations = wLocData.map((d: any) => d.name);
+  const shifts = shiftsData;
+  const reportingManagers = rmData.map((d: any) => d.name);
+
+  const { create: addEmployee } = useEmployees();
+
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [direction, setDirection] = useState<'left' | 'right'>('right');
@@ -212,12 +239,10 @@ export default function AddEmployee() {
   const goNext = () => { if (!validate()) return; if (step < STEPS.length - 1) { setDirection('right'); setAnimating(true); setTimeout(() => { setStep(step + 1); setAnimating(false); }, 300); } };
   const goBack = () => { if (step > 0) { setDirection('left'); setAnimating(true); setTimeout(() => { setStep(step - 1); setAnimating(false); }, 300); } };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
-      addEmployee({
-        // Use a stable UUID for internal id and keep `employee_id` for human-readable short id
-        id: (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : 'EMP' + String(Date.now()).slice(-3),
+    try {
+      await addEmployee({
         employee_id: employeeIdInput || 'EMP' + String(Date.now()).slice(-3),
         name: fullName, fatherName, dob, cnic, gender, department: dept, designation: desig,
         employmentType: empType, jobStatus: jobStat, workMode: wMode, workLocation: wLoc,
@@ -230,12 +255,16 @@ export default function AddEmployee() {
         medications, avatar: fullName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
         commissionEligible,
         salary: { basic: salBasic, houseRent: salHouse, medical: salMedical, conveyance: salConveyance, commission: commissionEligible ? salCommission : 0 },
-        // metadata timestamps
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
-      setSaving(false); showToast('Employee saved successfully'); navigate('/employees');
-    }, 800);
+      showToast('Employee saved successfully'); 
+      navigate('/employees');
+    } catch (e) {
+      showToast('Failed to save employee', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ── Step colors for section badge ──

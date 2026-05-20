@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Edit, Trash2, Phone, MapPin, User, Building } from 'lucide-react';
 import Modal from '../components/common/Modal';
 import { useToastContext } from '../context/ToastContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../services/apiClient';
 
 interface DirectoryEntry {
   id: string;
@@ -18,71 +19,45 @@ interface DirectoryEntry {
   designation?: string;
   phoneExtension?: string;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
-
-const mockDirectoryData: DirectoryEntry[] = [
-  {
-    id: 'DIR001',
-    name: 'Head Office',
-    type: 'branch',
-    contact: '042-111-000-111',
-    email: 'head.office@company.com',
-    manager: 'Sara Khan',
-    city: 'Lahore',
-    address: '123 Main Street, Lahore',
-    isActive: true,
-    createdAt: '2024-01-01',
-    updatedAt: '2026-05-01'
-  },
-  {
-    id: 'DIR002',
-    name: 'Karachi Branch',
-    type: 'branch',
-    contact: '021-111-000-222',
-    email: 'karachi@company.com',
-    manager: 'Usman Malik',
-    city: 'Karachi',
-    address: '456 Business Avenue, Karachi',
-    isActive: true,
-    createdAt: '2024-02-01',
-    updatedAt: '2026-04-15'
-  },
-  {
-    id: 'DIR003',
-    name: 'IT Department',
-    type: 'department',
-    contact: '042-111-000-333',
-    email: 'it@company.com',
-    manager: 'Ahmed Hassan',
-    department: 'IT',
-    phoneExtension: '101',
-    isActive: true,
-    createdAt: '2024-01-15',
-    updatedAt: '2026-05-09'
-  },
-  {
-    id: 'DIR004',
-    name: 'John Smith',
-    type: 'person',
-    contact: '042-111-000-444',
-    email: 'john.smith@company.com',
-    manager: 'Sara Khan',
-    city: 'Lahore',
-    department: 'HR',
-    designation: 'HR Manager',
-    phoneExtension: '201',
-    isActive: true,
-    createdAt: '2024-03-01',
-    updatedAt: '2026-05-08'
-  }
-];
 
 export default function Directory() {
   const { showToast } = useToastContext();
   const { activeRole } = useAuth();
-  const [directoryData, setDirectoryData] = useState<DirectoryEntry[]>(mockDirectoryData);
+  const queryClient = useQueryClient();
+  
+  const { data: directoryData = [], isLoading } = useQuery({
+    queryKey: ['directory'],
+    queryFn: async () => {
+      const res = await apiClient.get('/directory');
+      return res.data?.data || [];
+    }
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (newEntry: Partial<DirectoryEntry>) => {
+      await apiClient.post('/directory', newEntry);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['directory'] });
+      showToast('Directory entry created successfully');
+    },
+    onError: () => showToast('Failed to create entry', 'error')
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string, updates: Partial<DirectoryEntry> }) => {
+      await apiClient.patch(`/directory/${id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['directory'] });
+      showToast('Directory entry updated successfully');
+    },
+    onError: () => showToast('Failed to update entry', 'error')
+  });
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DirectoryEntry | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
@@ -94,14 +69,14 @@ export default function Directory() {
     isActive: true
   });
 
-  const filteredData = directoryData.filter(entry => {
+  const filteredData = directoryData.filter((entry: DirectoryEntry) => {
     const matchesType = filterType === 'all' || entry.type === filterType;
     const matchesSearch = !searchTerm ||
-      entry.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      entry.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.contact?.includes(searchTerm) ||
       entry.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.manager?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesType && matchesSearch && entry.isActive;
+    return matchesType && matchesSearch && entry.isActive !== false;
   });
 
   const handleSave = () => {
@@ -110,36 +85,10 @@ export default function Directory() {
       return;
     }
 
-    const now = new Date().toISOString().split('T')[0];
-
     if (editingEntry) {
-      // Update existing
-      setDirectoryData(prev => prev.map(entry =>
-        entry.id === editingEntry.id
-          ? { ...entry, ...formData, updatedAt: now }
-          : entry
-      ));
-      showToast('Directory entry updated successfully');
+      updateMutation.mutate({ id: editingEntry.id, updates: formData });
     } else {
-      // Create new
-      const newEntry: DirectoryEntry = {
-        id: 'DIR' + String(Date.now()).slice(-3),
-        name: formData.name!,
-        type: formData.type as any,
-        contact: formData.contact,
-        email: formData.email,
-        manager: formData.manager,
-        city: formData.city,
-        address: formData.address,
-        department: formData.department,
-        designation: formData.designation,
-        phoneExtension: formData.phoneExtension,
-        isActive: true,
-        createdAt: now,
-        updatedAt: now
-      };
-      setDirectoryData(prev => [...prev, newEntry]);
-      showToast('Directory entry created successfully');
+      createMutation.mutate(formData);
     }
 
     setModalOpen(false);
@@ -149,12 +98,7 @@ export default function Directory() {
 
   const handleDelete = (id: string) => {
     if (confirm('Are you sure you want to delete this directory entry?')) {
-      setDirectoryData(prev => prev.map(entry =>
-        entry.id === id
-          ? { ...entry, isActive: false }
-          : entry
-      ));
-      showToast('Directory entry deleted successfully');
+      updateMutation.mutate({ id, updates: { isActive: false } });
     }
   };
 

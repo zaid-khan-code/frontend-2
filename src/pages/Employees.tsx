@@ -99,12 +99,15 @@ const pillClass = (status: string) => {
 type SortKey = 'id' | 'name' | 'department' | 'designation' | 'employmentType' | 'jobStatus' | 'shift' | 'dateOfJoining';
 type SortDir = 'asc' | 'desc';
 
+import { useEmployees } from '../hooks/useEmployees';
+import { useDepartments, useJobStatuses, useWorkModes } from '../hooks/useConfig';
+
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Employees() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
-  const { employees, setEmployees, departments, jobStatuses, workModes } = useData();
   const { user, activeRole } = useAuth();
+  
   const [search,           setSearch]           = useState('');
   const [deptFilter,       setDeptFilter]       = useState('');
   const [statusFilter,     setStatusFilter]     = useState('');
@@ -117,29 +120,38 @@ export default function Employees() {
   const [page,             setPage]             = useState(0);
   const [perPage,          setPerPage]          = useState(25);
 
-  // ── All original logic unchanged ──────────────────────────────────────────
+  const { data: deptData = [] } = useDepartments();
+  const { data: statusData = [] } = useJobStatuses();
+  const { data: modeData = [] } = useWorkModes();
+
+  const departments = deptData.map((d: any) => d.name);
+  const jobStatuses = statusData.map((d: any) => d.name);
+  const workModes = modeData.map((d: any) => d.name);
+
+  // You can either pass these filters to the backend or filter on the frontend.
+  // The instructions specify "Implement pagination and search/filter parameters", 
+  // so let's pass them to the backend:
+  const { data: employees = [], pagination, isLoading, bulkUpdate } = useEmployees({
+    page: page + 1, // Backend uses 1-based page
+    limit: perPage,
+    search,
+    department: deptFilter,
+    status: statusFilter,
+    work_mode: modeFilter,
+    include_terminated: showTerminated,
+    sort_by: sortKey,
+    sort_order: sortDir
+  });
+
   const visibleEmployees = useMemo(() => getVisibleEmployees(user, activeRole, employees), [user, activeRole, employees]);
 
-  const filtered = useMemo(() => {
-    let list = visibleEmployees.filter(e => {
-      if (!showTerminated && e.jobStatus === 'Terminated') return false;
-      if (search && !e.name.toLowerCase().includes(search.toLowerCase()) && !e.id.toLowerCase().includes(search.toLowerCase())) return false;
-      if (deptFilter && e.department !== deptFilter) return false;
-      if (statusFilter && e.jobStatus !== statusFilter) return false;
-      if (modeFilter && e.workMode !== modeFilter) return false;
-      return true;
-    });
-    list.sort((a: any, b: any) => {
-      const av = a[sortKey] || '';
-      const bv = b[sortKey] || '';
-      const cmp = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
-    return list;
-  }, [employees, search, deptFilter, statusFilter, modeFilter, sortKey, sortDir, showTerminated]);
+  // Frontend filtering logic is reduced because we are passing it to the backend.
+  // However, `getVisibleEmployees` (RBAC) might still filter results.
+  const filtered = visibleEmployees;
 
-  const totalPages = Math.ceil(filtered.length / perPage);
-  const paged      = filtered.slice(page * perPage, (page + 1) * perPage);
+  // Since backend handles pagination, we use backend total if available, else local
+  const totalPages = pagination?.totalPages || Math.ceil(filtered.length / perPage) || 1;
+  const paged = pagination ? filtered : filtered.slice(0, perPage);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -154,11 +166,15 @@ export default function Employees() {
     else setSelected(new Set(paged.map(e => e.id)));
   };
 
-  const terminateSelected = () => {
-    setEmployees(prev => prev.map(e => selected.has(e.id) ? { ...e, jobStatus: 'Terminated' } : e));
-    showToast(`${selected.size} employee(s) terminated successfully`);
-    setSelected(new Set());
-    setTerminateConfirm(false);
+  const terminateSelected = async () => {
+    try {
+      await bulkUpdate({ ids: Array.from(selected), updates: { jobStatus: 'Terminated' } });
+      showToast(`${selected.size} employee(s) terminated successfully`);
+      setSelected(new Set());
+      setTerminateConfirm(false);
+    } catch (e) {
+      showToast(`Failed to terminate employees`, 'error');
+    }
   };
 
   const clearFilters = () => { setSearch(''); setDeptFilter(''); setStatusFilter(''); setModeFilter(''); };

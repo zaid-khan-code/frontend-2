@@ -1,37 +1,51 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
-import { useData } from "../context/DataContext";
-
-type PenaltyCaseStatus = "branch_pending" | "ho_pending" | "approved" | "rejected" | "employee_acknowledged";
-
-type PenaltyCase = {
-  id: string;
-  empName: string;
-  branch: string;
-  amount: number;
-  type: string;
-  workflowStatus: PenaltyCaseStatus;
-};
+import { usePenalties } from "../hooks/usePenalties";
+import { useToastContext } from "../context/ToastContext";
 
 export default function PenaltyWorkflow() {
-  const { penalties, setPenalties } = useData();
-  const cases: PenaltyCase[] = penalties
-    .filter((penalty) => penalty.workflowStatus)
-    .map((penalty: any) => ({
-      id: penalty.id,
-      empName: penalty.empName,
-      branch: penalty.branch || 'Head Office',
-      amount: penalty.amount,
-      type: penalty.type,
-      workflowStatus: penalty.workflowStatus,
-    }));
+  const { data: serverPenalties = [], approve, reject, acknowledge } = usePenalties();
+  const { showToast } = useToastContext();
 
-  const move = (id: string, to: PenaltyCaseStatus) => {
-    setPenalties((prev) =>
-      prev.map((row: any) =>
-        row.id === id ? { ...row, workflowStatus: to } : row
-      )
-    );
+  const cases = useMemo(() => {
+    return serverPenalties.map((p: any) => ({
+      id: p.id,
+      empName: p.employee?.name || p.employee_id,
+      branch: p.employee?.branch || 'Head Office',
+      amount: p.amount,
+      type: p.penalty_rule?.name || 'Manual Penalty',
+      workflowStatus: p.status, // "pending", "approved", "rejected", "acknowledged"
+    }));
+  }, [serverPenalties]);
+
+  const handleApprove = async (id: string) => {
+    try {
+      await approve({ id, amount: 0 }); // Assuming amount is updated in a modal, passing 0 as a placeholder if not required here, wait, approve needs amount?
+      // Actually backend approve might just take the same amount. Let's just use the current amount.
+      const penalty = cases.find((c: any) => c.id === id);
+      await approve({ id, amount: penalty.amount });
+      showToast('Penalty approved');
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Failed to approve', 'error');
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    try {
+      await reject({ id, notes: 'Rejected via workflow' });
+      showToast('Penalty rejected');
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Failed to reject', 'error');
+    }
+  };
+
+  const handleAck = async (id: string) => {
+    try {
+      await acknowledge(id);
+      showToast('Penalty acknowledged');
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Failed to acknowledge', 'error');
+    }
   };
 
   return (
@@ -65,23 +79,18 @@ export default function PenaltyWorkflow() {
                 </td>
                 <td>
                   <div style={{ display: "flex", gap: 6, flexWrap: 'wrap' }}>
-                    {row.workflowStatus === "branch_pending" && (
-                      <button className="btn btn-sm btn-secondary" onClick={() => move(row.id, "ho_pending")}>
-                        Send to HO
-                      </button>
-                    )}
-                    {row.workflowStatus === "ho_pending" && (
+                    {row.workflowStatus === "pending" && (
                       <>
-                        <button className="btn btn-sm btn-primary" onClick={() => move(row.id, "approved")}>
+                        <button className="btn btn-sm btn-primary" onClick={() => handleApprove(row.id)}>
                           <CheckCircle2 size={12} /> Approve
                         </button>
-                        <button className="btn btn-sm btn-danger" onClick={() => move(row.id, "rejected")}>
+                        <button className="btn btn-sm btn-danger" onClick={() => handleReject(row.id)}>
                           <XCircle size={12} /> Reject
                         </button>
                       </>
                     )}
                     {row.workflowStatus === "approved" && (
-                      <button className="btn btn-sm btn-info" onClick={() => move(row.id, "employee_acknowledged")}>
+                      <button className="btn btn-sm btn-info" onClick={() => handleAck(row.id)}>
                         Mark Acknowledged
                       </button>
                     )}

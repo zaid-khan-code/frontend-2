@@ -1,5 +1,6 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useAttendance } from '../hooks/useAttendance';
 import { BRANCHES, EMP_DATA } from './attendanceTypes';
 
 type ShiftType = 'Morning' | 'Evening' | 'Night';
@@ -73,7 +74,30 @@ const Attendance = () => {
   const [modalNotes, setModalNotes] = useState<string>('');
   const [saveLabel, setSaveLabel] = useState<string>('Save Entry');
   const today = new Date();
+  
+  const { data: serverAttendance, mark, isLoading } = useAttendance({ date: today.toISOString().slice(0, 10) });
+
   const [attendanceRows, setAttendanceRows] = useState<Employee[]>(EMPS.map((emp) => ({ ...emp, state: emp.state || 'draft' })));
+
+  useEffect(() => {
+    if (serverAttendance && serverAttendance.length > 0) {
+      const mapped = serverAttendance.map((a: any) => ({
+        name: a.employee?.name || a.employee_id,
+        code: a.employee_id,
+        dept: a.employee?.department || 'Unknown',
+        mgr: a.employee?.reporting_manager || 'Unknown',
+        shift: a.employee?.shift || 'Morning',
+        ci: a.check_in || '--',
+        co: a.check_out || '--',
+        status: a.status || 'Absent',
+        notes: a.notes || '',
+        lates: 0,
+        state: 'saved',
+      }));
+      setAttendanceRows(mapped);
+    }
+  }, [serverAttendance]);
+
   const [modalDate, setModalDate] = useState<string>(today.toISOString().slice(0, 10));
   const [modalIn, setModalIn] = useState<string>('09:00');
   const [modalOut, setModalOut] = useState<string>('18:00');
@@ -242,22 +266,35 @@ const Attendance = () => {
     );
   };
 
-  const saveAttendance = () => {
+  const saveAttendance = async () => {
     if (selectedEmployee) {
-      setAttendanceRows((prev) =>
-        prev.map((emp) =>
-          emp.code === selectedEmployee.code
-            ? {
-                ...emp,
-                ci: modalIn,
-                co: modalOut,
-                status: modalStatus,
-                notes: modalNotes,
-                state: emp.state === 'submitted' ? 'submitted' : 'saved',
-              }
-            : emp
-        )
-      );
+      try {
+        await mark({
+          employee_id: selectedEmployee.code,
+          date: modalDate,
+          status: modalStatus,
+          check_in: modalIn,
+          check_out: modalOut,
+          notes: modalNotes
+        });
+
+        setAttendanceRows((prev) =>
+          prev.map((emp) =>
+            emp.code === selectedEmployee.code
+              ? {
+                  ...emp,
+                  ci: modalIn,
+                  co: modalOut,
+                  status: modalStatus,
+                  notes: modalNotes,
+                  state: emp.state === 'submitted' ? 'submitted' : 'saved',
+                }
+              : emp
+          )
+        );
+      } catch (error) {
+        console.error("Failed to save attendance:", error);
+      }
     }
 
     setSaveLabel('Saved!');

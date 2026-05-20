@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { getVisibleEmployees } from "../utils/utils";
 import { useNavigate } from "react-router-dom";
+import { useDashboardMetrics } from "../hooks/useDashboard";
 import {
   Users, UserCheck, CalendarDays, AlertTriangle,
   Activity, Cake, TrendingUp, BarChart3, Plus,
@@ -118,8 +119,8 @@ function MiniCalendar({ employees, events }: { employees: any[]; events: any[] }
 
   const birthdayDates = new Set<number>();
   employees.forEach(emp => {
-    if (!emp.dob) return;
-    const dob = new Date(emp.dob);
+    if (!emp.dob && !emp.date_of_birth) return;
+    const dob = new Date(emp.dob || emp.date_of_birth);
     if (dob.getMonth() === viewMonth) birthdayDates.add(dob.getDate());
   });
 
@@ -137,8 +138,8 @@ function MiniCalendar({ employees, events }: { employees: any[]; events: any[] }
   });
 
   const monthBirthdays = employees.filter(emp => {
-    if (!emp.dob) return false;
-    const dob = new Date(emp.dob);
+    if (!emp.dob && !emp.date_of_birth) return false;
+    const dob = new Date(emp.dob || emp.date_of_birth);
     return dob.getMonth() === viewMonth;
   });
 
@@ -198,7 +199,7 @@ function MiniCalendar({ employees, events }: { employees: any[]; events: any[] }
         <div style={{marginTop:10,borderTop:"1px solid #f3f4f6",paddingTop:10}}>
           <div style={{fontSize:10,fontWeight:700,color:"#6b7280",marginBottom:6}}>🎂 Birthdays this month</div>
           {monthBirthdays.map((emp,i) => {
-            const dob = new Date(emp.dob);
+            const dob = new Date(emp.dob || emp.date_of_birth);
             const ini = emp.name.split(" ").map((n:string)=>n[0]).join("").slice(0,2).toUpperCase();
             const color = AV_COLORS[i % AV_COLORS.length];
             return (
@@ -219,6 +220,7 @@ function MiniCalendar({ employees, events }: { employees: any[]; events: any[] }
 export default function Dashboard() {
   const { user, activeRole } = useAuth();
   const { leaveRequests, employees, globalDays } = useData();
+  const { data: metrics } = useDashboardMetrics('6m');
   const navigate = useNavigate();
 
   const [selectedBranch, setSelectedBranch] = useState<string>('All');
@@ -250,7 +252,8 @@ export default function Dashboard() {
   const deptData = useMemo(() => {
     const deptCounts: Record<string, number> = {};
     filteredEmployees.forEach(emp => {
-      deptCounts[emp.department] = (deptCounts[emp.department] || 0) + 1;
+      const dept = emp.department || 'Unassigned';
+      deptCounts[dept] = (deptCounts[dept] || 0) + 1;
     });
     return Object.entries(deptCounts).map(([name, value], i) => ({
       name,
@@ -260,32 +263,38 @@ export default function Dashboard() {
   }, [filteredEmployees]);
 
   // ── Real data ──
-  const totalEmp = filteredEmployees?.length ?? 0;
-  const activeEmp = filteredEmployees?.filter((e:any) => e.status === "active").length ?? 0;
-  const visibleEmployeeIds = new Set(filteredEmployees.map((e:any) => e.id));
+  const totalEmp = metrics?.total_employees || filteredEmployees?.length || 0;
+  const activeEmp = metrics?.present_today || filteredEmployees?.filter((e:any) => e.status === "active").length || 0;
+  const visibleEmployeeIds = new Set(filteredEmployees.map((e:any) => e.id || e.employee_id));
   const visibleLeaveRequests = useMemo(
-    () => leaveRequests?.filter((l:any) => visibleEmployeeIds.has(l.empId)) || [],
+    () => leaveRequests?.filter((l:any) => visibleEmployeeIds.has(l.empId || l.employee_id)) || [],
     [leaveRequests, visibleEmployeeIds],
   );
 
-  const pendingLv = visibleLeaveRequests.filter((l:any) => l.status === "Pending").length;
+  const pendingLv = visibleLeaveRequests.filter((l:any) => l.status === "Pending" || l.status === "pending").length;
 
   const attendanceChartData = useMemo(() => {
+    if (metrics?.attendance_trend) {
+      return metrics.attendance_trend;
+    }
     const base = Math.max(totalEmp, 8);
     return MONTH_NAMES.slice(-6).map((month, idx) => {
       const present = Math.max(base - Math.round(base * 0.1) - (idx % 2), 1);
       const absent = Math.max(base - present, 0);
       return { month: month.slice(0,3), present, absent };
     });
-  }, [totalEmp]);
+  }, [totalEmp, metrics]);
 
   const growthData = useMemo(() => {
+    if (metrics?.headcount_trend) {
+      return metrics.headcount_trend;
+    }
     const base = Math.max(totalEmp, 24);
     return MONTH_NAMES.slice(-6).map((month, idx) => ({
       month: month.slice(0,3),
       count: Math.max(1, base - 2 + idx),
     }));
-  }, [totalEmp]);
+  }, [totalEmp, metrics]);
 
   const leaveData = useMemo(() => {
     const totals: Record<string, number> = {
@@ -358,19 +367,40 @@ export default function Dashboard() {
   ];
 
   // ── Pending actions ──
-  const actions = [
-    {emoji:"📋", text: `${pendingLv||2} leave requests awaiting approval`, cta:"Review →", link:"/leave"},
-    {emoji:"⏰", text:"Attendance incomplete — 3 employees", cta:"Mark →", link:"/attendance"},
-    {emoji:"🏦", text:"Bank info missing — EMP004, EMP005", cta:"Fix →", link:"/employees"},
-  ];
+  const actions = useMemo(() => {
+    if (metrics?.pending_actions) {
+      return metrics.pending_actions.map((pa: any) => ({
+        emoji: "📋",
+        text: `Missing fields: ${pa.missing_fields.join(', ')}`,
+        cta: "Fix →",
+        link: `/employees/${pa.employee_id}`
+      }));
+    }
+    return [
+      {emoji:"📋", text: `${pendingLv||2} leave requests awaiting approval`, cta:"Review →", link:"/leave"},
+      {emoji:"⏰", text:"Attendance incomplete — 3 employees", cta:"Mark →", link:"/attendance"},
+      {emoji:"🏦", text:"Bank info missing — EMP004, EMP005", cta:"Fix →", link:"/employees"},
+    ];
+  }, [metrics, pendingLv]);
 
   // ── Urgent alerts ──
-  const alerts = [
-    {name:"Usman Malik", sub:"Contract expiry in 8 days", chip:"URGENT", bg:"#fef2f2", fg:"#dc2626"},
-    {name:"Fatima Raza", sub:"Probation ends in 12 days", chip:"PROBATION", bg:"#fefce8", fg:"#ca8a04"},
-    {name:"Bilal Ahmed", sub:"Bank info missing", chip:"MISSING", bg:"#eff6ff", fg:"#2563eb"},
-    {name:"Ahmed Ali", sub:"Absent 3 consecutive days", chip:"ABSENT", bg:"#fef2f2", fg:"#dc2626"},
-  ];
+  const alerts = useMemo(() => {
+    if (metrics?.urgent_alerts) {
+      return metrics.urgent_alerts.map((ua: any) => ({
+        name: ua.name,
+        sub: `${ua.type.replace('_', ' ')} in ${ua.days_remaining} days`,
+        chip: "URGENT",
+        bg: "#fef2f2",
+        fg: "#dc2626"
+      }));
+    }
+    return [
+      {name:"Usman Malik", sub:"Contract expiry in 8 days", chip:"URGENT", bg:"#fef2f2", fg:"#dc2626"},
+      {name:"Fatima Raza", sub:"Probation ends in 12 days", chip:"PROBATION", bg:"#fefce8", fg:"#ca8a04"},
+      {name:"Bilal Ahmed", sub:"Bank info missing", chip:"MISSING", bg:"#eff6ff", fg:"#2563eb"},
+      {name:"Ahmed Ali", sub:"Absent 3 consecutive days", chip:"ABSENT", bg:"#fef2f2", fg:"#dc2626"},
+    ];
+  }, [metrics]);
 
   // ── Activity ──
   const activity = [
@@ -402,12 +432,22 @@ export default function Dashboard() {
 
   // ── Upcoming birthdays (integrated with calendar) ──
   const birthdays = useMemo(() => {
+    if (metrics?.upcoming_birthdays) {
+      return metrics.upcoming_birthdays.map((b: any, idx: number) => ({
+        name: b.name,
+        dept: b.department || "—",
+        date: new Date(b.date_of_birth),
+        daysUntil: b.days_until,
+        ini: (b.name||"?").split(" ").map((n:string)=>n[0]).join("").slice(0,2).toUpperCase(),
+        color: AV_COLORS[idx % AV_COLORS.length],
+      }));
+    }
     const source = (filteredEmployees && filteredEmployees.length) ? filteredEmployees : employees || [];
     const today = new Date(); today.setHours(0,0,0,0);
     const list: {name:string; dept:string; date:Date; daysUntil:number; ini:string; color:string}[] = [];
     source.forEach((emp:any, idx:number) => {
-      if (!emp.dob) return;
-      const dob = new Date(emp.dob);
+      if (!emp.dob && !emp.date_of_birth) return;
+      const dob = new Date(emp.dob || emp.date_of_birth);
       let bday = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
       if (bday < today) bday = new Date(today.getFullYear()+1, dob.getMonth(), dob.getDate());
       const days = Math.ceil((bday.getTime() - today.getTime()) / 86400000);
@@ -423,7 +463,7 @@ export default function Dashboard() {
       }
     });
     return list.sort((a,b) => a.daysUntil - b.daysUntil);
-  }, [filteredEmployees, employees]);
+  }, [filteredEmployees, employees, metrics]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (

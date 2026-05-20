@@ -1,7 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useEffect } from 'react';
+import { useAuthStore, User as ZustandUser } from '../store/useAuthStore';
+import { apiClient } from '../services/apiClient';
 
 export interface User {
   username: string;
+  name?: string;
   role: 'super_admin' | 'head_hr' | 'branch_hr' | 'department_hr' | 'employee';
   employeeId?: string;
   branch?: string | null;
@@ -27,131 +30,124 @@ function authLog(...args: unknown[]) {
   if (AUTH_DEBUG) console.log('[EMS Auth]', ...args);
 }
 
-async function readErrorMessage(res: Response): Promise<string> {
-  try {
-    const body = await res.json();
-    const msg = body?.error?.message;
-    if (typeof msg === 'string' && msg.trim()) return msg;
-    const code = body?.error?.code;
-    if (typeof code === 'string' && code.trim()) return code;
-  } catch {
-    /* ignore */
-  }
-  return res.statusText || 'Request failed';
+// Ensure the user role maps correctly to the expected types
+function mapRole(backendRole: string = ''): User['role'] {
+  const normalized = backendRole.toLowerCase().trim();
+  if (normalized === 'super_admin' || normalized === 'superadmin' || normalized === 'admin') return 'super_admin';
+  if (normalized.includes('hr')) return 'head_hr'; // fallback HR to head_hr
+  return 'employee';
 }
 
-// Using backend-auth only; no demo credentials in the client.
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem('ems_user');
-    return stored ? JSON.parse(stored) : null;
-  });
-
-  const [activeRole, setActiveRole] = useState<'super_admin' | 'head_hr' | 'branch_hr' | 'department_hr' | 'employee'>(() => {
-    const stored = localStorage.getItem('ems_user');
-    return stored ? JSON.parse(stored).role : 'employee';
-  });
-
-  const [loading, setLoading] = useState(true);
+  const { user: zUser, activeRole: zActiveRole, setAuth, setPermissions, logout: zLogout } = useAuthStore();
+  const [loading, setLoading] = React.useState(true);
 
   useEffect(() => {
-    setLoading(false);
+    // Attempt to restore session
+    const initSession = async () => {
+      try {
+        if (!useAuthStore.getState().token) {
+          setLoading(false);
+          return;
+        }
+        
+        // Fetch session
+        const sessionRes = await apiClient.get('/auth/session');
+        if (sessionRes.data?.success) {
+          const udata = sessionRes.data.data;
+          // Refresh user data in store
+          setAuth({
+            email: udata.email,
+            role: udata.role,
+            employee_id: udata.employee_id,
+          });
+
+          // Fetch permissions
+          const permsRes = await apiClient.get('/auth/permissions');
+          if (permsRes.data?.success) {
+            setPermissions(permsRes.data.permissions || []);
+          }
+        } else {
+          zLogout();
+        }
+      } catch (err) {
+        authLog('Session restore failed', err);
+        zLogout();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initSession();
   }, []);
 
   const login = async (email: string, password: string): Promise<LoginResult> => {
     try {
-      authLog('POST /api/auth/login', { email: email.trim() });
+      authLog('POST /auth/login', { email: email.trim() });
+      
+      const res = await apiClient.post('/auth/login', { email: email.trim(), password });
+      
+      if (res.data?.success) {
+        const token = res.data.token;
+        const udata = res.data.user || {};
+        
+        setAuth({
+          email: udata.email || email.trim(),
+          role: udata.role_name || udata.role || 'employee',
+          employee_id: udata.employee_id,
+        }, token);
 
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        const errText = await readErrorMessage(res);
-        authLog('login failed', res.status, errText);
-        return { ok: false, error: errText };
-      }
-
-      const loginJson = await res.json();
-      const token = loginJson?.data?.token as string | undefined;
-      if (token) {
-        localStorage.setItem('ems_token', token);
-        authLog('login OK; JWT stored for Bearer fallback');
-      } else {
-        authLog('login OK; no token in body (cookie-only session)');
-      }
-
-      const sessionHeaders: HeadersInit = {};
-      if (token) sessionHeaders.Authorization = `Bearer ${token}`;
-
-      let sess = await fetch('/api/auth/session', {
-        credentials: 'include',
-        headers: Object.keys(sessionHeaders).length ? sessionHeaders : undefined,
-      });
-
-      if (!sess.ok && token) {
-        authLog('session with cookie failed, retrying with Bearer only', sess.status);
-        sess = await fetch('/api/auth/session', {
-          credentials: 'include',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
-
-      if (!sess.ok) {
-        const errText = await readErrorMessage(sess);
-        authLog('session failed', sess.status, errText);
-        if (sess.status === 403) {
-          return {
-            ok: false,
-            error: errText || 'Complete session step failed (e.g. password change required).',
-          };
+        // Fetch permissions right after login
+        try {
+          const permsRes = await apiClient.get('/auth/permissions');
+          if (permsRes.data?.success) {
+            setPermissions(permsRes.data.permissions || []);
+          }
+        } catch (e) {
+          authLog('Failed to load permissions after login', e);
         }
-        return { ok: false, error: errText || 'Could not load session after login.' };
+
+        return { ok: true };
+      } else {
+        return { ok: false, error: 'Login failed' };
       }
-
-      const body = await sess.json();
-      const udata = body?.data || {};
-      authLog('session OK', { role: udata.role, employee_id: udata.employee_id });
-
-      let mappedRole: User['role'] = 'employee';
-      const backendRole = String(udata.role || '').toLowerCase();
-      if (backendRole === 'super_admin') mappedRole = 'super_admin';
-      else if (backendRole.includes('hr')) mappedRole = 'head_hr';
-      else mappedRole = 'employee';
-
-      const u: User = {
-        username: udata.email || email.trim(),
-        role: mappedRole,
-        employeeId: udata.employee_id || undefined,
-      };
-
-      setUser(u);
-      setActiveRole(u.role);
-      localStorage.setItem('ems_user', JSON.stringify(u));
-      authLog('user persisted', { role: u.role, employeeId: u.employeeId });
-      return { ok: true };
-    } catch (e) {
+    } catch (e: any) {
       authLog('login exception', e);
-      return { ok: false, error: 'Network error — is the API running (Vite proxy → backend)?' };
+      const errorMsg = e.response?.data?.error?.message || e.response?.data?.message || 'Login failed';
+      return { ok: false, error: errorMsg };
     }
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('ems_user');
-    localStorage.removeItem('ems_token');
+    zLogout();
+    // Also notify backend if needed
+    apiClient.post('/auth/logout').catch(() => {});
   };
 
-  const switchRole = (role: 'super_admin' | 'head_hr' | 'branch_hr' | 'department_hr' | 'employee') => {
-    setActiveRole(role);
+  const switchRole = (role: User['role']) => {
+    useAuthStore.getState().setActiveRole(role);
   };
+
+  // Map Zustand user to the Legacy User object shape expected by UI
+  let legacyUser: User | null = null;
+  if (zUser) {
+    legacyUser = {
+      username: zUser.email,
+      name: (zUser as any).name || zUser.email,
+      role: mapRole(zUser.role),
+      employeeId: zUser.employee_id,
+    };
+  }
 
   return (
-    <AuthContext.Provider value={{ user, activeRole, loading, login, logout, switchRole }}>
+    <AuthContext.Provider value={{ 
+      user: legacyUser, 
+      activeRole: mapRole(zActiveRole), 
+      loading, 
+      login, 
+      logout, 
+      switchRole 
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -161,4 +157,4 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
-}
+}

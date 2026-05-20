@@ -6,52 +6,79 @@ import { Plus, Pencil, Trash2 } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { formatPKR } from '../../services/api';
+import { 
+  useDepartments, 
+  useDesignations, 
+  useWorkModes, 
+  useWorkLocations, 
+  useEmploymentTypes, 
+  useJobStatuses 
+} from '../../hooks/useConfig';
 
 export function DepartmentsPage() {
-  const { departments, setDepartments } = useData();
-  return <SettingsPage title="Departments" columns={['Name', 'Active']} data={departments.map(d => ({ name: d, active: true }))}
-    onAdd={(row) => setDepartments(prev => [...prev, row.Name || row.name])}
-    onEdit={(idx, row) => setDepartments(prev => prev.map((d, i) => i === idx ? (row.Name || row.name || d) : d))}
-    onDelete={(idx) => setDepartments(prev => prev.filter((_, i) => i !== idx))} />;
+  const { data, create, update, isLoading } = useDepartments();
+  if (isLoading) return <div>Loading...</div>;
+  
+  return <SettingsPage title="Departments" columns={['Name', 'Active']} data={data.map(d => ({ name: d.name, active: d.is_active !== false }))}
+    onAdd={(row) => create({ name: row.Name || row.name })}
+    onEdit={(idx, row) => update({ id: data[idx].id, updates: { name: row.Name || row.name || data[idx].name } })}
+    onDelete={(idx) => update({ id: data[idx].id, updates: { is_active: false } })} />;
 }
+
 export function DesignationsPage() {
-  const { designations, setDesignations, departments } = useData();
+  const { data, create, update, isLoading } = useDesignations();
+  const { data: deptData } = useDepartments();
+  if (isLoading) return <div>Loading...</div>;
+
   return <SettingsPage title="Designations" columns={['Name', 'Department', 'Active']}
-    data={designations.map(d => ({ name: d, department: 'General', active: true }))}
-    modalFields={[{ label: 'Name' }, { label: 'Department', options: departments }]}
-    onAdd={(row) => setDesignations(prev => [...prev, row.Name || row.name])}
-    onEdit={(idx, row) => setDesignations(prev => prev.map((d, i) => i === idx ? (row.Name || d) : d))}
-    onDelete={(idx) => setDesignations(prev => prev.filter((_, i) => i !== idx))} />;
+    data={data.map(d => ({ name: d.name, department: d.department?.name || 'General', active: d.is_active !== false }))}
+    modalFields={[{ label: 'Name' }, { label: 'Department', options: (deptData || []).map((d: any) => d.name) }]}
+    onAdd={(row) => create({ name: row.Name || row.name, department_id: deptData?.find((d: any) => d.name === row.Department)?.id })}
+    onEdit={(idx, row) => update({ id: data[idx].id, updates: { name: row.Name || data[idx].name, department_id: deptData?.find((d: any) => d.name === row.Department)?.id || data[idx].department_id } })}
+    onDelete={(idx) => update({ id: data[idx].id, updates: { is_active: false } })} />;
 }
+
 export function WorkModesPage() {
-  const { workModes, setWorkModes } = useData();
-  return <SettingsPage title="Work Modes" columns={['Name', 'Active']} data={workModes.map(d => ({ name: d, active: true }))}
-    onAdd={(row) => setWorkModes(prev => [...prev, row.Name || row.name])}
-    onEdit={(idx, row) => setWorkModes(prev => prev.map((d, i) => i === idx ? (row.Name || d) : d))}
-    onDelete={(idx) => setWorkModes(prev => prev.filter((_, i) => i !== idx))} />;
+  const { data, create, update, isLoading } = useWorkModes();
+  if (isLoading) return <div>Loading...</div>;
+
+  return <SettingsPage title="Work Modes" columns={['Name', 'Active']} data={data.map(d => ({ name: d.name, active: d.is_active !== false }))}
+    onAdd={(row) => create({ name: row.Name || row.name })}
+    onEdit={(idx, row) => update({ id: data[idx].id, updates: { name: row.Name || data[idx].name } })}
+    onDelete={(idx) => update({ id: data[idx].id, updates: { is_active: false } })} />;
 }
+
 export function WorkLocationsPage() {
-  const { workLocations, setWorkLocations } = useData();
-  return <SettingsPage title="Work Locations" columns={['Name', 'Active']} data={workLocations.map(d => ({ name: d, active: true }))}
+  const { data, create, update, isLoading } = useWorkLocations();
+  if (isLoading) return <div>Loading...</div>;
+
+  return <SettingsPage title="Work Locations" columns={['Name', 'Active']} data={data.map(d => ({ name: d.name, active: d.is_active !== false }))}
     modalFields={[{ label: 'Name' }, { label: 'Address' }]}
-    onAdd={(row) => setWorkLocations(prev => [...prev, row.Name || row.name])}
-    onEdit={(idx, row) => setWorkLocations(prev => prev.map((d, i) => i === idx ? (row.Name || d) : d))}
-    onDelete={(idx) => setWorkLocations(prev => prev.filter((_, i) => i !== idx))} />;
+    onAdd={(row) => create({ name: row.Name || row.name, address: row.Address })}
+    onEdit={(idx, row) => update({ id: data[idx].id, updates: { name: row.Name || data[idx].name, address: row.Address || data[idx].address } })}
+    onDelete={(idx) => update({ id: data[idx].id, updates: { is_active: false } })} />;
 }
+
 export function EmploymentTypesPage() {
-  const { employmentTypes, setEmploymentTypes } = useData();
-  return <SettingsPage title="Employment Types" columns={['Name', 'Active']} data={employmentTypes.map(d => ({ name: d, active: true }))}
-    onAdd={(row) => setEmploymentTypes(prev => [...prev, row.Name || row.name])}
-    onEdit={(idx, row) => setEmploymentTypes(prev => prev.map((d, i) => i === idx ? (row.Name || d) : d))}
-    onDelete={(idx) => setEmploymentTypes(prev => prev.filter((_, i) => i !== idx))} />;
+  const { data, create, update, isLoading } = useEmploymentTypes();
+  if (isLoading) return <div>Loading...</div>;
+
+  return <SettingsPage title="Employment Types" columns={['Name', 'Active']} data={data.map(d => ({ name: d.name, active: d.is_active !== false }))}
+    onAdd={(row) => create({ name: row.Name || row.name })}
+    onEdit={(idx, row) => update({ id: data[idx].id, updates: { name: row.Name || data[idx].name } })}
+    onDelete={(idx) => update({ id: data[idx].id, updates: { is_active: false } })} />;
 }
+
 export function JobStatusesPage() {
-  const { jobStatuses, setJobStatuses } = useData();
-  return <SettingsPage title="Job Statuses" columns={['Name', 'Active']} data={jobStatuses.map(d => ({ name: d, active: true }))}
-    onAdd={(row) => setJobStatuses(prev => [...prev, row.Name || row.name])}
-    onEdit={(idx, row) => setJobStatuses(prev => prev.map((d, i) => i === idx ? (row.Name || d) : d))}
-    onDelete={(idx) => setJobStatuses(prev => prev.filter((_, i) => i !== idx))} />;
+  const { data, create, update, isLoading } = useJobStatuses();
+  if (isLoading) return <div>Loading...</div>;
+
+  return <SettingsPage title="Job Statuses" columns={['Name', 'Active']} data={data.map(d => ({ name: d.name, active: d.is_active !== false }))}
+    onAdd={(row) => create({ name: row.Name || row.name })}
+    onEdit={(idx, row) => update({ id: data[idx].id, updates: { name: row.Name || data[idx].name } })}
+    onDelete={(idx) => update({ id: data[idx].id, updates: { is_active: false } })} />;
 }
+
 export function ReportingManagersPage() {
   const { reportingManagers, setReportingManagers, departments } = useData();
   return <SettingsPage title="Reporting Managers" columns={['Name', 'Active']}
@@ -61,31 +88,46 @@ export function ReportingManagersPage() {
     onEdit={(idx, row) => setReportingManagers(prev => prev.map((d, i) => i === idx ? (row.Name || d) : d))}
     onDelete={(idx) => setReportingManagers(prev => prev.filter((_, i) => i !== idx))} />;
 }
+import { useShifts, useLeaveTypes, useLeavePolicies } from '../../hooks/useConfig';
+
 export function ShiftsPage() {
-  const { shifts, setShifts } = useData();
+  const { data, create, update, isLoading } = useShifts();
+  if (isLoading) return <div>Loading...</div>;
+
   return <SettingsPage title="Shifts" columns={['Name', 'Start', 'End', 'Late After (min)', 'Active']}
-    data={shifts.map(s => ({ name: s.name, start: s.start, end: s.end, late: s.lateAfter, active: true }))}
+    data={data.map(s => ({ name: s.name, start: s.start_time || s.start, end: s.end_time || s.end, late: s.late_after_minutes || s.lateAfter, active: s.is_active !== false }))}
     modalFields={[{ label: 'Name' }, { label: 'Start Time', type: 'time' }, { label: 'End Time', type: 'time' }, { label: 'Late After (minutes)', type: 'number' }]}
-    onAdd={(row) => setShifts(prev => [...prev, { name: row.Name || '', start: row['Start Time'] || '09:00', end: row['End Time'] || '18:00', lateAfter: parseInt(row['Late After (minutes)']) || 15 }])}
-    onEdit={(idx, row) => setShifts(prev => prev.map((s, i) => i === idx ? { name: row.Name || s.name, start: row['Start Time'] || s.start, end: row['End Time'] || s.end, lateAfter: parseInt(row['Late After (minutes)']) || s.lateAfter } : s))}
-    onDelete={(idx) => setShifts(prev => prev.filter((_, i) => i !== idx))} />;
+    onAdd={(row) => create({ name: row.Name || '', start_time: row['Start Time'] || '09:00', end_time: row['End Time'] || '18:00', late_after_minutes: parseInt(row['Late After (minutes)']) || 15 })}
+    onEdit={(idx, row) => {
+      const s = data[idx];
+      update({ id: s.id, updates: { name: row.Name || s.name, start_time: row['Start Time'] || s.start_time, end_time: row['End Time'] || s.end_time, late_after_minutes: parseInt(row['Late After (minutes)']) || s.late_after_minutes } });
+    }}
+    onDelete={(idx) => update({ id: data[idx].id, updates: { is_active: false } })} />;
 }
+
 export function LeaveTypesPage() {
-  const { leaveTypes, setLeaveTypes } = useData();
-  return <SettingsPage title="Leave Types" columns={['Name', 'Code', 'Active']} data={leaveTypes}
-    onAdd={(row) => setLeaveTypes(prev => [...prev, { name: row.Name || '', code: (row.Name || '').substring(0, 2).toUpperCase(), active: true }])}
-    onEdit={(idx, row) => setLeaveTypes(prev => prev.map((t, i) => i === idx ? { ...t, name: row.Name || t.name, code: row.Code || t.code } : t))}
-    onDelete={(idx) => setLeaveTypes(prev => prev.filter((_, i) => i !== idx))} />;
+  const { data, create, update, isLoading } = useLeaveTypes();
+  if (isLoading) return <div>Loading...</div>;
+
+  return <SettingsPage title="Leave Types" columns={['Name', 'Code', 'Active']} data={data.map(d => ({ name: d.name, code: d.code, active: d.is_active !== false }))}
+    onAdd={(row) => create({ name: row.Name || '', code: row.Code || (row.Name || '').substring(0, 2).toUpperCase() })}
+    onEdit={(idx, row) => update({ id: data[idx].id, updates: { name: row.Name || data[idx].name, code: row.Code || data[idx].code } })}
+    onDelete={(idx) => update({ id: data[idx].id, updates: { is_active: false } })} />;
 }
+
 export function LeavePoliciesPage() {
-  const { leavePolicies, setLeavePolicies, leaveTypes } = useData();
+  const { data, create, update, isLoading } = useLeavePolicies();
+  const { data: leaveTypesData } = useLeaveTypes();
+  if (isLoading) return <div>Loading...</div>;
+
   return <SettingsPage title="Leave Policies" columns={['Leave Type', 'Days', 'Year', 'Active']}
-    data={leavePolicies.map(p => ({ type: p.leaveType, days: p.days, year: p.year, active: p.active }))}
-    modalFields={[{ label: 'Leave Type', options: leaveTypes.map(l => l.name) }, { label: 'Days', type: 'number' }, { label: 'Year', type: 'number' }]}
-    onAdd={(row) => setLeavePolicies(prev => [...prev, { leaveType: row['Leave Type'] || '', days: parseInt(row.Days) || 0, year: parseInt(row.Year) || 2026, active: true }])}
-    onEdit={(idx, row) => setLeavePolicies(prev => prev.map((p, i) => i === idx ? { ...p, leaveType: row['Leave Type'] || p.leaveType, days: parseInt(row.Days) || p.days, year: parseInt(row.Year) || p.year } : p))}
-    onDelete={(idx) => setLeavePolicies(prev => prev.filter((_, i) => i !== idx))} />;
+    data={data.map(p => ({ type: p.leave_type?.name || p.leaveType, days: p.days_allowed || p.days, year: p.year, active: p.is_active !== false }))}
+    modalFields={[{ label: 'Leave Type', options: (leaveTypesData || []).map((l: any) => l.name) }, { label: 'Days', type: 'number' }, { label: 'Year', type: 'number' }]}
+    onAdd={(row) => create({ leave_type_id: leaveTypesData?.find((l: any) => l.name === row['Leave Type'])?.id, days_allowed: parseInt(row.Days) || 0, year: parseInt(row.Year) || new Date().getFullYear() })}
+    onEdit={(idx, row) => update({ id: data[idx].id, updates: { leave_type_id: leaveTypesData?.find((l: any) => l.name === row['Leave Type'])?.id || data[idx].leave_type_id, days_allowed: parseInt(row.Days) || data[idx].days_allowed, year: parseInt(row.Year) || data[idx].year } })}
+    onDelete={(idx) => update({ id: data[idx].id, updates: { is_active: false } })} />;
 }
+
 export function PayrollComponentsPage() {
   const { payrollComponents, setPayrollComponents } = useData();
   return (

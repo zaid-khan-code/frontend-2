@@ -7,6 +7,7 @@ import { Plus, Check, X, Pencil, RotateCcw, CalendarDays, Users, Clock, ThumbsUp
 import Modal from '../components/common/Modal';
 import DecisionBanner from '../components/common/DecisionBanner';
 import { useToastContext } from '../context/ToastContext';
+import { useLeaves } from '../hooks/useLeaves';
 
 // ─── Stat card CSS (same pattern as Promotions) ───────────────────────────────
 const STAT_CSS = `
@@ -35,7 +36,28 @@ const getInitials = (name: string) => {
 };
 
 export default function Leave() {
-  const { leaveRequests: data, setLeaveRequests: setData, employees, leaveTypes } = useData();
+  const { data: serverLeaves = [], create: createLeave, approve: approveLeave, reject: rejectLeave, earlyReturn: earlyReturnLeave } = useLeaves();
+  const { employees, leaveTypes } = useData();
+
+  const data = useMemo(() => {
+    return serverLeaves.map((l: any) => ({
+      id: l.id,
+      empId: l.employee_id,
+      empName: l.employee?.name || l.employee_id,
+      leaveType: l.leave_type?.name || 'Annual',
+      leaveTypeId: l.leave_type_id,
+      from: l.start_date,
+      to: l.end_date,
+      days: calcDays(l.start_date, l.end_date),
+      reason: l.reason,
+      appliedOn: l.created_at ? l.created_at.split('T')[0] : '',
+      status: l.status.charAt(0).toUpperCase() + l.status.slice(1),
+      requestedAmount: 0,
+      approvedAmount: 0,
+      approvedBy: l.actioned_by,
+    }));
+  }, [serverLeaves]);
+
   const { user, activeRole } = useAuth();
   const [tab, setTab] = useState('all');
   const { showToast } = useToastContext();
@@ -54,7 +76,7 @@ export default function Leave() {
   const [approvedAmount, setApprovedAmount] = useState('');
   const [saving, setSaving] = useState(false);
   const [newEmp, setNewEmp] = useState('');
-  const [newType, setNewType] = useState('Annual');
+  const [newType, setNewType] = useState('');
   const [newFrom, setNewFrom] = useState('');
   const [newTo, setNewTo] = useState('');
   const [newReason, setNewReason] = useState('');
@@ -151,13 +173,13 @@ export default function Leave() {
   };
 
   // Force end overlapping leaves (for urgent cases)
-  const forceEndLeave = (leaveId: string, endDate: string) => {
-    setData(prev => prev.map((l: any) =>
-      l.id === leaveId
-        ? { ...l, to: endDate, days: calcDays(l.from, endDate), status: 'Force Ended' }
-        : l
-    ));
-    showToast('Leave force-ended successfully');
+  const forceEndLeave = async (leaveId: string, endDate: string) => {
+    try {
+      await earlyReturnLeave({ id: leaveId, actual_end_date: endDate, is_forced: true });
+      showToast('Leave force-ended successfully');
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Failed to force end leave', 'error');
+    }
   };
 
   const counts = useMemo(() => ({
@@ -172,87 +194,88 @@ export default function Leave() {
   const filtered = tab === 'all' ? visibleData : tab === 'calendar' ? visibleData : tab === 'balances' ? visibleData : visibleData.filter((l: any) => l.status.toLowerCase() === tab);
 
   function handleApprove(id: string) { const req = data.find((l: any) => l.id === id); setApproveModal(req); setApprovedAmount(''); }
-  function handleConfirmApprove() {
-    if (!approveModal || !approvedAmount.trim()) { showToast('Please enter approved amount', 'error'); return; }
+  
+  async function handleConfirmApprove() {
+    if (!approveModal) return;
     setSaving(true);
-    setTimeout(() => {
-      setData(prev => prev.map((l: any) => l.id === approveModal.id ? { ...l, status: 'Approved', approvedAmount: parseFloat(approvedAmount), approvedBy: user.id } : l));
-      setSaving(false);
+    try {
+      await approveLeave(approveModal.id);
+      showToast('Leave approved');
       setApproveModal(null);
       setApprovedAmount('');
-      showToast('Leave approved');
-    }, 600);
-  }
-  function handleReject(id: string) {
-    if (!rejectComment.trim()) { showToast('Please provide a reason for rejection', 'error'); return; }
-    setData(prev => prev.map((l: any) => l.id === id ? { ...l, status: 'Rejected' } : l));
-    showToast('Leave rejected', 'error');
-    setRejectModal(null); setRejectComment('');
+    } catch (error: any) {
+      showToast(error.response?.data?.message || 'Failed to approve leave', 'error');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function openEdit(row: any) { setEditType(row.leaveType); setEditFrom(row.from); setEditTo(row.to); setEditReason(row.reason); setEditRequestedAmount(row.requestedAmount || ''); setEditModal(row); }
+  async function handleReject(id: string) {
+    if (!rejectComment.trim()) { showToast('Please provide a reason for rejection', 'error'); return; }
+    try {
+      await rejectLeave({ id, reason: rejectComment });
+      showToast('Leave rejected', 'error');
+      setRejectModal(null); 
+      setRejectComment('');
+    } catch (error: any) {
+      showToast(error.response?.data?.message || 'Failed to reject leave', 'error');
+    }
+  }
+
+  function openEdit(row: any) { setEditType(row.leaveTypeId); setEditFrom(row.from); setEditTo(row.to); setEditReason(row.reason); setEditRequestedAmount(row.requestedAmount || ''); setEditModal(row); }
 
   function saveEdit() {
     if (!editModal) return;
-    setSaving(true);
-    setTimeout(() => { setData(prev => prev.map((l: any) => l.id === editModal.id ? { ...l, leaveType: editType, from: editFrom, to: editTo, days: calcDays(editFrom, editTo), reason: editReason, requestedAmount: parseFloat(editRequestedAmount) || 0 } : l)); setSaving(false); setEditModal(null); showToast('Leave request updated'); }, 600);
+    showToast('Edit is not supported through API currently', 'error');
+    setEditModal(null);
   }
 
   function openEarly(row: any) { setEarlyDate(''); setEarlyModal(row); }
 
-  function confirmEarly() {
+  async function confirmEarly() {
     if (!earlyModal || !earlyDate) return;
     setSaving(true);
-    setTimeout(() => { const actualDays = calcDays(earlyModal.from, earlyDate); setData(prev => prev.map((l: any) => l.id === earlyModal.id ? { ...l, to: earlyDate, days: actualDays } : l)); setSaving(false); setEarlyModal(null); showToast('Early return recorded'); }, 600);
+    try {
+      await earlyReturnLeave({ id: earlyModal.id, actual_end_date: earlyDate });
+      setEarlyModal(null); 
+      showToast('Early return recorded');
+    } catch (error: any) {
+      showToast(error.response?.data?.message || 'Failed to record early return', 'error');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const newDays = calcDays(newFrom, newTo);
 
-  function submitNew() {
-    if (!newEmp || !newFrom || !newTo || !newReason || !newRequestedAmount) {
+  async function submitNew() {
+    if (!newEmp || !newFrom || !newTo || !newReason || !newType) {
       showToast('Please fill all required fields', 'error');
       return;
     }
 
-    // Check for overlapping leaves
-    if (checkOverlap(newEmp, newFrom, newTo)) {
-      showToast('Leave dates overlap with existing approved leave', 'error');
-      return;
-    }
-
-    // Check capacity constraints
-    const capacityCheck = checkCapacityConstraints(newEmp, newFrom, newTo);
-    if (!capacityCheck.allowed) {
-      showToast(capacityCheck.reason || 'Capacity constraint violation', 'error');
-      return;
-    }
-
     setSaving(true);
-    setTimeout(() => {
-      const emp = employees.find((e: any) => e.id === newEmp);
-      setData(prev => [{
-        id: 'LR' + String(prev.length + 1).padStart(3, '0'),
-        empId: newEmp,
-        empName: emp?.name || '',
-        leaveType: newType,
-        from: newFrom,
-        to: newTo,
-        days: newDays,
-        reason: newReason,
-        requestedAmount: parseFloat(newRequestedAmount),
-        appliedOn: new Date().toISOString().split('T')[0],
-        status: 'Pending'
-      }, ...prev]);
-      setSaving(false);
+    try {
+      await createLeave({
+        employee_id: newEmp,
+        leave_type_id: newType,
+        start_date: newFrom,
+        end_date: newTo,
+        reason: newReason
+      });
       setNewModal(false);
       setNewEmp('');
-      setNewType('Annual');
+      setNewType('');
       setNewFrom('');
       setNewTo('');
       setNewReason('');
       setNewRequestedAmount('');
       showToast('Leave request submitted successfully');
-    }, 600);
+    } catch (error: any) {
+      showToast(error.response?.data?.message || 'Failed to submit leave request', 'error');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const earlyOrigDays = earlyModal ? calcDays(earlyModal.from, earlyModal.to) : 0;

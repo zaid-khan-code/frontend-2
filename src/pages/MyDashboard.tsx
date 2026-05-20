@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useData } from "../context/DataContext";
+import { useAuth } from "../context/AuthContext";
 import { formatPKR } from "../services/api";
+import { useEmployeeSelfMetrics } from "../hooks/useDashboard";
+import { useLeaves } from "../hooks/useLeaves";
+import { useAttendance } from "../hooks/useAttendance";
 import {
   Calendar,
   CalendarDays,
@@ -22,8 +26,18 @@ import Modal from "../components/common/Modal";
 import { useToastContext } from "../context/ToastContext";
 
 export default function MyDashboard() {
+  const { user } = useAuth();
   const [time, setTime] = useState(new Date());
-  const { attendanceData, leaveRequests, setLeaveRequests, employees, globalDays } = useData();
+  const { globalDays, employees = [] } = useData();
+  const { data: metrics } = useEmployeeSelfMetrics();
+  
+  // Real data hooks
+  const { data: myLeavesData } = useLeaves({ employee_id: user?.employeeId });
+  const { data: myAttendanceData } = useAttendance({ employee_id: user?.employeeId });
+  
+  const leaveRequests = Array.isArray(myLeavesData) ? myLeavesData : [];
+  const attendanceData = Array.isArray(myAttendanceData) ? myAttendanceData : [];
+  
   const [leaveModal, setLeaveModal] = useState(false);
   const [leaveType, setLeaveType] = useState("Annual Leave");
   const [fromDate, setFromDate] = useState("");
@@ -53,11 +67,21 @@ export default function MyDashboard() {
       hour12: false,
     }) + " PKT";
 
-  const balances = [
-    { type: "Annual", remaining: 7, total: 12, color: "var(--p)" },
-    { type: "Casual", remaining: 10, total: 12, color: "var(--green)" },
-    { type: "Medical", remaining: 8, total: 8, color: "var(--teal)" },
-  ];
+  const balances = useMemo(() => {
+    if (metrics?.leave_balances) {
+      return metrics.leave_balances.map((b: any) => ({
+        type: b.name,
+        remaining: b.remaining,
+        total: b.balance,
+        color: b.name === 'Annual' ? 'var(--p)' : b.name === 'Casual' ? 'var(--green)' : 'var(--teal)'
+      }));
+    }
+    return [
+      { type: "Annual", remaining: 7, total: 12, color: "var(--p)" },
+      { type: "Casual", remaining: 10, total: 12, color: "var(--green)" },
+      { type: "Medical", remaining: 8, total: 8, color: "var(--teal)" },
+    ];
+  }, [metrics]);
 
   const calcDays = () => {
     if (!fromDate || !toDate) return 0;
@@ -105,8 +129,8 @@ export default function MyDashboard() {
     setLeaveRequests((prev) => [
       {
         id: "LR" + String(prev.length + 1).padStart(3, "0"),
-        empId: "EMP001",
-        empName: "Ahmed Ali",
+        empId: user?.employeeId || "EMP001",
+        empName: user?.name || user?.username || "Employee",
         leaveType: leaveType
           .replace(" Leave", "")
           .replace(" (7 remaining)", "")
@@ -137,7 +161,7 @@ export default function MyDashboard() {
   // Upcoming leaves
   const myPendingLeaves = leaveRequests.filter(
     (l: any) =>
-      l.empId === "EMP001" &&
+      l.empId === (user?.employeeId || "EMP001") &&
       l.status === "Approved" &&
       new Date(l.from) > new Date(),
   );
@@ -231,12 +255,12 @@ export default function MyDashboard() {
         >
           <div>
             <div style={{ fontSize: 18, fontWeight: 800, color: "var(--t1)" }}>
-              Welcome back, Ahmed Ali 👋
+              Welcome back, {user?.name || user?.username || "Employee"} 👋
             </div>
             <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
               {[
-                { label: "Employee ID", value: "EMP001" },
-                { label: "Department", value: "Engineering" },
+                { label: "Employee ID", value: user?.employeeId || "—" },
+                { label: "Department", value: user?.departments?.[0] || "Unassigned" },
                 { label: "Shift", value: "Morning Shift (09:00-18:00)" },
               ].map((item, i) => (
                 <span
@@ -474,7 +498,7 @@ export default function MyDashboard() {
             </thead>
             <tbody>
               {attendanceData
-                .filter((a: any) => a.empId === "EMP001")
+                .filter((a: any) => a.empId === (user?.employeeId || "EMP001"))
                 .slice(0, 7)
                 .map((a: any, i: number) => (
                   <tr
@@ -524,7 +548,7 @@ export default function MyDashboard() {
             </thead>
             <tbody>
               {leaveRequests
-                .filter((l: any) => l.empId === "EMP001")
+                .filter((l: any) => l.empId === (user?.employeeId || "EMP001"))
                 .slice(0, 5)
                 .map((l: any, i: number) => (
                   <tr key={i}>
@@ -688,11 +712,11 @@ export default function MyDashboard() {
           {/* Birthday reminder for today */}
           {[
             {
-              name: "Ahmed Ali",
+              name: user?.name || user?.username || "Me",
               date: "Mar 15",
               fullDate: new Date(2026, 2, 15),
               days: 0,
-              initials: "AA",
+              initials: (user?.name || user?.username || "Me").slice(0,2).toUpperCase(),
             },
           ].filter((b) => b.days === 0).length > 0 && (
             <div

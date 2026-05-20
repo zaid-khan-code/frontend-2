@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
+import { useAuthStore } from '../store/useAuthStore';
 import {
   employees as defaultEmployees, Employee,
   attendanceData as defaultAttendance,
@@ -156,15 +157,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [customFields, setCustomFields] = usePersisted('customFields', defaultCustomFields);
   const [taxConfig, setTaxConfig] = usePersisted('taxConfig', defaultTaxConfig);
   const [globalDays, setGlobalDays] = usePersisted('globalDays', defaultGlobalDays);
-  const { user } = useAuth();
+  const { user, activeRole } = useAuth();
 
-  // Fetch live employees from backend after user logs in. Keep demo/default data if backend not available.
+  // Fetch live employees from backend after user logs in.
+  // ONLY admin/HR roles are allowed to call the /employees list endpoint.
+  // Plain employees get a 403, so we skip it for them entirely.
   useEffect(() => {
-    if (!user) return; // wait for authenticated session
+    if (!user) return;
+    // Only admins and HR roles can fetch the full employee list
+    const canFetchAll = activeRole === 'super_admin' || activeRole === 'head_hr' || activeRole === 'branch_hr' || activeRole === 'department_hr';
+    if (!canFetchAll) return;
     let cancelled = false;
     async function loadFromBackend() {
       try {
-        const res = await fetch('/api/employees?page=1&limit=1000', { credentials: 'include' });
+        const token = useAuthStore.getState().token;
+        const res = await fetch('/api/employees?page=1&limit=1000', {
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
         if (!res.ok) return;
         const body = await res.json();
         const list = body?.data?.employees || body?.data || [];
