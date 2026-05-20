@@ -124,17 +124,15 @@ const pillClass = (status: string) => {
   return "emp-pill emp-pill-default";
 };
 
-type SortKey =
-  | "id"
-  | "name"
-  | "department"
-  | "designation"
-  | "jobStatus"
-  | "dateOfJoining";
+type SortKey = "id" | "name" | "department" | "designation" | "dateOfJoining";
 type SortDir = "asc" | "desc";
 
 import { useEmployees } from "../hooks/useEmployees";
-import { useDepartments } from "../hooks/useConfig";
+import {
+  useDepartments,
+  useDesignations,
+  useWorkLocations,
+} from "../hooks/useConfig";
 
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Employees() {
@@ -147,7 +145,11 @@ export default function Employees() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
-  const [isActiveOnly, setIsActiveOnly] = useState(true);
+  const [designationFilter, setDesignationFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("active");
   const [terminateConfirm, setTerminateConfirm] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>("id");
@@ -156,13 +158,29 @@ export default function Employees() {
   const [perPage, setPerPage] = useState(25);
 
   const { data: deptData = [] } = useDepartments();
+  const { data: desigData = [] } = useDesignations();
+  const { data: locData = [] } = useWorkLocations();
 
   const departments = deptData.map((d: any) => ({
     id: d.id ?? d.department_id ?? d.code ?? d.name,
     name: d.name ?? d.title ?? d.department_name,
   }));
+  const designations = desigData.map((d: any) => ({
+    id: d.id ?? d.designation_id ?? d.code ?? d.name,
+    name: d.name ?? d.title ?? d.designation_name,
+  }));
+  const locations = locData.map((d: any) => ({
+    id: d.id ?? d.work_location_id ?? d.code ?? d.name,
+    name: d.name ?? d.title ?? d.work_location_name,
+  }));
   const selectedDeptName = departments.find(
     (d) => String(d.id) === String(deptFilter),
+  )?.name;
+  const selectedDesignationName = designations.find(
+    (d) => String(d.id) === String(designationFilter),
+  )?.name;
+  const selectedLocationName = locations.find(
+    (d) => String(d.id) === String(locationFilter),
   )?.name;
 
   // You can either pass these filters to the backend or filter on the frontend.
@@ -205,21 +223,44 @@ export default function Employees() {
   // However, `getVisibleEmployees` (RBAC) might still filter results.
   const searchTerm = debouncedSearch.toLowerCase();
   const filtered = visibleEmployees.filter((e) => {
-    const isActiveMatch = isActiveOnly
-      ? String(e.jobStatus || e.status || "").toLowerCase() !== "terminated"
-      : true;
+    const statusValue = String(e.jobStatus || e.status || "").toLowerCase();
+    const isActiveMatch =
+      statusFilter === "all"
+        ? true
+        : statusFilter === "active"
+          ? statusValue !== "terminated" && statusValue !== "inactive"
+          : statusValue === "terminated" || statusValue === "inactive";
     const deptMatch = deptFilter ? e.department === selectedDeptName : true;
+    const designationMatch = designationFilter
+      ? e.designation === selectedDesignationName
+      : true;
+    const locationMatch = locationFilter
+      ? e.workLocation === selectedLocationName
+      : true;
     const searchMatch = searchTerm
       ? `${e.id || ""} ${e.name || ""}`.toLowerCase().includes(searchTerm)
       : true;
-    return isActiveMatch && deptMatch && searchMatch;
+    return (
+      isActiveMatch &&
+      deptMatch &&
+      designationMatch &&
+      locationMatch &&
+      searchMatch
+    );
   });
 
   // Since backend handles pagination, we use backend total if available, else local
   const totalCount = pagination?.total ?? filtered.length;
   const totalPages =
     pagination?.totalPages || Math.ceil(totalCount / perPage) || 1;
-  const paged = filtered;
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const av = (a as any)[sortKey] ?? "";
+    const bv = (b as any)[sortKey] ?? "";
+    if (av === bv) return 0;
+    return av > bv ? dir : -dir;
+  });
+  const paged = sorted;
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -262,7 +303,9 @@ export default function Employees() {
   const clearFilters = () => {
     setSearch("");
     setDeptFilter("");
-    setIsActiveOnly(true);
+    setDesignationFilter("");
+    setLocationFilter("");
+    setStatusFilter("active");
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -275,10 +318,16 @@ export default function Employees() {
     );
   };
 
-  const activeCount = visibleEmployees.filter(
-    (e) => e.jobStatus !== "Terminated",
-  ).length;
-  const hasFilters = search || deptFilter || !isActiveOnly;
+  const activeCount = visibleEmployees.filter((e) => {
+    const statusValue = String(e.jobStatus || e.status || "").toLowerCase();
+    return statusValue !== "terminated" && statusValue !== "inactive";
+  }).length;
+  const hasFilters =
+    search ||
+    deptFilter ||
+    designationFilter ||
+    locationFilter ||
+    statusFilter !== "active";
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -407,29 +456,58 @@ export default function Employees() {
               ))}
             </select>
 
-            {/* Active only */}
-            <label
-              style={{
-                fontSize: 11,
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                cursor: "pointer",
-                color: "#6b7280",
-                userSelect: "none",
+            {/* Designation */}
+            <select
+              className="emp-input emp-select"
+              style={{ width: 160 }}
+              value={designationFilter}
+              onChange={(e) => {
+                setDesignationFilter(e.target.value);
+                setPage(0);
               }}
             >
-              <input
-                type="checkbox"
-                className="emp-check"
-                checked={isActiveOnly}
-                onChange={(e) => {
-                  setIsActiveOnly(e.target.checked);
-                  setPage(0);
-                }}
-              />
-              Active only
-            </label>
+              <option value="">All Designations</option>
+              {designations.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Location */}
+            <select
+              className="emp-input emp-select"
+              style={{ width: 160 }}
+              value={locationFilter}
+              onChange={(e) => {
+                setLocationFilter(e.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="">All Locations</option>
+              {locations.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Status */}
+            <select
+              className="emp-input emp-select"
+              style={{ width: 140 }}
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(
+                  e.target.value as "all" | "active" | "inactive",
+                );
+                setPage(0);
+              }}
+            >
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+              <option value="all">All Statuses</option>
+            </select>
 
             {/* Clear filters */}
             {hasFilters && (
@@ -457,6 +535,16 @@ export default function Employees() {
                 ? "No results"
                 : `Showing ${filtered.length} employee${filtered.length !== 1 ? "s" : ""}${hasFilters ? " (filtered)" : ""}`}
             </span>
+            {(designations.length === 0 || locations.length === 0) && (
+              <span style={{ fontSize: 10, color: "#f97316" }}>
+                Missing config endpoints for:{" "}
+                {designations.length === 0 ? "designations" : ""}
+                {designations.length === 0 && locations.length === 0
+                  ? " and "
+                  : ""}
+                {locations.length === 0 ? "work locations" : ""}
+              </span>
+            )}
             {selected.size > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span
@@ -509,12 +597,7 @@ export default function Employees() {
                   >
                     Designation <SortIcon col="designation" />
                   </th>
-                  <th
-                    className="sortable"
-                    onClick={() => toggleSort("jobStatus")}
-                  >
-                    Status <SortIcon col="jobStatus" />
-                  </th>
+                  <th>Status</th>
                   <th
                     className="sortable"
                     onClick={() => toggleSort("dateOfJoining")}

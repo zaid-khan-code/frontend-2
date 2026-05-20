@@ -40,7 +40,8 @@ export function useEmployees(params?: any) {
       const cleanParams = params
         ? Object.fromEntries(
             Object.entries(params).filter(
-              ([, value]) => value !== undefined && value !== null && value !== "",
+              ([, value]) =>
+                value !== undefined && value !== null && value !== "",
             ),
           )
         : undefined;
