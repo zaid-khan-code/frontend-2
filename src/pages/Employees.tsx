@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import { useToastContext } from "../context/ToastContext";
-import { useAuthStore } from "../store/useAuthStore";
+import { useRbac } from "../hooks/useRbac";
 
 // ─── Global CSS ───────────────────────────────────────────────────────────────
 const CSS = `
@@ -139,8 +139,11 @@ export default function Employees() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
   const { user, activeRole } = useAuth();
-  const hasPermission = useAuthStore((state) => state.hasPermission);
-  const canWrite = hasPermission("employees:write");
+  const { can } = useRbac();
+  const canCreate = can("create_employee");
+  const canEdit = can("edit_employee");
+  const canDelete = can("delete_employee");
+  const canWrite = canCreate || canEdit || canDelete;
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -371,11 +374,11 @@ export default function Employees() {
           <button
             className="emp-btn emp-btn-primary"
             onClick={() =>
-              canWrite
+              canCreate
                 ? navigate("/employees/add")
                 : showToast("Insufficient permissions", "error")
             }
-            disabled={!canWrite}
+            disabled={!canCreate}
           >
             <Plus size={13} /> Create Employee
           </button>

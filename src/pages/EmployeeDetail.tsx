@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useData } from "../context/DataContext";
 import { useAuth } from "../context/AuthContext";
@@ -34,6 +34,8 @@ import {
   Line,
 } from "recharts";
 import { useEmployee, useEmployees } from "../hooks/useEmployees";
+import { useRbac } from "../hooks/useRbac";
+import ComingSoonOverlay from "../components/ComingSoonOverlay";
 
 // ── Activity log and doc mock data logic identical to original...
 const deptColors: Record<string, string> = {
@@ -130,12 +132,52 @@ export default function EmployeeDetail() {
     setPenalties,
   } = useData();
   const { user, activeRole } = useAuth();
-  const { data: rawEmp, isLoading } = useEmployee(id);
-  const { update } = useEmployees(); // for patch requests
+  const {
+    data: rawEmp,
+    isLoading,
+    resendCredentials,
+    isResendingCredentials,
+  } = useEmployee(id);
+  const { update } = useEmployees();
+  const { can } = useRbac();
+  const canEdit = can("edit_employee");
+  const canResendCredentials = can("resend_credentials");
 
-  const [tab, setTab] = useState("personal");
+  const [tab, setTab] = useState("profile");
+  const [resendModalOpen, setResendModalOpen] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [promoModal, setPromoModal] = useState(false);
   const [penaltyModal, setPenaltyModal] = useState(false);
+  const [personalEditOpen, setPersonalEditOpen] = useState(false);
+  const [jobEditOpen, setJobEditOpen] = useState(false);
+  const [isUpdatingPersonal, setIsUpdatingPersonal] = useState(false);
+  const [isUpdatingJob, setIsUpdatingJob] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editFatherName, setEditFatherName] = useState("");
+  const [editDob, setEditDob] = useState("");
+  const [editCnic, setEditCnic] = useState("");
+  const [editGender, setEditGender] = useState("");
+  const [editContact1, setEditContact1] = useState("");
+  const [editContact2, setEditContact2] = useState("");
+  const [editEmergency1, setEditEmergency1] = useState("");
+  const [editEmergency2, setEditEmergency2] = useState("");
+  const [editPermanentAddress, setEditPermanentAddress] = useState("");
+  const [editPostalAddress, setEditPostalAddress] = useState("");
+  const [editBloodGroup, setEditBloodGroup] = useState("");
+  const [editAllergies, setEditAllergies] = useState("");
+  const [editChronic, setEditChronic] = useState("");
+  const [editMedications, setEditMedications] = useState("");
+  const [editDepartment, setEditDepartment] = useState("");
+  const [editDesignation, setEditDesignation] = useState("");
+  const [editEmploymentType, setEditEmploymentType] = useState("");
+  const [editJobStatus, setEditJobStatus] = useState("");
+  const [editWorkMode, setEditWorkMode] = useState("");
+  const [editWorkLocation, setEditWorkLocation] = useState("");
+  const [editShift, setEditShift] = useState("");
+  const [editReportingManager, setEditReportingManager] = useState("");
+  const [editDateOfJoining, setEditDateOfJoining] = useState("");
+  const [editDateOfExit, setEditDateOfExit] = useState("");
+  const [editCommissionEligible, setEditCommissionEligible] = useState(false);
   const [promoDesig, setPromoDesig] = useState("");
   const [promoSalary, setPromoSalary] = useState("");
   const [promoDate, setPromoDate] = useState("");
@@ -222,6 +264,36 @@ export default function EmployeeDetail() {
     };
   }, [rawEmp]);
 
+  useEffect(() => {
+    if (!emp) return;
+    setEditName(emp.name);
+    setEditFatherName(emp.fatherName);
+    setEditDob(emp.dob);
+    setEditCnic(emp.cnic);
+    setEditGender(emp.gender);
+    setEditContact1(emp.contact1);
+    setEditContact2(emp.contact2);
+    setEditEmergency1(emp.emergency1);
+    setEditEmergency2(emp.emergency2);
+    setEditPermanentAddress(emp.permanentAddress);
+    setEditPostalAddress(emp.postalAddress || "");
+    setEditBloodGroup(emp.bloodGroup);
+    setEditAllergies(emp.allergies);
+    setEditChronic(emp.chronicConditions);
+    setEditMedications(emp.medications);
+    setEditDepartment(emp.department);
+    setEditDesignation(emp.designation);
+    setEditEmploymentType(emp.employmentType);
+    setEditJobStatus(emp.jobStatus);
+    setEditWorkMode(emp.workMode);
+    setEditWorkLocation(emp.workLocation);
+    setEditShift(emp.shift);
+    setEditReportingManager(emp.reportingManager);
+    setEditDateOfJoining(emp.dateOfJoining);
+    setEditDateOfExit(emp.dateOfExit || "");
+    setEditCommissionEligible(emp.commissionEligible);
+  }, [emp]);
+
   if (isLoading)
     return <div style={{ padding: 50, textAlign: "center" }}>Loading...</div>;
 
@@ -240,18 +312,95 @@ export default function EmployeeDetail() {
     );
   }
 
-  const tabs = [
-    "Personal",
-    "Job Info",
-    "Medical",
-    "Attendance",
-    "Leave",
-    "Payslips",
-    "Promotions",
-    "Penalties",
-    "Activity",
-    "Documents",
-  ];
+  const tabs = ["Profile", "Attendance", "Leave", "Settings"];
+
+  const handleSavePersonal = async () => {
+    if (!emp) return;
+    setIsUpdatingPersonal(true);
+    try {
+      await update({
+        id: emp.id,
+        updates: {
+          personalInfo: {
+            name: editName,
+            father_name: editFatherName,
+            cnic: editCnic,
+            date_of_birth: editDob,
+            gender: editGender,
+          },
+          accountInfo: {
+            phone: editContact1,
+          },
+          emergencyContacts: {
+            e_contact_1_full_name: editEmergency1,
+            e_contact_2_full_name: editEmergency2,
+            perment_address: editPermanentAddress,
+            postal_address: editPostalAddress,
+          },
+          medicalInfo: {
+            blood_group: editBloodGroup,
+            allergy_notes: editAllergies,
+            chronic_condition_notes: editChronic,
+            emergency_medication: editMedications,
+          },
+        },
+      });
+      showToast("Personal info updated");
+      setPersonalEditOpen(false);
+    } catch {
+      showToast("Failed to update personal info", "error");
+    } finally {
+      setIsUpdatingPersonal(false);
+    }
+  };
+
+  const handleSaveJob = async () => {
+    if (!emp) return;
+    setIsUpdatingJob(true);
+    try {
+      await update({
+        id: emp.id,
+        updates: {
+          jobInfo: {
+            department: editDepartment,
+            designation: editDesignation,
+            employment_type: editEmploymentType,
+            job_status: editJobStatus,
+            work_mode: editWorkMode,
+            work_location: editWorkLocation,
+            shift: editShift,
+            reporting_manager: editReportingManager,
+            date_of_joining: editDateOfJoining,
+            date_of_exit: editDateOfExit || undefined,
+            commission_eligible: editCommissionEligible,
+          },
+        },
+      });
+      showToast("Job details updated");
+      setJobEditOpen(false);
+    } catch {
+      showToast("Failed to update job details", "error");
+    } finally {
+      setIsUpdatingJob(false);
+    }
+  };
+
+  const handleResendCredentials = async () => {
+    if (!id || !canResendCredentials) return;
+    try {
+      const result = await resendCredentials(id);
+      const pwd =
+        result?.tempPassword ??
+        result?.temp_password ??
+        result?.password ??
+        null;
+      setTempPassword(pwd);
+      setResendModalOpen(true);
+      showToast("Credentials resent successfully");
+    } catch {
+      showToast("Failed to resend credentials", "error");
+    }
+  };
   const empPayroll = payrollData.filter((p: any) => p.empId === emp.id);
   const empPromos = promotions.filter((p: any) => p.empId === emp.id);
   const empPenalties = penalties.filter((p: any) => p.empId === emp.id);
@@ -404,12 +553,14 @@ export default function EmployeeDetail() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, position: "relative" }}>
-          <button
-            className="btn btn-ghost"
-            onClick={() => navigate("/employees/add")}
-          >
-            <Pencil size={13} /> Edit
-          </button>
+          {canEdit && (
+            <button
+              className="btn btn-ghost"
+              onClick={() => setPersonalEditOpen(true)}
+            >
+              <Pencil size={13} /> Edit
+            </button>
+          )}
           <div style={{ position: "relative" }}>
             <button
               className="btn btn-secondary"
@@ -489,9 +640,11 @@ export default function EmployeeDetail() {
               </div>
             )}
           </div>
-          <button className="btn btn-danger">
-            <UserX size={13} /> Deactivate
-          </button>
+          {can("delete_employee") && (
+            <button className="btn btn-danger">
+              <UserX size={13} /> Deactivate
+            </button>
+          )}
         </div>
       </div>
 
@@ -507,285 +660,347 @@ export default function EmployeeDetail() {
         ))}
       </div>
 
-      {tab === "personal" && (
-        <div className="card">
-          <InfoGrid
-            items={[
-              ["Full Name", emp.name],
-              ["Father Name", emp.fatherName],
-              ["Date of Birth", emp.dob],
-              ["CNIC", emp.cnic],
-              ["Gender", emp.gender],
-              ["Contact 1", emp.contact1],
-              ["Contact 2", emp.contact2 || "N/A"],
-              ["Emergency 1", emp.emergency1],
-              ["Emergency 2", emp.emergency2 || "N/A"],
-              ["Permanent Address", emp.permanentAddress],
-              ["Bank Name", emp.bankName || "Not provided"],
-              ["Bank Account", emp.bankAccount || "Not provided"],
-              ["Payment Mode", emp.paymentMode],
-            ]}
-          />
-        </div>
-      )}
-
-      {tab === "job-info" && (
-        <div className="card">
-          <InfoGrid
-            items={[
-              ["Department", emp.department],
-              ["Designation", emp.designation],
-              ["Employment Type", emp.employmentType],
-              ["Job Status", emp.jobStatus],
-              ["Work Mode", emp.workMode],
-              ["Work Location", emp.workLocation],
-              ["Shift", emp.shift],
-              ["Reporting Manager", emp.reportingManager],
-              ["Date of Joining", emp.dateOfJoining],
-              ["Commission Eligible", emp.commissionEligible ? "Yes" : "No"],
-            ]}
-          />
-          <div style={{ marginTop: 16 }}>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "var(--t3)",
-                textTransform: "uppercase",
-                marginBottom: 8,
-              }}
-            >
-              Salary Structure
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr",
-                gap: 12,
-              }}
-            >
-              {[
-                ["Basic", emp.salary.basic],
-                ["House Rent", emp.salary.houseRent],
-                ["Medical", emp.salary.medical],
-                ["Conveyance", emp.salary.conveyance],
-                ["Commission", emp.salary.commission],
-              ].map(([l, v], i) => (
-                <div key={i}>
+      {tab === "profile" && (
+        <>
+          <div className="card">
+            {canEdit && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  marginBottom: 12,
+                }}
+              >
+                <button
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => setPersonalEditOpen(true)}
+                >
+                  <Pencil size={12} /> Edit Profile
+                </button>
+              </div>
+            )}
+            <InfoGrid
+              items={[
+                ["Full Name", emp.name],
+                ["Father Name", emp.fatherName],
+                ["Date of Birth", emp.dob],
+                ["CNIC", emp.cnic],
+                ["Gender", emp.gender],
+                ["Contact 1", emp.contact1],
+                ["Contact 2", emp.contact2 || "N/A"],
+                ["Emergency 1", emp.emergency1],
+                ["Emergency 2", emp.emergency2 || "N/A"],
+                ["Permanent Address", emp.permanentAddress],
+                ["Bank Name", emp.bankName || "Not provided"],
+                ["Bank Account", emp.bankAccount || "Not provided"],
+                ["Payment Mode", emp.paymentMode],
+              ]}
+            />
+          </div>
+          <div className="card" style={{ marginTop: 12 }}>
+            {canEdit && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  marginBottom: 12,
+                }}
+              >
+                <button
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => setJobEditOpen(true)}
+                >
+                  <Pencil size={12} /> Edit Job
+                </button>
+              </div>
+            )}
+            <InfoGrid
+              items={[
+                ["Department", emp.department],
+                ["Designation", emp.designation],
+                ["Employment Type", emp.employmentType],
+                ["Job Status", emp.jobStatus],
+                ["Work Mode", emp.workMode],
+                ["Work Location", emp.workLocation],
+                ["Shift", emp.shift],
+                ["Reporting Manager", emp.reportingManager],
+                ["Date of Joining", emp.dateOfJoining],
+                ["Commission Eligible", emp.commissionEligible ? "Yes" : "No"],
+              ]}
+            />
+            <div style={{ marginTop: 16 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--t3)",
+                  textTransform: "uppercase",
+                  marginBottom: 8,
+                }}
+              >
+                Salary Structure
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: 12,
+                }}
+              >
+                {[
+                  ["Basic", emp.salary.basic],
+                  ["House Rent", emp.salary.houseRent],
+                  ["Medical", emp.salary.medical],
+                  ["Conveyance", emp.salary.conveyance],
+                  ["Commission", emp.salary.commission],
+                ].map(([l, v], i) => (
+                  <div key={i}>
+                    <span style={{ fontSize: 11, color: "var(--t3)" }}>
+                      {l}:{" "}
+                    </span>
+                    <span className="mono" style={{ fontWeight: 600 }}>
+                      {formatPKR(v as number)}
+                    </span>
+                  </div>
+                ))}
+                <div>
                   <span style={{ fontSize: 11, color: "var(--t3)" }}>
-                    {l}:{" "}
+                    Total:{" "}
                   </span>
-                  <span className="mono" style={{ fontWeight: 600 }}>
-                    {formatPKR(v as number)}
+                  <span
+                    className="mono"
+                    style={{ fontWeight: 700, color: "var(--p)" }}
+                  >
+                    {formatPKR(
+                      emp.salary.basic +
+                        emp.salary.houseRent +
+                        emp.salary.medical +
+                        emp.salary.conveyance +
+                        emp.salary.commission,
+                    )}
                   </span>
                 </div>
-              ))}
-              <div>
-                <span style={{ fontSize: 11, color: "var(--t3)" }}>
-                  Total:{" "}
-                </span>
-                <span
-                  className="mono"
-                  style={{ fontWeight: 700, color: "var(--p)" }}
-                >
-                  {formatPKR(
-                    emp.salary.basic +
-                      emp.salary.houseRent +
-                      emp.salary.medical +
-                      emp.salary.conveyance +
-                      emp.salary.commission,
-                  )}
-                </span>
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {tab === "medical" && (
-        <div className="card">
-          <InfoGrid
-            items={[
-              ["Blood Group", emp.bloodGroup],
-              ["Allergies", emp.allergies],
-              ["Chronic Conditions", emp.chronicConditions],
-              ["Medications", emp.medications],
-            ]}
-          />
-        </div>
+          <div className="card" style={{ marginTop: 12 }}>
+            <InfoGrid
+              items={[
+                ["Blood Group", emp.bloodGroup],
+                ["Allergies", emp.allergies],
+                ["Chronic Conditions", emp.chronicConditions],
+                ["Medications", emp.medications],
+              ]}
+            />
+          </div>
+        </>
       )}
 
       {tab === "attendance" && (
-        <div>
-          <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-            {[
-              {
-                label: "Present",
-                val: empAttendance.filter((a: any) => a.status === "Present")
-                  .length,
-                cls: "pill-green",
-              },
-              {
-                label: "Absent",
-                val: empAttendance.filter((a: any) => a.status === "Absent")
-                  .length,
-                cls: "pill-red",
-              },
-              {
-                label: "Late",
-                val: empAttendance.filter((a: any) => a.status === "Late")
-                  .length,
-                cls: "pill-amber",
-              },
-            ].map((s, i) => (
-              <span key={i} className={`pill ${s.cls}`}>
-                {s.label}: {s.val}
-              </span>
-            ))}
-          </div>
-          {/* Attendance Chart */}
-          <div className="card" style={{ marginBottom: 12 }}>
-            <div className="ch">
-              <div className="ct">
-                <div className="ct-ico blue">
-                  <TrendingUp size={13} />
-                </div>
-                Attendance (Last 6 Months)
-              </div>
+        <div style={{ position: "relative", minHeight: 320 }}>
+          <div>
+            <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+              {[
+                {
+                  label: "Present",
+                  val: empAttendance.filter((a: any) => a.status === "Present")
+                    .length,
+                  cls: "pill-green",
+                },
+                {
+                  label: "Absent",
+                  val: empAttendance.filter((a: any) => a.status === "Absent")
+                    .length,
+                  cls: "pill-red",
+                },
+                {
+                  label: "Late",
+                  val: empAttendance.filter((a: any) => a.status === "Late")
+                    .length,
+                  cls: "pill-amber",
+                },
+              ].map((s, i) => (
+                <span key={i} className={`pill ${s.cls}`}>
+                  {s.label}: {s.val}
+                </span>
+              ))}
             </div>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={attChart}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e8edf8" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 10, fill: "#7590a8" }}
-                />
-                <YAxis tick={{ fontSize: 10, fill: "#7590a8" }} />
-                <Tooltip />
-                <Bar
-                  dataKey="present"
-                  fill="#1565c0"
-                  radius={[3, 3, 0, 0]}
-                  barSize={14}
-                />
-                <Bar
-                  dataKey="absent"
-                  fill="#e53935"
-                  radius={[3, 3, 0, 0]}
-                  barSize={14}
-                />
-                <Bar
-                  dataKey="late"
-                  fill="#e67e22"
-                  radius={[3, 3, 0, 0]}
-                  barSize={14}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="card">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Day</th>
-                  <th>Check In</th>
-                  <th>Check Out</th>
-                  <th>Status</th>
-                  <th>Late By</th>
-                </tr>
-              </thead>
-              <tbody>
-                {empAttendance.map((a: any, i: number) => (
-                  <tr key={i}>
-                    <td className="mono">{a.date}</td>
-                    <td>{a.day}</td>
-                    <td className="mono">{a.checkIn}</td>
-                    <td className="mono">{a.checkOut}</td>
-                    <td>
-                      <span className={`pill ${getStatusColor(a.status)}`}>
-                        {a.status}
-                      </span>
-                    </td>
-                    <td className="mono">{a.lateBy || "-"}</td>
+            {/* Attendance Chart */}
+            <div className="card" style={{ marginBottom: 12 }}>
+              <div className="ch">
+                <div className="ct">
+                  <div className="ct-ico blue">
+                    <TrendingUp size={13} />
+                  </div>
+                  Attendance (Last 6 Months)
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={attChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e8edf8" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 10, fill: "#7590a8" }}
+                  />
+                  <YAxis tick={{ fontSize: 10, fill: "#7590a8" }} />
+                  <Tooltip />
+                  <Bar
+                    dataKey="present"
+                    fill="#1565c0"
+                    radius={[3, 3, 0, 0]}
+                    barSize={14}
+                  />
+                  <Bar
+                    dataKey="absent"
+                    fill="#e53935"
+                    radius={[3, 3, 0, 0]}
+                    barSize={14}
+                  />
+                  <Bar
+                    dataKey="late"
+                    fill="#e67e22"
+                    radius={[3, 3, 0, 0]}
+                    barSize={14}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="card">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Day</th>
+                    <th>Check In</th>
+                    <th>Check Out</th>
+                    <th>Status</th>
+                    <th>Late By</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {empAttendance.map((a: any, i: number) => (
+                    <tr key={i}>
+                      <td className="mono">{a.date}</td>
+                      <td>{a.day}</td>
+                      <td className="mono">{a.checkIn}</td>
+                      <td className="mono">{a.checkOut}</td>
+                      <td>
+                        <span className={`pill ${getStatusColor(a.status)}`}>
+                          {a.status}
+                        </span>
+                      </td>
+                      <td className="mono">{a.lateBy || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+          <ComingSoonOverlay />
         </div>
       )}
 
       {tab === "leave" && (
-        <div>
-          <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-            {[
-              { type: "Annual", used: 5, total: 12, color: "var(--p)" },
-              { type: "Casual", used: 2, total: 12, color: "var(--green)" },
-              { type: "Medical", used: 0, total: 8, color: "var(--teal)" },
-            ].map((b, i) => (
-              <div
-                key={i}
-                className="card"
-                style={{ flex: 1, textAlign: "center" }}
-              >
+        <div style={{ position: "relative", minHeight: 320 }}>
+          <div>
+            <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+              {[
+                { type: "Annual", used: 5, total: 12, color: "var(--p)" },
+                { type: "Casual", used: 2, total: 12, color: "var(--green)" },
+                { type: "Medical", used: 0, total: 8, color: "var(--teal)" },
+              ].map((b, i) => (
                 <div
-                  style={{ fontSize: 11, color: "var(--t3)", marginBottom: 4 }}
+                  key={i}
+                  className="card"
+                  style={{ flex: 1, textAlign: "center" }}
                 >
-                  {b.type}
-                </div>
-                <div
-                  className="mono"
-                  style={{ fontSize: 18, fontWeight: 800, color: b.color }}
-                >
-                  {b.total - b.used}
-                  <span style={{ fontSize: 12, color: "var(--t3)" }}>
-                    {" "}
-                    / {b.total}
-                  </span>
-                </div>
-                <div className="progress-bar" style={{ marginTop: 6 }}>
                   <div
-                    className="progress-fill"
                     style={{
-                      width: `${((b.total - b.used) / b.total) * 100}%`,
-                      background: b.color,
+                      fontSize: 11,
+                      color: "var(--t3)",
+                      marginBottom: 4,
                     }}
-                  />
+                  >
+                    {b.type}
+                  </div>
+                  <div
+                    className="mono"
+                    style={{ fontSize: 18, fontWeight: 800, color: b.color }}
+                  >
+                    {b.total - b.used}
+                    <span style={{ fontSize: 12, color: "var(--t3)" }}>
+                      {" "}
+                      / {b.total}
+                    </span>
+                  </div>
+                  <div className="progress-bar" style={{ marginTop: 6 }}>
+                    <div
+                      className="progress-fill"
+                      style={{
+                        width: `${((b.total - b.used) / b.total) * 100}%`,
+                        background: b.color,
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-          <div className="card">
-            <table>
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>From</th>
-                  <th>To</th>
-                  <th>Days</th>
-                  <th>Reason</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {empLeaves.map((l: any, i: number) => (
-                  <tr key={i}>
-                    <td>{l.leaveType}</td>
-                    <td className="mono">{l.from}</td>
-                    <td className="mono">{l.to}</td>
-                    <td className="mono">{l.days}</td>
-                    <td>{l.reason}</td>
-                    <td>
-                      <span className={`pill ${getStatusColor(l.status)}`}>
-                        {l.status}
-                      </span>
-                    </td>
+              ))}
+            </div>
+            <div className="card">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Days</th>
+                    <th>Reason</th>
+                    <th>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {empLeaves.map((l: any, i: number) => (
+                    <tr key={i}>
+                      <td>{l.leaveType}</td>
+                      <td className="mono">{l.from}</td>
+                      <td className="mono">{l.to}</td>
+                      <td className="mono">{l.days}</td>
+                      <td>{l.reason}</td>
+                      <td>
+                        <span className={`pill ${getStatusColor(l.status)}`}>
+                          {l.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+          <ComingSoonOverlay />
+        </div>
+      )}
+
+      {tab === "settings" && (
+        <div style={{ position: "relative", minHeight: 280 }}>
+          <div className="card">
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>
+              Account Settings
+            </div>
+            {canResendCredentials ? (
+              <button
+                className="btn btn-primary"
+                onClick={handleResendCredentials}
+                disabled={isResendingCredentials}
+              >
+                {isResendingCredentials ? "Sending..." : "Resend Credentials"}
+              </button>
+            ) : (
+              <p style={{ fontSize: 12, color: "var(--t3)" }}>
+                You do not have permission to resend credentials.
+              </p>
+            )}
+          </div>
+          <ComingSoonOverlay />
         </div>
       )}
 
@@ -1269,6 +1484,316 @@ export default function EmployeeDetail() {
           ))}
         </div>
       )}
+
+      <Modal
+        open={personalEditOpen}
+        onClose={() => setPersonalEditOpen(false)}
+        title="Edit Personal Info"
+        footer={
+          <>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setPersonalEditOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleSavePersonal}
+              disabled={isUpdatingPersonal}
+            >
+              {isUpdatingPersonal ? "Saving..." : "Save Changes"}
+            </button>
+          </>
+        }
+      >
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Full Name</label>
+            <input
+              className="input"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Father Name</label>
+            <input
+              className="input"
+              value={editFatherName}
+              onChange={(e) => setEditFatherName(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">CNIC</label>
+            <input
+              className="input"
+              value={editCnic}
+              onChange={(e) => setEditCnic(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Date of Birth</label>
+            <input
+              className="input"
+              type="date"
+              value={editDob}
+              onChange={(e) => setEditDob(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Gender</label>
+            <input
+              className="input"
+              value={editGender}
+              onChange={(e) => setEditGender(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Contact 1</label>
+            <input
+              className="input"
+              value={editContact1}
+              onChange={(e) => setEditContact1(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Emergency Contact 1</label>
+            <input
+              className="input"
+              value={editEmergency1}
+              onChange={(e) => setEditEmergency1(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Emergency Contact 2</label>
+            <input
+              className="input"
+              value={editEmergency2}
+              onChange={(e) => setEditEmergency2(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">Permanent Address</label>
+            <textarea
+              className="input"
+              rows={2}
+              value={editPermanentAddress}
+              onChange={(e) => setEditPermanentAddress(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">Postal Address</label>
+            <textarea
+              className="input"
+              rows={2}
+              value={editPostalAddress}
+              onChange={(e) => setEditPostalAddress(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Blood Group</label>
+            <input
+              className="input"
+              value={editBloodGroup}
+              onChange={(e) => setEditBloodGroup(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Allergies</label>
+            <input
+              className="input"
+              value={editAllergies}
+              onChange={(e) => setEditAllergies(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">Chronic Conditions</label>
+            <textarea
+              className="input"
+              rows={2}
+              value={editChronic}
+              onChange={(e) => setEditChronic(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group" style={{ flex: 1 }}>
+            <label className="form-label">Medications</label>
+            <textarea
+              className="input"
+              rows={2}
+              value={editMedications}
+              onChange={(e) => setEditMedications(e.target.value)}
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={jobEditOpen}
+        onClose={() => setJobEditOpen(false)}
+        title="Edit Job Details"
+        footer={
+          <>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setJobEditOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleSaveJob}
+              disabled={isUpdatingJob}
+            >
+              {isUpdatingJob ? "Saving..." : "Save Changes"}
+            </button>
+          </>
+        }
+      >
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Department</label>
+            <input
+              className="input"
+              value={editDepartment}
+              onChange={(e) => setEditDepartment(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Designation</label>
+            <input
+              className="input"
+              value={editDesignation}
+              onChange={(e) => setEditDesignation(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Employment Type</label>
+            <input
+              className="input"
+              value={editEmploymentType}
+              onChange={(e) => setEditEmploymentType(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Job Status</label>
+            <input
+              className="input"
+              value={editJobStatus}
+              onChange={(e) => setEditJobStatus(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Work Mode</label>
+            <input
+              className="input"
+              value={editWorkMode}
+              onChange={(e) => setEditWorkMode(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Work Location</label>
+            <input
+              className="input"
+              value={editWorkLocation}
+              onChange={(e) => setEditWorkLocation(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Shift</label>
+            <input
+              className="input"
+              value={editShift}
+              onChange={(e) => setEditShift(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Manager</label>
+            <input
+              className="input"
+              value={editReportingManager}
+              onChange={(e) => setEditReportingManager(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Date of Joining</label>
+            <input
+              className="input"
+              type="date"
+              value={editDateOfJoining}
+              onChange={(e) => setEditDateOfJoining(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Date of Exit</label>
+            <input
+              className="input"
+              type="date"
+              value={editDateOfExit}
+              onChange={(e) => setEditDateOfExit(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="form-row" style={{ alignItems: "center", gap: 12 }}>
+          <label className="form-label" style={{ marginRight: 10 }}>
+            Commission Eligible
+          </label>
+          <input
+            type="checkbox"
+            checked={editCommissionEligible}
+            onChange={(e) => setEditCommissionEligible(e.target.checked)}
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        open={resendModalOpen}
+        onClose={() => {
+          setResendModalOpen(false);
+          setTempPassword(null);
+        }}
+        title="Temporary Password"
+      >
+        <p style={{ fontSize: 13, marginBottom: 12 }}>
+          Share this password with the employee securely. It will not be sent
+          automatically.
+        </p>
+        <div
+          className="mono"
+          style={{
+            padding: 12,
+            background: "var(--hover)",
+            borderRadius: 8,
+            fontWeight: 700,
+          }}
+        >
+          {tempPassword || "—"}
+        </div>
+      </Modal>
     </div>
   );
 }

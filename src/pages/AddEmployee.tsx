@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
-import { useData } from '../context/DataContext';
-import { useNavigate } from 'react-router-dom';
-import { formatPKR } from '../services/api';
-import { Check, Lock, Upload, FileText, X, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
-import DecisionBanner from '../components/common/DecisionBanner';
-import { useToastContext } from '../context/ToastContext';
+import React, { useState, useEffect } from "react";
+import { useData } from "../context/DataContext";
+import { useNavigate } from "react-router-dom";
+import { formatPKR } from "../services/api";
+import {
+  Check,
+  Lock,
+  Upload,
+  FileText,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  UserPlus,
+} from "lucide-react";
+import DecisionBanner from "../components/common/DecisionBanner";
+import { useToastContext } from "../context/ToastContext";
 
 // ─── Attractive CSS matching Dashboard aesthetic ──────────────────────────────
 const S = `
@@ -123,23 +132,44 @@ const S = `
   .step-info{font-size:12px;color:#9ca3af;font-weight:500;}
 `;
 
-const STEPS = ['Employee Info', 'Extra Info', 'Bank', 'Medical', 'Job Info', 'User Creation'];
-
-const STEP_COLORS = [
-  '#6366f1','#ec4899','#f97316','#14b8a6','#10b981','#a855f7','#06b6d4','#8b5cf6'
+const STEPS = [
+  "Personal Info",
+  "Job Info",
+  "Account",
+  "Emergency Contacts",
+  "Bank Info",
+  "Medical Info",
+  "Salary",
+  "Allowances",
 ];
 
-import { 
-  useDepartments, useDesignations, useEmploymentTypes, 
-  useJobStatuses, useWorkModes, useWorkLocations, 
-  useShifts, useReportingManagers 
-} from '../hooks/useConfig';
-import { useEmployees } from '../hooks/useEmployees';
+const STEP_COLORS = [
+  "#6366f1",
+  "#ec4899",
+  "#f97316",
+  "#14b8a6",
+  "#10b981",
+  "#a855f7",
+  "#06b6d4",
+  "#8b5cf6",
+];
+
+import {
+  useDepartments,
+  useDesignations,
+  useEmploymentTypes,
+  useJobStatuses,
+  useWorkModes,
+  useWorkLocations,
+  useShifts,
+  useRoles,
+} from "../hooks/useConfig";
+import { useEmployees } from "../hooks/useEmployees";
 
 export default function AddEmployee() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
-  
+
   const { data: deptData = [] } = useDepartments();
   const { data: desigData = [] } = useDesignations();
   const { data: empTypeData = [] } = useEmploymentTypes();
@@ -147,128 +177,269 @@ export default function AddEmployee() {
   const { data: wModeData = [] } = useWorkModes();
   const { data: wLocData = [] } = useWorkLocations();
   const { data: shiftsData = [] } = useShifts();
-  const { data: rmData = [] } = useReportingManagers();
+  const { data: roleData = [] } = useRoles();
 
-  const departments = deptData.map((d: any) => d.name);
-  const designations = desigData.map((d: any) => d.name);
-  const employmentTypes = empTypeData.map((d: any) => d.name);
-  const jobStatuses = jobStatData.map((d: any) => d.name);
-  const workModes = wModeData.map((d: any) => d.name);
-  const workLocations = wLocData.map(
-    (d: any) =>
+  const departments = deptData.map((d: any) => ({ id: d.id, name: d.name ?? d.title }));
+  const designations = desigData.map((d: any) => ({ id: d.id, name: d.name ?? d.title }));
+  const roles = roleData.map((d: any) => d.name ?? d.title ?? d.role ?? d.id);
+  const employmentTypes = empTypeData.map((d: any) => ({ id: d.id, name: d.name ?? d.title }));
+  const jobStatuses = jobStatData.map((d: any) => ({ id: d.id, name: d.name ?? d.title }));
+  const workModes = wModeData.map((d: any) => ({ id: d.id, name: d.name ?? d.title }));
+  const workLocations = wLocData.map((d: any) => ({
+    id: d.id,
+    name:
       d.name ??
       d.title ??
       d.location_name ??
       d.work_location_name ??
       d.workLocation,
-  );
-  const shifts = shiftsData;
-  const reportingManagers = rmData.map((d: any) => d.name);
+  }));
+  const shifts = shiftsData.map((s: any) => ({
+    id: s.id,
+    name: s.name ?? s.title ?? s.shift_name,
+    start: s.start ?? s.start_time ?? s.startTime ?? s.start_at,
+    end: s.end ?? s.end_time ?? s.endTime ?? s.end_at,
+  }));
 
   const { create: addEmployee } = useEmployees();
 
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [direction, setDirection] = useState<'left' | 'right'>('right');
+  const [direction, setDirection] = useState<"left" | "right">("right");
   const [animating, setAnimating] = useState(false);
 
   // ── All logic identical to original ──────────────────────────────────────────
   const handleNumberChange = (val: string, setter: (v: string) => void) => {
-    const digits = val.replace(/\D/g, '');
+    const digits = val.replace(/\D/g, "");
     if (digits.length <= 11) setter(digits);
   };
   const handleTextChange = (val: string, setter: (v: string) => void) => {
-    const letters = val.replace(/[^a-zA-Z\s]/g, '');
+    const letters = val.replace(/[^a-zA-Z\s]/g, "");
     setter(letters);
   };
 
-  const [fullName, setFullName] = useState('');
-  const [employeeIdInput, setEmployeeIdInput] = useState('');
-  const [fatherName, setFatherName] = useState('');
-  const [cnic, setCnic] = useState('');
-  const [dob, setDob] = useState('');
-  const [gender, setGender] = useState('Male');
-  const [contact1, setContact1] = useState('');
-  const [contact2, setContact2] = useState('');
-  const [ice1, setIce1] = useState('');
-  const [ice2, setIce2] = useState('');
-  const [permAddress, setPermAddress] = useState('');
-  const [postAddress, setPostAddress] = useState('');
+  const [fullName, setFullName] = useState("");
+  const [employeeIdInput, setEmployeeIdInput] = useState("");
+  const [fatherName, setFatherName] = useState("");
+  const [cnic, setCnic] = useState("");
+  const [dob, setDob] = useState("");
+  const [gender, setGender] = useState("Male");
+  const [contact1, setContact1] = useState("");
+  const [contact2, setContact2] = useState("");
+  const [ice1, setIce1] = useState("");
+  const [ice2, setIce2] = useState("");
+  const [permAddress, setPermAddress] = useState("");
+  const [postAddress, setPostAddress] = useState("");
   const [sameAddress, setSameAddress] = useState(false);
-  const [bankName, setBankName] = useState('');
-  const [bankAccount, setBankAccount] = useState('');
-  const [paymentMode, setPaymentMode] = useState('Online Transfer');
-  const [dept, setDept] = useState(departments[0] || '');
-  const [desig, setDesig] = useState(designations[0] || '');
-  const [empType, setEmpType] = useState(employmentTypes[0] || '');
-  const [jobStat, setJobStat] = useState(jobStatuses[0] || '');
-  const [wMode, setWMode] = useState(workModes[0] || '');
-  const [wLoc, setWLoc] = useState(workLocations[0] || '');
-  const [rm, setRm] = useState(reportingManagers[0] || '');
-  const [shift, setShift] = useState(shifts[0]?.name || '');
-  const [doj, setDoj] = useState('');
-  const [doe, setDoe] = useState('');
-  const [probationEndDate, setProbationEndDate] = useState('');
-  const [contractEndDate, setContractEndDate] = useState('');
-  const [commissionEligible, setCommissionEligible] = useState(false);
+  const [bankName, setBankName] = useState("");
+  const [bankAccount, setBankAccount] = useState("");
+  const [paymentMode, setPaymentMode] = useState("Online Transfer");
+  const [dept, setDept] = useState(departments[0]?.id || "");
+  const [desig, setDesig] = useState(designations[0]?.id || "");
+  const [empType, setEmpType] = useState(employmentTypes[0]?.id || "");
+  const [jobStat, setJobStat] = useState(jobStatuses[0]?.id || "");
+  const [wMode, setWMode] = useState(workModes[0]?.id || "");
+  const [wLoc, setWLoc] = useState(workLocations[0]?.id || "");
+  const [shift, setShift] = useState(shifts[0]?.id || "");
+  const [doj, setDoj] = useState("");
+  const [doe, setDoe] = useState("");
+  const [probationEndDate, setProbationEndDate] = useState("");
+  const [contractEndDate, setContractEndDate] = useState("");
   const [salBasic, setSalBasic] = useState(0);
   const [salHouse, setSalHouse] = useState(0);
   const [salMedical, setSalMedical] = useState(0);
   const [salConveyance, setSalConveyance] = useState(0);
-  const [salCommission, setSalCommission] = useState(0);
-  const [bloodGroup, setBloodGroup] = useState('');
-  const [allergies, setAllergies] = useState('');
-  const [chronic, setChronic] = useState('');
-  const [medications, setMedications] = useState('');
-  const [accountMethod, setAccountMethod] = useState<'A' | 'B'>('A');
-  const [username, setUsername] = useState('');
-  const [tempPassword, setTempPassword] = useState('');
-  const [empEmail, setEmpEmail] = useState('');
+  const [bloodGroup, setBloodGroup] = useState("");
+  const [allergies, setAllergies] = useState("");
+  const [chronic, setChronic] = useState("");
+  const [medications, setMedications] = useState("");
+  const [accountMethod, setAccountMethod] = useState<"A" | "B">("A");
+  const [username, setUsername] = useState("");
+  const [tempPassword, setTempPassword] = useState("");
+  const [empEmail, setEmpEmail] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const selectedShift = shifts.find((s: any) => s.name === shift);
-  const totalSalary = salBasic + salHouse + salMedical + salConveyance + (commissionEligible ? salCommission : 0);
+  const selectedDept = departments.find((d: any) => d.id === dept);
+  const selectedDesig = designations.find((d: any) => d.id === desig);
+  const selectedShift = shifts.find((s: any) => s.id === shift);
+  const shiftTiming =
+    selectedShift?.start && selectedShift?.end
+      ? `${selectedShift.start} – ${selectedShift.end} PKT`
+      : "";
+  const totalSalary = salBasic + salHouse + salMedical + salConveyance;
 
   const formatCnic = (val: string) => {
-    const digits = val.replace(/\D/g, '').slice(0, 13);
+    const digits = val.replace(/\D/g, "").slice(0, 13);
     if (digits.length <= 5) return digits;
-    if (digits.length <= 12) return digits.slice(0, 5) + '-' + digits.slice(5);
-    return digits.slice(0, 5) + '-' + digits.slice(5, 12) + '-' + digits.slice(12);
+    if (digits.length <= 12) return digits.slice(0, 5) + "-" + digits.slice(5);
+    return (
+      digits.slice(0, 5) + "-" + digits.slice(5, 12) + "-" + digits.slice(12)
+    );
   };
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
-    if (step === 0) { if (!fullName.trim()) e.fullName = 'Required'; if (!cnic.trim()) e.cnic = 'Required'; }
+    if (step === 0) {
+      if (!fullName.trim()) e.fullName = "Required";
+      if (!cnic.trim()) e.cnic = "Required";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const goNext = () => { if (!validate()) return; if (step < STEPS.length - 1) { setDirection('right'); setAnimating(true); setTimeout(() => { setStep(step + 1); setAnimating(false); }, 300); } };
-  const goBack = () => { if (step > 0) { setDirection('left'); setAnimating(true); setTimeout(() => { setStep(step - 1); setAnimating(false); }, 300); } };
+  const [allowances, setAllowances] = useState<
+    { allowance_type_id: string; amount: number; is_percentage: boolean }[]
+  >([]);
+  const [empPhone, setEmpPhone] = useState("");
+  const [roleId, setRoleId] = useState("");
+  const [salaryEffectiveFrom, setSalaryEffectiveFrom] = useState("");
+  const [currency, setCurrency] = useState("PKR");
+  const [revisionType, setRevisionType] = useState<"flat" | "percentage">(
+    "flat",
+  );
+  const [revisionPercent, setRevisionPercent] = useState(0);
+  const [revisionReason, setRevisionReason] = useState("");
+  const [createdTempPassword, setCreatedTempPassword] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (step > 0 || fullName.trim()) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [step, fullName]);
+
+  useEffect(() => {
+    if (!dept && departments[0]?.id) setDept(departments[0].id);
+    if (!desig && designations[0]?.id) setDesig(designations[0].id);
+    if (!empType && employmentTypes[0]?.id) setEmpType(employmentTypes[0].id);
+    if (!jobStat && jobStatuses[0]?.id) setJobStat(jobStatuses[0].id);
+    if (!wMode && workModes[0]?.id) setWMode(workModes[0].id);
+    if (!wLoc && workLocations[0]?.id) setWLoc(workLocations[0].id);
+    if (!shift && shifts[0]?.id) setShift(shifts[0].id);
+  }, [
+    dept,
+    desig,
+    empType,
+    jobStat,
+    wMode,
+    wLoc,
+    shift,
+    departments,
+    designations,
+    employmentTypes,
+    jobStatuses,
+    workModes,
+    workLocations,
+    shifts,
+  ]);
+
+  const goNext = () => {
+    if (!validate()) return;
+    if (step < STEPS.length - 1) {
+      setDirection("right");
+      setAnimating(true);
+      setTimeout(() => {
+        setStep(step + 1);
+        setAnimating(false);
+      }, 300);
+    }
+  };
+  const goBack = () => {
+    if (step > 0) {
+      setDirection("left");
+      setAnimating(true);
+      setTimeout(() => {
+        setStep(step - 1);
+        setAnimating(false);
+      }, 300);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await addEmployee({
-        employee_id: employeeIdInput || 'EMP' + String(Date.now()).slice(-3),
-        name: fullName, fatherName, dob, cnic, gender, department: dept, designation: desig,
-        employmentType: empType, jobStatus: jobStat, workMode: wMode, workLocation: wLoc,
-        shift, reportingManager: rm, dateOfJoining: doj, dateOfExit: doe || undefined,
-        probation_end_date: probationEndDate || undefined,
-        contract_end_date: contractEndDate || undefined,
-        contact1, contact2, emergency1: ice1, emergency2: ice2,
-        permanentAddress: permAddress, postalAddress: sameAddress ? permAddress : postAddress,
-        bankName, bankAccount, paymentMode, bloodGroup, allergies, chronicConditions: chronic,
-        medications, avatar: fullName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
-        commissionEligible,
-        salary: { basic: salBasic, houseRent: salHouse, medical: salMedical, conveyance: salConveyance, commission: commissionEligible ? salCommission : 0 },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+      const result = await addEmployee({
+        personalInfo: {
+          employee_id: employeeIdInput || undefined,
+          name: fullName,
+          father_name: fatherName,
+          cnic,
+          date_of_birth: dob || undefined,
+        },
+        jobInfo: {
+          department_id: dept,
+          designation_id: desig,
+          employment_type_id: empType,
+          job_status_id: jobStat,
+          work_mode_id: wMode,
+          work_location_id: wLoc,
+          shift_id: shift,
+          date_of_joining: doj,
+          date_of_exit: doe || undefined,
+          probation_end_date: probationEndDate || undefined,
+          contract_end_date: contractEndDate || undefined,
+        },
+        accountInfo: {
+          email: empEmail || username,
+          phone: empPhone || contact1,
+          role_id: roleId || undefined,
+          account_method: accountMethod,
+          username:
+            accountMethod === "A"
+              ? username || fullName.toLowerCase().replace(/\s+/g, ".")
+              : undefined,
+          temp_password:
+            accountMethod === "A" ? tempPassword || undefined : undefined,
+        },
+        emergencyContacts: {
+          contact_1: contact1,
+          contact_2: contact2,
+          perment_address: permAddress,
+          postal_address: sameAddress ? permAddress : postAddress,
+        },
+        bankInfo: {
+          bank_name: bankName,
+          account_number: bankAccount,
+          payment_mode: paymentMode,
+        },
+        medicalInfo: {
+          blood_group: bloodGroup,
+          gender,
+          allergy_notes: allergies,
+          chronic_condition_notes: chronic,
+          emergency_medication: medications,
+        },
+        salaryInfo: {
+          base_salary: salBasic,
+          currency,
+          effective_from: salaryEffectiveFrom || doj,
+          revision_type: revisionType,
+          revision_percent:
+            revisionType === "percentage" ? revisionPercent : undefined,
+          revision_reason: revisionReason,
+        },
+        allowances: allowances.length ? allowances : undefined,
       });
-      showToast('Employee saved successfully'); 
-      navigate('/employees');
-    } catch (e) {
-      showToast('Failed to save employee', 'error');
+      const pwd =
+        result?.tempPassword ?? result?.temp_password ?? tempPassword ?? null;
+      if (pwd) setCreatedTempPassword(pwd);
+      else {
+        showToast("Employee saved successfully");
+        navigate("/employees");
+      }
+    } catch (e: any) {
+      const code = e?.response?.data?.error?.code;
+      if (code === "DUPLICATE_CNIC")
+        showToast("An employee with this CNIC already exists.", "error");
+      else if (code === "DUPLICATE_EMAIL")
+        showToast("An account with this email already exists.", "error");
+      else showToast("Failed to save employee", "error");
     } finally {
       setSaving(false);
     }
@@ -277,189 +448,608 @@ export default function AddEmployee() {
   // ── Step colors for section badge ──
   const stepColor = STEP_COLORS[step];
 
-  // ── renderStep (restructured to match backend 6-step workflow) ─────────────────
+  const STEP_CONTENT = [0, 4, 5, 1, 2, 3, 6, 7] as const;
+
   const renderStep = () => {
-    switch (step) {
-      case 0: return (
-        <div className={direction === 'right' ? 'step-slide-r' : 'step-slide-l'}>
-          <div className="form-sec-head">
-            <span style={{ fontSize: 18 }}>👤</span>
-            <span className="form-sec-title">Employee Information</span>
-            <span className="form-sec-badge" style={{ background: '#eff6ff', color: '#6366f1', marginLeft: 'auto' }}>Step 1 of 6</span>
-          </div>
-          <div className="add-form-row-3">
-            <div className="add-form-group">
-              <label className="add-label">Employee ID</label>
-              <div style={{ position: 'relative' }}>
-                <input className="add-input mono add-input-readonly" value="EMP006" disabled />
-                <Lock size={12} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+    switch (STEP_CONTENT[step]) {
+      case 0:
+        return (
+          <div
+            className={direction === "right" ? "step-slide-r" : "step-slide-l"}
+          >
+            <div className="form-sec-head">
+              <span style={{ fontSize: 18 }}>👤</span>
+              <span className="form-sec-title">Employee Information</span>
+              <span
+                className="form-sec-badge"
+                style={{
+                  background: "#eff6ff",
+                  color: "#6366f1",
+                  marginLeft: "auto",
+                }}
+              >
+                Step 1 of 8
+              </span>
+            </div>
+            <div className="add-form-row-3">
+              <div className="add-form-group">
+                <label className="add-label">Employee ID</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    className="add-input mono"
+                    placeholder="Enter ID"
+                    value={employeeIdInput}
+                    onChange={(e) => setEmployeeIdInput(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">
+                  Full Name <span>*</span>
+                </label>
+                <input
+                  className={`add-input${errors.fullName ? " error" : ""}`}
+                  placeholder="Enter full name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+                {errors.fullName && (
+                  <div className="add-err">{errors.fullName}</div>
+                )}
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Father Name</label>
+                <input
+                  className="add-input"
+                  value={fatherName}
+                  onChange={(e) => setFatherName(e.target.value)}
+                />
               </div>
             </div>
-            <div className="add-form-group">
-              <label className="add-label">Full Name <span>*</span></label>
-              <input className={`add-input${errors.fullName ? ' error' : ''}`} placeholder="Enter full name" value={fullName} onChange={e => setFullName(e.target.value)} />
-              {errors.fullName && <div className="add-err">{errors.fullName}</div>}
-            </div>
-            <div className="add-form-group">
-              <label className="add-label">Father Name</label>
-              <input className="add-input" value={fatherName} onChange={e => setFatherName(e.target.value)} />
-            </div>
-          </div>
-          <div className="add-form-row-3">
-            <div className="add-form-group">
-              <label className="add-label">CNIC <span>*</span></label>
-              <input className={`add-input mono${errors.cnic ? ' error' : ''}`} placeholder="00000-0000000-0" value={cnic} onChange={e => setCnic(formatCnic(e.target.value))} />
-              {errors.cnic && <div className="add-err">{errors.cnic}</div>}
-            </div>
-            <div className="add-form-group">
-              <label className="add-label">Date of Birth</label>
-              <input className="add-input" type="date" value={dob} onChange={e => setDob(e.target.value)} />
-            </div>
-            <div className="add-form-group">
-              <label className="add-label">Gender</label>
-              <select className="add-select" value={gender} onChange={e => setGender(e.target.value)}>
-                <option>Male</option><option>Female</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      );
-
-      case 1: return (
-        <div className={direction === 'right' ? 'step-slide-r' : 'step-slide-l'}>
-          <div className="form-sec-head">
-            <span style={{ fontSize: 18 }}>📞</span>
-            <span className="form-sec-title">Extra Information</span>
-            <span className="form-sec-badge" style={{ background: '#fdf2f8', color: '#db2777', marginLeft: 'auto' }}>Step 2 of 6</span>
-          </div>
-          <div className="add-form-row">
-            <div className="add-form-group"><label className="add-label">Contact 1 *</label><input className="add-input" value={contact1} onChange={e => handleNumberChange(e.target.value, setContact1)} /></div>
-            <div className="add-form-group"><label className="add-label">Contact 2</label><input className="add-input" value={contact2} onChange={e => handleNumberChange(e.target.value, setContact2)} /></div>
-          </div>
-          <div className="add-form-row">
-            <div className="add-form-group"><label className="add-label">ICE 1</label><input className="add-input" value={ice1} onChange={e => handleNumberChange(e.target.value, setIce1)} /></div>
-            <div className="add-form-group"><label className="add-label">ICE 2</label><input className="add-input" value={ice2} onChange={e => handleNumberChange(e.target.value, setIce2)} /></div>
-          </div>
-          <div className="add-form-group" style={{ marginBottom: 10 }}>
-            <label className="add-label">Permanent Address</label>
-            <textarea className="add-textarea" rows={2} value={permAddress} onChange={e => setPermAddress(e.target.value)} />
-          </div>
-          <label className="add-check-label" style={{ marginBottom: 10 }}>
-            <input type="checkbox" checked={sameAddress} onChange={e => { setSameAddress(e.target.checked); if (e.target.checked) setPostAddress(permAddress); }} />
-            Same as permanent address
-          </label>
-          <div className="add-form-group">
-            <label className="add-label">Postal Address</label>
-            <textarea className="add-textarea" rows={2} value={sameAddress ? permAddress : postAddress} onChange={e => setPostAddress(e.target.value)} disabled={sameAddress} />
-          </div>
-        </div>
-      );
-
-      case 2: return (
-        <div className={direction === 'right' ? 'step-slide-r' : 'step-slide-l'}>
-          <div className="form-sec-head">
-            <span style={{ fontSize: 18 }}>🏦</span>
-            <span className="form-sec-title">Bank Details</span>
-            <span className="form-sec-badge" style={{ background: '#fff7ed', color: '#c2410c', marginLeft: 'auto' }}>Step 3 of 6</span>
-          </div>
-          <div className="add-form-row">
-            <div className="add-form-group">
-              <label className="add-label">Bank Name</label>
-              <input className="add-input" placeholder="e.g. HBL, Alfalah" value={bankName} onChange={e => handleTextChange(e.target.value, setBankName)} />
-            </div>
-            <div className="add-form-group">
-              <label className="add-label">Account Number</label>
-              <input className="add-input mono" placeholder="Numbers only" value={bankAccount} onChange={e => handleNumberChange(e.target.value, setBankAccount)} />
-            </div>
-          </div>
-          <div className="add-form-group">
-            <label className="add-label">Payment Mode</label>
-            <select className="add-select" value={paymentMode} onChange={e => setPaymentMode(e.target.value)}>
-              <option>Cash</option><option>Online Transfer</option><option>Cheque</option>
-            </select>
-          </div>
-        </div>
-      );
-
-      case 3: return (
-        <div className={direction === 'right' ? 'step-slide-r' : 'step-slide-l'}>
-          <div className="form-sec-head">
-            <span style={{ fontSize: 18 }}>🩺</span>
-            <span className="form-sec-title">Medical Information</span>
-            <span className="form-sec-badge" style={{ background: '#fdf4ff', color: '#a21caf', marginLeft: 'auto' }}>Step 4 of 6</span>
-          </div>
-          <div className="add-form-row">
-            <div className="add-form-group">
-              <label className="add-label">Blood Group</label>
-              <select className="add-select" value={bloodGroup} onChange={e => setBloodGroup(e.target.value)}>
-                <option value="">Select</option>
-                {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(b => <option key={b}>{b}</option>)}
-              </select>
-            </div>
-            <div className="add-form-group">
-              <label className="add-label">Allergies</label>
-              <textarea className="add-textarea" rows={2} placeholder="No numbers allowed" value={allergies} onChange={e => handleTextChange(e.target.value, setAllergies)} />
-            </div>
-          </div>
-          <div className="add-form-row">
-            <div className="add-form-group">
-              <label className="add-label">Chronic Conditions</label>
-              <textarea className="add-textarea" rows={2} placeholder="No numbers allowed" value={chronic} onChange={e => handleTextChange(e.target.value, setChronic)} />
-            </div>
-            <div className="add-form-group">
-              <label className="add-label">Medications</label>
-              <textarea className="add-textarea" rows={2} placeholder="No numbers allowed" value={medications} onChange={e => handleTextChange(e.target.value, setMedications)} />
-            </div>
-          </div>
-        </div>
-      );
-
-      case 4: return (
-        <div className={direction === 'right' ? 'step-slide-r' : 'step-slide-l'}>
-          <div className="form-sec-head">
-            <span style={{ fontSize: 18 }}>💼</span>
-            <span className="form-sec-title">Job Information</span>
-            <span className="form-sec-badge" style={{ background: '#f0fdf4', color: '#15803d', marginLeft: 'auto' }}>Step 5 of 6</span>
-          </div>
-          <div className="add-form-row-3">
-            <div className="add-form-group"><label className="add-label">Department *</label><select className="add-select" value={dept} onChange={e => setDept(e.target.value)}>{departments.map((d: string) => <option key={d}>{d}</option>)}</select></div>
-            <div className="add-form-group"><label className="add-label">Designation *</label><select className="add-select" value={desig} onChange={e => setDesig(e.target.value)}>{designations.map((d: string) => <option key={d}>{d}</option>)}</select></div>
-            <div className="add-form-group"><label className="add-label">Employment Type</label><select className="add-select" value={empType} onChange={e => setEmpType(e.target.value)}>{employmentTypes.map((d: string) => <option key={d}>{d}</option>)}</select></div>
-          </div>
-          <div className="add-form-row-3">
-            <div className="add-form-group"><label className="add-label">Job Status</label><select className="add-select" value={jobStat} onChange={e => setJobStat(e.target.value)}>{jobStatuses.map((d: string) => <option key={d}>{d}</option>)}</select></div>
-            <div className="add-form-group"><label className="add-label">Work Location *</label><select className="add-select" value={wLoc} onChange={e => setWLoc(e.target.value)}>{workLocations.map((d: string) => <option key={d}>{d}</option>)}</select></div>
-            <div className="add-form-group"><label className="add-label">Work Mode</label><select className="add-select" value={wMode} onChange={e => setWMode(e.target.value)}>{workModes.map((d: string) => <option key={d}>{d}</option>)}</select></div>
-          </div>
-          <div className="add-form-row-3">
-            <div className="add-form-group"><label className="add-label">Reporting Manager *</label><select className="add-select" value={rm} onChange={e => setRm(e.target.value)}>{reportingManagers.map((d: string) => <option key={d}>{d}</option>)}</select></div>
-            <div className="add-form-group"><label className="add-label">Shift *</label><select className="add-select" value={shift} onChange={e => setShift(e.target.value)}>{shifts.map((s: any) => <option key={s.name}>{s.name}</option>)}</select></div>
-            <div className="add-form-group"><label className="add-label">Timing</label><input className="add-input mono add-input-readonly" value={selectedShift ? `${selectedShift.start} – ${selectedShift.end} PKT` : ''} readOnly /></div>
-          </div>
-          <div className="add-form-row-3">
-            <div className="add-form-group"><label className="add-label">Date of Joining *</label><input className="add-input" type="date" value={doj} onChange={e => setDoj(e.target.value)} /></div>
-            <div className="add-form-group"><label className="add-label">Date of Exit</label><input className="add-input" type="date" value={doe} onChange={e => setDoe(e.target.value)} /></div>
-            <div className="add-form-group">
-              <label className="add-label">Commission Eligible</label>
-              <div className="add-radio-group">
-                <label className="add-radio-label"><input type="radio" checked={commissionEligible} onChange={() => setCommissionEligible(true)} /> Yes</label>
-                <label className="add-radio-label"><input type="radio" checked={!commissionEligible} onChange={() => setCommissionEligible(false)} /> No</label>
+            <div className="add-form-row-3">
+              <div className="add-form-group">
+                <label className="add-label">
+                  CNIC <span>*</span>
+                </label>
+                <input
+                  className={`add-input mono${errors.cnic ? " error" : ""}`}
+                  placeholder="00000-0000000-0"
+                  value={cnic}
+                  onChange={(e) => setCnic(formatCnic(e.target.value))}
+                />
+                {errors.cnic && <div className="add-err">{errors.cnic}</div>}
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Date of Birth</label>
+                <input
+                  className="add-input"
+                  type="date"
+                  value={dob}
+                  onChange={(e) => setDob(e.target.value)}
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Gender</label>
+                <select
+                  className="add-select"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                >
+                  <option>Male</option>
+                  <option>Female</option>
+                </select>
               </div>
             </div>
           </div>
+        );
 
-          {/* Salary Structure Section */}
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f1f5f9' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b', marginBottom: 16 }}>💰 Salary Structure</div>
-            <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 12 }}>Salary components are configurable from Settings → Payroll Components</div>
+      case 1:
+        return (
+          <div
+            className={direction === "right" ? "step-slide-r" : "step-slide-l"}
+          >
+            <div className="form-sec-head">
+              <span style={{ fontSize: 18 }}>📞</span>
+              <span className="form-sec-title">Extra Information</span>
+              <span
+                className="form-sec-badge"
+                style={{
+                  background: "#fdf2f8",
+                  color: "#db2777",
+                  marginLeft: "auto",
+                }}
+              >
+                Step 4 of 8
+              </span>
+            </div>
+            <div className="add-form-row">
+              <div className="add-form-group">
+                <label className="add-label">Contact 1 *</label>
+                <input
+                  className="add-input"
+                  value={contact1}
+                  onChange={(e) =>
+                    handleNumberChange(e.target.value, setContact1)
+                  }
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Contact 2</label>
+                <input
+                  className="add-input"
+                  value={contact2}
+                  onChange={(e) =>
+                    handleNumberChange(e.target.value, setContact2)
+                  }
+                />
+              </div>
+            </div>
+            <div className="add-form-row">
+              <div className="add-form-group">
+                <label className="add-label">ICE 1</label>
+                <input
+                  className="add-input"
+                  value={ice1}
+                  onChange={(e) => handleNumberChange(e.target.value, setIce1)}
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">ICE 2</label>
+                <input
+                  className="add-input"
+                  value={ice2}
+                  onChange={(e) => handleNumberChange(e.target.value, setIce2)}
+                />
+              </div>
+            </div>
+            <div className="add-form-group" style={{ marginBottom: 10 }}>
+              <label className="add-label">Permanent Address</label>
+              <textarea
+                className="add-textarea"
+                rows={2}
+                value={permAddress}
+                onChange={(e) => setPermAddress(e.target.value)}
+              />
+            </div>
+            <label className="add-check-label" style={{ marginBottom: 10 }}>
+              <input
+                type="checkbox"
+                checked={sameAddress}
+                onChange={(e) => {
+                  setSameAddress(e.target.checked);
+                  if (e.target.checked) setPostAddress(permAddress);
+                }}
+              />
+              Same as permanent address
+            </label>
+            <div className="add-form-group">
+              <label className="add-label">Postal Address</label>
+              <textarea
+                className="add-textarea"
+                rows={2}
+                value={sameAddress ? permAddress : postAddress}
+                onChange={(e) => setPostAddress(e.target.value)}
+                disabled={sameAddress}
+              />
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div
+            className={direction === "right" ? "step-slide-r" : "step-slide-l"}
+          >
+            <div className="form-sec-head">
+              <span style={{ fontSize: 18 }}>🏦</span>
+              <span className="form-sec-title">Bank Details</span>
+              <span
+                className="form-sec-badge"
+                style={{
+                  background: "#fff7ed",
+                  color: "#c2410c",
+                  marginLeft: "auto",
+                }}
+              >
+                Step 5 of 8
+              </span>
+            </div>
+            <div className="add-form-row">
+              <div className="add-form-group">
+                <label className="add-label">Bank Name</label>
+                <input
+                  className="add-input"
+                  placeholder="e.g. HBL, Alfalah"
+                  value={bankName}
+                  onChange={(e) =>
+                    handleTextChange(e.target.value, setBankName)
+                  }
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Account Number</label>
+                <input
+                  className="add-input mono"
+                  placeholder="Numbers only"
+                  value={bankAccount}
+                  onChange={(e) =>
+                    handleNumberChange(e.target.value, setBankAccount)
+                  }
+                />
+              </div>
+            </div>
+            <div className="add-form-group">
+              <label className="add-label">Payment Mode</label>
+              <select
+                className="add-select"
+                value={paymentMode}
+                onChange={(e) => setPaymentMode(e.target.value)}
+              >
+                <option>Cash</option>
+                <option>Online Transfer</option>
+                <option>Cheque</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div
+            className={direction === "right" ? "step-slide-r" : "step-slide-l"}
+          >
+            <div className="form-sec-head">
+              <span style={{ fontSize: 18 }}>🩺</span>
+              <span className="form-sec-title">Medical Information</span>
+              <span
+                className="form-sec-badge"
+                style={{
+                  background: "#fdf4ff",
+                  color: "#a21caf",
+                  marginLeft: "auto",
+                }}
+              >
+                Step 6 of 8
+              </span>
+            </div>
+            <div className="add-form-row">
+              <div className="add-form-group">
+                <label className="add-label">Blood Group</label>
+                <select
+                  className="add-select"
+                  value={bloodGroup}
+                  onChange={(e) => setBloodGroup(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(
+                    (b) => (
+                      <option key={b}>{b}</option>
+                    ),
+                  )}
+                </select>
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Allergies</label>
+                <textarea
+                  className="add-textarea"
+                  rows={2}
+                  placeholder="No numbers allowed"
+                  value={allergies}
+                  onChange={(e) =>
+                    handleTextChange(e.target.value, setAllergies)
+                  }
+                />
+              </div>
+            </div>
+            <div className="add-form-row">
+              <div className="add-form-group">
+                <label className="add-label">Chronic Conditions</label>
+                <textarea
+                  className="add-textarea"
+                  rows={2}
+                  placeholder="No numbers allowed"
+                  value={chronic}
+                  onChange={(e) => handleTextChange(e.target.value, setChronic)}
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Medications</label>
+                <textarea
+                  className="add-textarea"
+                  rows={2}
+                  placeholder="No numbers allowed"
+                  value={medications}
+                  onChange={(e) =>
+                    handleTextChange(e.target.value, setMedications)
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div
+            className={direction === "right" ? "step-slide-r" : "step-slide-l"}
+          >
+            <div className="form-sec-head">
+              <span style={{ fontSize: 18 }}>💼</span>
+              <span className="form-sec-title">Job Information</span>
+              <span
+                className="form-sec-badge"
+                style={{
+                  background: "#f0fdf4",
+                  color: "#15803d",
+                  marginLeft: "auto",
+                }}
+              >
+                Step 2 of 8
+              </span>
+            </div>
+            <div className="add-form-row-3">
+              <div className="add-form-group">
+                <label className="add-label">Department *</label>
+                <select
+                  className="add-select"
+                  value={dept}
+                  onChange={(e) => setDept(e.target.value)}
+                >
+                  {departments.map((d: any) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Designation *</label>
+                <select
+                  className="add-select"
+                  value={desig}
+                  onChange={(e) => setDesig(e.target.value)}
+                >
+                  {designations.map((d: any) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Employment Type</label>
+                <select
+                  className="add-select"
+                  value={empType}
+                  onChange={(e) => setEmpType(e.target.value)}
+                >
+                  {employmentTypes.map((d: any) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="add-form-row-3">
+              <div className="add-form-group">
+                <label className="add-label">Job Status</label>
+                <select
+                  className="add-select"
+                  value={jobStat}
+                  onChange={(e) => setJobStat(e.target.value)}
+                >
+                  {jobStatuses.map((d: any) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Work Location *</label>
+                <select
+                  className="add-select"
+                  value={wLoc}
+                  onChange={(e) => setWLoc(e.target.value)}
+                >
+                  {workLocations.map((d: any) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Work Mode</label>
+                <select
+                  className="add-select"
+                  value={wMode}
+                  onChange={(e) => setWMode(e.target.value)}
+                >
+                  {workModes.map((d: any) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="add-form-row-3">
+              <div className="add-form-group">
+                <label className="add-label">Shift *</label>
+                <select
+                  className="add-select"
+                  value={shift}
+                  onChange={(e) => setShift(e.target.value)}
+                >
+                  {shifts.map((s: any) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Timing</label>
+                <input
+                  className="add-input mono add-input-readonly"
+                  value={shiftTiming}
+                  readOnly
+                />
+              </div>
+            </div>
+            <div className="add-form-row-3">
+              <div className="add-form-group">
+                <label className="add-label">Date of Joining *</label>
+                <input
+                  className="add-input"
+                  type="date"
+                  value={doj}
+                  onChange={(e) => setDoj(e.target.value)}
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Date of Exit</label>
+                <input
+                  className="add-input"
+                  type="date"
+                  value={doe}
+                  onChange={(e) => setDoe(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 6:
+        return (
+          <div
+            className={direction === "right" ? "step-slide-r" : "step-slide-l"}
+          >
+            <div className="form-sec-head">
+              <span style={{ fontSize: 18 }}>💰</span>
+              <span className="form-sec-title">Salary</span>
+              <span
+                className="form-sec-badge"
+                style={{
+                  background: "#f0fdf4",
+                  color: "#15803d",
+                  marginLeft: "auto",
+                }}
+              >
+                Step 7 of 8
+              </span>
+            </div>
+            <div className="add-form-row">
+              <div className="add-form-group">
+                <label className="add-label">Effective From</label>
+                <input
+                  className="add-input"
+                  type="date"
+                  value={salaryEffectiveFrom}
+                  onChange={(e) => setSalaryEffectiveFrom(e.target.value)}
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Currency</label>
+                <input
+                  className="add-input"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="add-form-row">
+              <div className="add-form-group">
+                <label className="add-label">Revision Type</label>
+                <select
+                  className="add-select"
+                  value={revisionType}
+                  onChange={(e) =>
+                    setRevisionType(e.target.value as "flat" | "percentage")
+                  }
+                >
+                  <option value="flat">Flat</option>
+                  <option value="percentage">Percentage</option>
+                </select>
+              </div>
+              {revisionType === "percentage" && (
+                <div className="add-form-group">
+                  <label className="add-label">Revision %</label>
+                  <input
+                    className="add-input"
+                    type="number"
+                    value={revisionPercent}
+                    onChange={(e) => setRevisionPercent(+e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="add-form-group" style={{ marginBottom: 14 }}>
+              <label className="add-label">Revision Reason</label>
+              <input
+                className="add-input"
+                value={revisionReason}
+                onChange={(e) => setRevisionReason(e.target.value)}
+              />
+            </div>
             <table className="sal-table">
-              <thead><tr><th>Component</th><th>Monthly Amount (PKR)</th><th>Include</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  <th>Monthly Amount (PKR)</th>
+                </tr>
+              </thead>
               <tbody>
-                <tr><td>Basic Salary</td><td><input className="add-input mono" type="number" value={salBasic || ''} onChange={e => setSalBasic(+e.target.value)} style={{ width: 160 }} /></td><td><input type="checkbox" defaultChecked /></td></tr>
-                <tr><td>House Rent</td><td><input className="add-input mono" type="number" value={salHouse || ''} onChange={e => setSalHouse(+e.target.value)} style={{ width: 160 }} /></td><td><input type="checkbox" defaultChecked /></td></tr>
-                <tr><td>Medical</td><td><input className="add-input mono" type="number" value={salMedical || ''} onChange={e => setSalMedical(+e.target.value)} style={{ width: 160 }} /></td><td><input type="checkbox" defaultChecked /></td></tr>
-                <tr><td>Conveyance</td><td><input className="add-input mono" type="number" value={salConveyance || ''} onChange={e => setSalConveyance(+e.target.value)} style={{ width: 160 }} /></td><td><input type="checkbox" defaultChecked /></td></tr>
-                {commissionEligible && <tr><td>Commission</td><td><input className="add-input mono" type="number" value={salCommission || ''} onChange={e => setSalCommission(+e.target.value)} style={{ width: 160 }} /></td><td><input type="checkbox" defaultChecked /></td></tr>}
+                <tr>
+                  <td>Basic Salary</td>
+                  <td>
+                    <input
+                      className="add-input mono"
+                      type="number"
+                      value={salBasic || ""}
+                      onChange={(e) => setSalBasic(+e.target.value)}
+                      style={{ width: 160 }}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td>House Rent</td>
+                  <td>
+                    <input
+                      className="add-input mono"
+                      type="number"
+                      value={salHouse || ""}
+                      onChange={(e) => setSalHouse(+e.target.value)}
+                      style={{ width: 160 }}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td>Medical</td>
+                  <td>
+                    <input
+                      className="add-input mono"
+                      type="number"
+                      value={salMedical || ""}
+                      onChange={(e) => setSalMedical(+e.target.value)}
+                      style={{ width: 160 }}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td>Conveyance</td>
+                  <td>
+                    <input
+                      className="add-input mono"
+                      type="number"
+                      value={salConveyance || ""}
+                      onChange={(e) => setSalConveyance(+e.target.value)}
+                      style={{ width: 160 }}
+                    />
+                  </td>
+                </tr>
               </tbody>
             </table>
             <div className="sal-total-box">
@@ -467,82 +1057,280 @@ export default function AddEmployee() {
               <span className="sal-total-val">{formatPKR(totalSalary)}</span>
             </div>
           </div>
-        </div>
-      );
+        );
 
-      case 5: return (
-        <div className={direction === 'right' ? 'step-slide-r' : 'step-slide-l'}>
-          <div className="form-sec-head">
-            <span style={{ fontSize: 18 }}>🔐</span>
-            <span className="form-sec-title">User Creation</span>
-            <span className="form-sec-badge" style={{ background: '#f5f3ff', color: '#7c3aed', marginLeft: 'auto' }}>Step 6 of 6</span>
-          </div>
-          <div className="acc-toggle">
-            <button className={accountMethod === 'A' ? 'active' : 'idle'} onClick={() => setAccountMethod('A')}>HR Creates Credentials</button>
-            <button className={accountMethod === 'B' ? 'active' : 'idle'} onClick={() => setAccountMethod('B')}>Send Invite Link</button>
-          </div>
-          {accountMethod === 'A' ? (
-            <div>
-              <div className="add-form-group" style={{ marginBottom: 14 }}>
-                <label className="add-label">Username</label>
-                <input className="add-input" value={username || fullName.toLowerCase().replace(/\s+/g, '.')} onChange={e => setUsername(e.target.value)} />
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Temporary Password</label>
-                <input className="add-input" type="password" value={tempPassword} onChange={e => setTempPassword(e.target.value)} />
-              </div>
+      case 7:
+        return (
+          <div
+            className={direction === "right" ? "step-slide-r" : "step-slide-l"}
+          >
+            <div className="form-sec-head">
+              <span style={{ fontSize: 18 }}>📋</span>
+              <span className="form-sec-title">Allowances</span>
+              <span
+                className="form-sec-badge"
+                style={{
+                  background: "#f5f3ff",
+                  color: "#7c3aed",
+                  marginLeft: "auto",
+                }}
+              >
+                Step 8 of 8
+              </span>
             </div>
-          ) : (
-            <div>
-              <div className="add-form-group" style={{ marginBottom: 10 }}>
-                <label className="add-label">Employee Email</label>
-                <input className="add-input" type="email" value={empEmail} onChange={e => setEmpEmail(e.target.value)} />
-              </div>
-              <div style={{ fontSize: 11, color: '#9ca3af' }}>Employee will receive a link and set their own password.</div>
-            </div>
-          )}
-
-          {/* Attachments Section */}
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #f1f5f9' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b', marginBottom: 16 }}>📎 Required Attachments</div>
-            <input type="file" id="file-upload" style={{ display: 'none' }} onChange={(e) => alert('File Selected: ' + e.target.files?.[0].name)} />
-            {[
-              { label: 'CNIC Copy', status: 'uploaded', file: 'cnic_scan.pdf' },
-              { label: 'Profile Photo', status: 'uploaded', file: 'photo.jpg' },
-              { label: 'Employment Contract', status: 'missing' },
-            ].map((att, i) => (
-              <div key={i} className="att-row">
-                <FileText size={16} color="#9ca3af" />
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#1e1b4b' }}>{att.label}</span>
-                {att.status === 'uploaded' ? (
-                  <>
-                    <span className="att-pill-green">✓ Uploaded — {att.file}</span>
-                    <button className="att-btn" onClick={() => window.open('#', '_blank')}>View</button>
-                  </>
-                ) : (
-                  <>
-                    <span className="att-pill-amber">⚠ Missing</span>
-                    <button className="att-btn" onClick={() => document.getElementById('file-upload')?.click()}>
-                      <Upload size={11} /> Upload
-                    </button>
-                  </>
-                )}
+            {allowances.map((row, idx) => (
+              <div
+                key={idx}
+                className="add-form-row-3"
+                style={{ marginBottom: 10 }}
+              >
+                <div className="add-form-group">
+                  <label className="add-label">Type ID</label>
+                  <input
+                    className="add-input"
+                    value={row.allowance_type_id}
+                    onChange={(e) => {
+                      const next = [...allowances];
+                      next[idx] = { ...row, allowance_type_id: e.target.value };
+                      setAllowances(next);
+                    }}
+                  />
+                </div>
+                <div className="add-form-group">
+                  <label className="add-label">Amount</label>
+                  <input
+                    className="add-input"
+                    type="number"
+                    value={row.amount}
+                    onChange={(e) => {
+                      const next = [...allowances];
+                      next[idx] = { ...row, amount: +e.target.value };
+                      setAllowances(next);
+                    }}
+                  />
+                </div>
+                <div className="add-form-group">
+                  <label className="add-check-label">
+                    <input
+                      type="checkbox"
+                      checked={row.is_percentage}
+                      onChange={(e) => {
+                        const next = [...allowances];
+                        next[idx] = { ...row, is_percentage: e.target.checked };
+                        setAllowances(next);
+                      }}
+                    />{" "}
+                    Percentage
+                  </label>
+                </div>
               </div>
             ))}
+            <button
+              type="button"
+              className="add-back-btn"
+              onClick={() =>
+                setAllowances([
+                  ...allowances,
+                  { allowance_type_id: "", amount: 0, is_percentage: false },
+                ])
+              }
+            >
+              + Add Allowance Row
+            </button>
           </div>
+        );
 
-          {fullName && (
-            <div className="summary-box">
-              <strong style={{ color: '#1e1b4b' }}>{fullName}</strong>
-              <span style={{ color: '#6b7280' }}> · {dept} · {desig} · {shift}</span><br />
-              <span style={{ color: '#6366f1', fontWeight: 700 }}>Total Package: {formatPKR(totalSalary)}/month</span>
-              {doj && <span style={{ color: '#9ca3af' }}> · Joining: {doj}</span>}
+      case 5:
+        return (
+          <div
+            className={direction === "right" ? "step-slide-r" : "step-slide-l"}
+          >
+            <div className="form-sec-head">
+              <span style={{ fontSize: 18 }}>🔐</span>
+              <span className="form-sec-title">User Creation</span>
+              <span
+                className="form-sec-badge"
+                style={{
+                  background: "#f5f3ff",
+                  color: "#7c3aed",
+                  marginLeft: "auto",
+                }}
+              >
+                Step 3 of 8
+              </span>
             </div>
-          )}
-        </div>
-      );
+            <div className="acc-toggle">
+              <button
+                className={accountMethod === "A" ? "active" : "idle"}
+                onClick={() => setAccountMethod("A")}
+              >
+                HR Creates Credentials
+              </button>
+              <button
+                className={accountMethod === "B" ? "active" : "idle"}
+                onClick={() => setAccountMethod("B")}
+              >
+                Send Invite Link
+              </button>
+            </div>
+            {accountMethod === "A" ? (
+              <div>
+                <div className="add-form-row">
+                  <div className="add-form-group" style={{ marginBottom: 14 }}>
+                    <label className="add-label">Username</label>
+                    <input
+                      className="add-input"
+                      value={
+                        username || fullName.toLowerCase().replace(/\s+/g, ".")
+                      }
+                      onChange={(e) => setUsername(e.target.value)}
+                    />
+                  </div>
+                  <div className="add-form-group">
+                    <label className="add-label">Temporary Password</label>
+                    <input
+                      className="add-input"
+                      type="password"
+                      value={tempPassword}
+                      onChange={(e) => setTempPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="add-form-group" style={{ marginBottom: 10 }}>
+                  <label className="add-label">Employee Email</label>
+                  <input
+                    className="add-input"
+                    type="email"
+                    value={empEmail}
+                    onChange={(e) => setEmpEmail(e.target.value)}
+                  />
+                </div>
+                <div style={{ fontSize: 11, color: "#9ca3af" }}>
+                  Employee will receive a link and set their own password.
+                </div>
+              </div>
+            )}
 
-      default: return null;
+            <div className="add-form-group" style={{ marginTop: 14 }}>
+              <label className="add-label">Role</label>
+              <select
+                className="add-select"
+                value={roleId}
+                onChange={(e) => setRoleId(e.target.value)}
+              >
+                <option value="">Select a role</option>
+                {roles.map((role: string) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Attachments Section */}
+            <div
+              style={{
+                marginTop: 24,
+                paddingTop: 20,
+                borderTop: "1px solid #f1f5f9",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#1e1b4b",
+                  marginBottom: 16,
+                }}
+              >
+                📎 Required Attachments
+              </div>
+              <input
+                type="file"
+                id="file-upload"
+                style={{ display: "none" }}
+                onChange={(e) =>
+                  alert("File Selected: " + e.target.files?.[0].name)
+                }
+              />
+              {[
+                {
+                  label: "CNIC Copy",
+                  status: "uploaded",
+                  file: "cnic_scan.pdf",
+                },
+                {
+                  label: "Profile Photo",
+                  status: "uploaded",
+                  file: "photo.jpg",
+                },
+                { label: "Employment Contract", status: "missing" },
+              ].map((att, i) => (
+                <div key={i} className="att-row">
+                  <FileText size={16} color="#9ca3af" />
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#1e1b4b",
+                    }}
+                  >
+                    {att.label}
+                  </span>
+                  {att.status === "uploaded" ? (
+                    <>
+                      <span className="att-pill-green">
+                        ✓ Uploaded — {att.file}
+                      </span>
+                      <button
+                        className="att-btn"
+                        onClick={() => window.open("#", "_blank")}
+                      >
+                        View
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="att-pill-amber">⚠ Missing</span>
+                      <button
+                        className="att-btn"
+                        onClick={() =>
+                          document.getElementById("file-upload")?.click()
+                        }
+                      >
+                        <Upload size={11} /> Upload
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {fullName && (
+              <div className="summary-box">
+                <strong style={{ color: "#1e1b4b" }}>{fullName}</strong>
+                <span style={{ color: "#6b7280" }}>
+                  {" "}
+                  · {selectedDept?.name || ""} · {selectedDesig?.name || ""} · {selectedShift?.name || ""}
+                </span>
+                <br />
+                <span style={{ color: "#6366f1", fontWeight: 700 }}>
+                  Total Package: {formatPKR(totalSalary)}/month
+                </span>
+                {doj && (
+                  <span style={{ color: "#9ca3af" }}> · Joining: {doj}</span>
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
     }
   };
 
@@ -551,16 +1339,22 @@ export default function AddEmployee() {
     <>
       <style>{S}</style>
       <div className="add-pg">
-
         {/* ══ HEADER ══════════════════════════════════════════════════════════ */}
         <div className="add-head">
           <div>
-            <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>Employees</p>
-            <h1 className="add-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>
+              Employees
+            </p>
+            <h1
+              className="add-title"
+              style={{ display: "flex", alignItems: "center", gap: 10 }}
+            >
               <UserPlus size={24} color="#6366f1" />
               Add Employee
             </h1>
-            <p className="add-sub">Step {step + 1} of {STEPS.length} — {STEPS[step]}</p>
+            <p className="add-sub">
+              Step {step + 1} of {STEPS.length} — {STEPS[step]}
+            </p>
           </div>
         </div>
 
@@ -570,34 +1364,46 @@ export default function AddEmployee() {
             {STEPS.map((s, i) => (
               <React.Fragment key={i}>
                 <div className="step-node">
-                  <div className={`step-circle ${i < step ? 'done' : i === step ? 'active' : 'idle'}`}>
+                  <div
+                    className={`step-circle ${i < step ? "done" : i === step ? "active" : "idle"}`}
+                  >
                     {i < step ? <Check size={13} /> : i + 1}
                   </div>
-                  <div className={`step-label ${i < step ? 'done' : i === step ? 'active' : 'idle'}`}>{s}</div>
+                  <div
+                    className={`step-label ${i < step ? "done" : i === step ? "active" : "idle"}`}
+                  >
+                    {s}
+                  </div>
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div className={`step-line ${i < step ? 'done' : 'idle'}`} />
+                  <div className={`step-line ${i < step ? "done" : "idle"}`} />
                 )}
               </React.Fragment>
             ))}
           </div>
           <div className="add-progress-track">
-            <div className="add-progress-fill" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+            <div
+              className="add-progress-fill"
+              style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+            />
           </div>
         </div>
 
         {/* ══ STEP CONTENT CARD ═══════════════════════════════════════════════ */}
-        <div className="add-card-body">
-          {renderStep()}
-        </div>
+        <div className="add-card-body">{renderStep()}</div>
 
         {/* ══ FOOTER NAV ══════════════════════════════════════════════════════ */}
         <div className="add-footer">
-          <button className="add-cancel-btn" onClick={() => navigate('/employees')}>
+          <button
+            className="add-cancel-btn"
+            onClick={() => navigate("/employees")}
+          >
             <X size={13} /> Cancel
           </button>
-          <span className="step-info">Step {step + 1} of {STEPS.length} — {STEPS[step]}</span>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <span className="step-info">
+            Step {step + 1} of {STEPS.length} — {STEPS[step]}
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
             {step > 0 && (
               <button className="add-back-btn" onClick={goBack}>
                 <ChevronLeft size={13} /> Back
@@ -608,14 +1414,62 @@ export default function AddEmployee() {
                 Next <ChevronRight size={13} />
               </button>
             ) : (
-              <button className="add-save-btn" onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : <><Check size={13} /> Save Employee</>}
+              <button
+                className="add-save-btn"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? (
+                  "Saving..."
+                ) : (
+                  <>
+                    <Check size={13} /> Save Employee
+                  </>
+                )}
               </button>
             )}
           </div>
         </div>
-
       </div>
+
+      {createdTempPassword && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            setCreatedTempPassword(null);
+            navigate("/employees");
+          }}
+        >
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 420 }}
+          >
+            <div className="modal-header">
+              <h3>Employee Created</h3>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 13, marginBottom: 10 }}>
+                Temporary password (share securely with the employee):
+              </p>
+              <div className="add-input mono" style={{ fontWeight: 700 }}>
+                {createdTempPassword}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="add-save-btn"
+                onClick={() => {
+                  setCreatedTempPassword(null);
+                  navigate("/employees");
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

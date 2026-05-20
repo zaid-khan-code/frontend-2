@@ -22,12 +22,34 @@ function normalizeEmployee(raw: any) {
       raw.employment_type?.name,
     jobStatus:
       raw.jobStatus ?? raw.job_status ?? raw.job_status?.name ?? raw.status,
+    workMode:
+      raw.workMode ??
+      raw.work_mode ??
+      raw.work_mode_name ??
+      raw.work_mode?.name,
+    workLocation:
+      raw.workLocation ??
+      raw.work_location ??
+      raw.work_location_name ??
+      raw.work_location?.name,
+    reportingManager:
+      raw.reportingManager ??
+      raw.reporting_manager ??
+      raw.manager_emp_id ??
+      raw.manager?.name,
     shift: raw.shift ?? raw.shift_name ?? raw.shift_label ?? raw.shift?.name,
     dateOfJoining:
       raw.dateOfJoining ??
       raw.date_of_joining ??
       raw.joined_at ??
       raw.joining_date,
+    dateOfExit:
+      raw.dateOfExit ?? raw.date_of_exit ?? raw.exit_date ?? raw.term_date,
+    email:
+      raw.email ??
+      raw.accountInfo?.email ??
+      raw.empEmail ??
+      raw.personalInfo?.email,
   };
 }
 
@@ -81,7 +103,7 @@ export function useEmployees(params?: any) {
   const createMutation = useMutation({
     mutationFn: async (newEmployee: any) => {
       const { data } = await apiClient.post("/employees", newEmployee);
-      return data.data;
+      return data.data ?? data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
@@ -137,9 +159,66 @@ export function useEmployee(id?: string) {
     enabled: !!id,
   });
 
+  const resendCredentialsMutation = useMutation({
+    mutationFn: async (employeeId: string) => {
+      const { data } = await apiClient.post(
+        `/employees/${encodeURIComponent(employeeId)}/resend-credentials`,
+      );
+      return data.data ?? data;
+    },
+  });
+
   return {
     data: query.data,
     isLoading: query.isLoading,
     isError: query.isError,
+    resendCredentials: resendCredentialsMutation.mutateAsync,
+    isResendingCredentials: resendCredentialsMutation.isPending,
+  };
+}
+
+export function useEmployeeActions(employeeId?: string) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async ({
+      section,
+      updates,
+    }: {
+      section: string;
+      updates: any;
+    }) => {
+      if (!employeeId) throw new Error("Missing employee id");
+      const { data } = await apiClient.patch(
+        `/employees/${encodeURIComponent(employeeId)}/${section}`,
+        updates,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      if (employeeId) {
+        queryClient.invalidateQueries({ queryKey: ["employee", employeeId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+    },
+  });
+
+  return {
+    updateSection: mutation.mutateAsync,
+    isUpdatingSection: mutation.isLoading,
+    updatePersonal: (updates: any) =>
+      mutation.mutateAsync({ section: "personal", updates }),
+    updateJob: (updates: any) =>
+      mutation.mutateAsync({ section: "job", updates }),
+    updateAccount: (updates: any) =>
+      mutation.mutateAsync({ section: "account", updates }),
+    updateBank: (updates: any) =>
+      mutation.mutateAsync({ section: "bank", updates }),
+    updateMedical: (updates: any) =>
+      mutation.mutateAsync({ section: "medical", updates }),
+    updateSalary: (updates: any) =>
+      mutation.mutateAsync({ section: "salary", updates }),
+    updateAllowances: (updates: any) =>
+      mutation.mutateAsync({ section: "allowances", updates }),
   };
 }

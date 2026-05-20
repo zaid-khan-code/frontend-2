@@ -1,5 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import {
+  canPerformAction,
+  normalizeRole,
+  type Action,
+} from "../utils/rbac";
+import { clearAuthToken, setAuthToken } from "../utils/authCookie";
 
 export interface User {
   id?: string;
@@ -22,6 +28,7 @@ interface AuthState {
   setMustChangePassword: (mustChange: boolean) => void;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
+  can: (action: Action) => boolean;
   isRole: (role: string) => boolean;
   setActiveRole: (role: string) => void;
 }
@@ -36,6 +43,7 @@ export const useAuthStore = create<AuthState>()(
       activeRole: "employee", // default fallback
 
       setAuth: (user, token) => {
+        if (token) setAuthToken(token);
         set((state) => ({
           user,
           token: token || state.token,
@@ -57,6 +65,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        clearAuthToken();
         set({
           user: null,
           token: null,
@@ -64,15 +73,24 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           activeRole: "employee",
         });
-        // Also clear any legacy items
         localStorage.removeItem("ems_user");
         localStorage.removeItem("ems_token");
       },
 
       hasPermission: (permission) => {
         const { permissions, user } = get();
-        if (user?.role === "super_admin") return true; // super_admin bypasses all
+        const role = normalizeRole(user?.role_name || user?.role);
+        if (role === "super_admin") return true;
         return permissions.includes(permission);
+      },
+
+      can: (action) => {
+        const { permissions, user } = get();
+        return canPerformAction(
+          user?.role_name || user?.role,
+          action,
+          permissions,
+        );
       },
 
       isRole: (role) => {

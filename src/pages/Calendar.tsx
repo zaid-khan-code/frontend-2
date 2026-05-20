@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import FeaturePlaceholder from '../components/FeaturePlaceholder';
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X } from 'lucide-react';
 import { useData } from '../context/DataContext';
 
@@ -194,6 +195,7 @@ export default function Calendar() {
   };
 
   return (
+    <FeaturePlaceholder>
     <div>
       <div className="pg-head">
         <div>
@@ -448,5 +450,6 @@ export default function Calendar() {
         </div>
       </div>
     </div>
+    </FeaturePlaceholder>
   );
 }

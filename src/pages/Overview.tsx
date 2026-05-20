@@ -4,6 +4,7 @@
 
 import React, { useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import FeaturePlaceholder from '../components/FeaturePlaceholder';
 import { BRANCHES, EMP_DATA, INITIAL_LOCKS, nameGrad, getIni, SHARED_CSS } from './attendanceTypes';
 
 export default function OverviewPage() {
@@ -63,6 +64,7 @@ export default function OverviewPage() {
   };
 
   return (
+    <FeaturePlaceholder>
     <>
       <style>{SHARED_CSS}</style>
       <div style={{ padding: '22px 24px', fontFamily: "'DM Sans',sans-serif" }}>
@@ -249,5 +251,6 @@ export default function OverviewPage() {
 
       </div>
     </>
+    </FeaturePlaceholder>
   );
 }

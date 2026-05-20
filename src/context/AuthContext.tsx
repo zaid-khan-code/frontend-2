@@ -1,6 +1,7 @@
 import React, { createContext, useContext, ReactNode, useEffect } from "react";
 import { useAuthStore, User as ZustandUser } from "../store/useAuthStore";
 import { apiClient } from "../services/apiClient";
+import { getAuthTokenFromFallback } from "../utils/authCookie";
 
 export interface User {
   username: string;
@@ -113,6 +114,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     };
+
+    // Restore Bearer fallback from cookie/localStorage when persisted store has no token
+    const fallbackToken = getAuthTokenFromFallback();
+    if (fallbackToken && !useAuthStore.getState().token) {
+      useAuthStore.setState({ token: fallbackToken });
+    }
 
     initSession();
 

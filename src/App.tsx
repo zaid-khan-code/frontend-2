@@ -23,6 +23,7 @@ import Dashboard from "./pages/Dashboard";
 import Launchpad from "./pages/Launchpad";
 import Employees from "./pages/Employees";
 import AddEmployee from "./pages/AddEmployee";
+import { EmployeeWizardProvider } from "./context/EmployeeWizardContext";
 import EmployeeDetail from "./pages/EmployeeDetail";
 import Attendance from "./pages/Attendance";
 import DutyRoster from "./pages/DutyRoster";
@@ -182,7 +183,14 @@ const App = () => (
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/directory" element={<Directory />} />
                 <Route path="/employees" element={<Employees />} />
-                <Route path="/employees/add" element={<AddEmployee />} />
+                <Route
+                  path="/employees/add"
+                  element={
+                    <EmployeeWizardProvider>
+                      <AddEmployee />
+                    </EmployeeWizardProvider>
+                  }
+                />
                 <Route path="/employees/:id" element={<EmployeeDetail />} />
                 <Route path="/attendance" element={<Attendance />} />
                 <Route path="/duty-roster" element={<DutyRoster />} />
