@@ -179,29 +179,62 @@ export default function AddEmployee() {
   const { data: shiftsData = [] } = useShifts();
   const { data: roleData = [] } = useRoles();
 
+  const getOptionId = (d: any) =>
+    d.id ?? d.uuid ?? d.code ?? d.value ?? d.key ?? d.slug ?? d.name;
+  const getOptionName = (d: any) =>
+    d.name ??
+    d.title ??
+    d.label ??
+    d.department_name ??
+    d.designation_name ??
+    d.type_name ??
+    d.employment_type_name ??
+    d.employment_type ??
+    d.status_name ??
+    d.job_status_name ??
+    d.job_status ??
+    d.mode_name ??
+    d.work_mode_name ??
+    d.work_mode ??
+    d.value ??
+    d.type ??
+    d.status ??
+    d.mode ??
+    d.code ??
+    d.slug ??
+    d.id;
+
   const departments = deptData.map((d: any) => ({
-    id: d.id,
-    name: d.name ?? d.title,
+    id: getOptionId(d),
+    name: getOptionName(d),
   }));
-  const designations = desigData.map((d: any) => ({
-    id: d.id,
-    name: d.name ?? d.title,
-  }));
+  const designations = desigData
+    .map((d: any) => ({
+      id: getOptionId(d),
+      name: getOptionName(d),
+      departmentId:
+        d.department_id ??
+        d.departmentId ??
+        d.department?.id ??
+        d.department?.department_id,
+      isActive: d.is_active ?? d.isActive ?? d.status !== "inactive",
+    }))
+    .filter((d: any) => d.isActive !== false);
   const roles = roleData.map((d: any) => d.name ?? d.title ?? d.role ?? d.id);
   const employmentTypes = empTypeData.map((d: any) => ({
-    id: d.id,
-    name: d.name ?? d.title,
+    id: getOptionId(d),
+    name: getOptionName(d),
   }));
   const jobStatuses = jobStatData.map((d: any) => ({
-    id: d.id,
-    name: d.name ?? d.title,
+    id: getOptionId(d),
+    name: getOptionName(d),
   }));
   const workModes = wModeData.map((d: any) => ({
-    id: d.id,
-    name: d.name ?? d.title,
+    id: getOptionId(d),
+    name: getOptionName(d),
   }));
   const workLocations = wLocData.map((d: any) => ({
-    id: d.id,
+    id: getOptionId(d),
     name:
       d.name ??
       d.title ??
@@ -210,8 +243,8 @@ export default function AddEmployee() {
       d.workLocation,
   }));
   const shifts = shiftsData.map((s: any) => ({
-    id: s.id,
-    name: s.name ?? s.title ?? s.shift_name,
+    id: getOptionId(s),
+    name: getOptionName(s),
     start: s.start ?? s.start_time ?? s.startTime ?? s.start_at,
     end: s.end ?? s.end_time ?? s.endTime ?? s.end_at,
   }));
@@ -275,7 +308,10 @@ export default function AddEmployee() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const selectedDept = departments.find((d: any) => d.id === dept);
-  const selectedDesig = designations.find((d: any) => d.id === desig);
+  const filteredDesignations = designations.filter((d: any) =>
+    d.departmentId ? d.departmentId === dept : true,
+  );
+  const selectedDesig = filteredDesignations.find((d: any) => d.id === desig);
   const selectedShift = shifts.find((s: any) => s.id === shift);
   const shiftTiming =
     selectedShift?.start && selectedShift?.end
@@ -331,7 +367,12 @@ export default function AddEmployee() {
 
   useEffect(() => {
     if (!dept && departments[0]?.id) setDept(departments[0].id);
-    if (!desig && designations[0]?.id) setDesig(designations[0].id);
+    if (
+      filteredDesignations.length &&
+      (!desig || !filteredDesignations.some((d: any) => d.id === desig))
+    ) {
+      setDesig(filteredDesignations[0].id);
+    }
     if (!empType && employmentTypes[0]?.id) setEmpType(employmentTypes[0].id);
     if (!jobStat && jobStatuses[0]?.id) setJobStat(jobStatuses[0].id);
     if (!wMode && workModes[0]?.id) setWMode(workModes[0].id);
@@ -346,7 +387,7 @@ export default function AddEmployee() {
     wLoc,
     shift,
     departments,
-    designations,
+    filteredDesignations,
     employmentTypes,
     jobStatuses,
     workModes,
@@ -812,7 +853,7 @@ export default function AddEmployee() {
                 >
                   {departments.map((d: any) => (
                     <option key={d.id} value={d.id}>
-                      {d.name}
+                      {d.name || d.id}
                     </option>
                   ))}
                 </select>
@@ -824,9 +865,9 @@ export default function AddEmployee() {
                   value={desig}
                   onChange={(e) => setDesig(e.target.value)}
                 >
-                  {designations.map((d: any) => (
+                  {filteredDesignations.map((d: any) => (
                     <option key={d.id} value={d.id}>
-                      {d.name}
+                      {d.name || d.id}
                     </option>
                   ))}
                 </select>
@@ -840,7 +881,7 @@ export default function AddEmployee() {
                 >
                   {employmentTypes.map((d: any) => (
                     <option key={d.id} value={d.id}>
-                      {d.name}
+                      {d.name || d.id}
                     </option>
                   ))}
                 </select>
@@ -856,7 +897,7 @@ export default function AddEmployee() {
                 >
                   {jobStatuses.map((d: any) => (
                     <option key={d.id} value={d.id}>
-                      {d.name}
+                      {d.name || d.id}
                     </option>
                   ))}
                 </select>
@@ -870,7 +911,7 @@ export default function AddEmployee() {
                 >
                   {workLocations.map((d: any) => (
                     <option key={d.id} value={d.id}>
-                      {d.name}
+                      {d.name || d.id}
                     </option>
                   ))}
                 </select>
@@ -884,7 +925,7 @@ export default function AddEmployee() {
                 >
                   {workModes.map((d: any) => (
                     <option key={d.id} value={d.id}>
-                      {d.name}
+                      {d.name || d.id}
                     </option>
                   ))}
                 </select>
@@ -900,7 +941,7 @@ export default function AddEmployee() {
                 >
                   {shifts.map((s: any) => (
                     <option key={s.id} value={s.id}>
-                      {s.name}
+                      {s.name || s.id}
                     </option>
                   ))}
                 </select>
