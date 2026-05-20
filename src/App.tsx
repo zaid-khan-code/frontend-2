@@ -1,5 +1,11 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+} from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import { DataProvider } from "./context/DataContext";
@@ -78,7 +84,12 @@ const ProtectedRoute = ({ allowedRoles }: { allowedRoles: string[] }) => {
   }
 
   if (!allowedRoles.includes(activeRole)) {
-    return <Navigate to={activeRole === "employee" ? "/my-dashboard" : "/dashboard"} replace />;
+    return (
+      <Navigate
+        to={activeRole === "employee" ? "/my-dashboard" : "/dashboard"}
+        replace
+      />
+    );
   }
 
   return <Outlet />;
@@ -90,16 +101,18 @@ const ProtectedRoute = ({ allowedRoles }: { allowedRoles: string[] }) => {
 function RootRedirect() {
   const { user, activeRole } = useAuth();
   if (!user) return <Navigate to="/login" />;
-  
-  // Route based on role
+
+  // Route based on role to appropriate dashboard
   if (activeRole === "employee") {
     return <Navigate to="/my-dashboard" />;
+  } else if (activeRole === "branch_hr") {
+    return <Navigate to="/hr/branch-dashboard" />; // Branch HR sees branch-specific dashboard
   } else if (activeRole === "department_hr") {
     return <Navigate to="/dashboard" />; // Department HR sees filtered dashboard
-  } else if (activeRole === "branch_hr") {
-    return <Navigate to="/dashboard" />; // Branch HR sees filtered dashboard
+  } else if (activeRole === "head_hr") {
+    return <Navigate to="/attendance-head-review" />; // Head HR sees head office review
   } else {
-    // super_admin, head_hr
+    // super_admin
     return <Navigate to="/launchpad" />;
   }
 }
@@ -115,7 +128,18 @@ const App = () => (
             <Route path="/" element={<RootRedirect />} />
 
             {/* --- ADMIN & HR ROUTES (MainLayout) --- */}
-            <Route element={<ProtectedRoute allowedRoles={["super_admin", "head_hr", "branch_hr", "department_hr"]} />}>
+            <Route
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "super_admin",
+                    "head_hr",
+                    "branch_hr",
+                    "department_hr",
+                  ]}
+                />
+              }
+            >
               <Route element={<MainLayout />}>
                 {/* Shared routes: both HR and SuperAdmin */}
                 <Route path="/launchpad" element={<Launchpad />} />
@@ -133,42 +157,104 @@ const App = () => (
                 <Route path="/penalty-ledger" element={<PenaltyLedger />} />
                 <Route path="/announcements" element={<AnnouncementsFeed />} />
                 <Route path="/calendar" element={<Calendar />} />
-                
+
                 {/* HR Workflow Pages: Branch HR executes, SuperAdmin watches */}
-                <Route element={<ProtectedRoute allowedRoles={["super_admin", "head_hr"]} />}>
-                  <Route path="/hr/branch-dashboard" element={<BranchHRDashboard />} />
+                <Route
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "head_hr"]} />
+                  }
+                >
+                  <Route
+                    path="/hr/branch-dashboard"
+                    element={<BranchHRDashboard />}
+                  />
                 </Route>
-                <Route path="/attendance-verification" element={<AttendanceVerification />} />
-                <Route path="/attendance-head-review" element={<HeadOfficeHR />} />
+                <Route
+                  path="/attendance-verification"
+                  element={<AttendanceVerification />}
+                />
+                <Route
+                  path="/attendance-head-review"
+                  element={<HeadOfficeHR />}
+                />
                 <Route path="/overview" element={<OverviewPage />} />
                 <Route path="/saved-reports" element={<SavedReports />} />
                 <Route path="/leave-capacity" element={<LeaveCapacity />} />
                 <Route path="/penalty-workflow" element={<PenaltyWorkflow />} />
-                
+
                 {/* Final Report & Oversight */}
-                <Route path="/attendance-report" element={<AttendanceReport />} />
-                
+                <Route
+                  path="/attendance-report"
+                  element={<AttendanceReport />}
+                />
+
                 {/* Configuration Pages */}
-                <Route path="/settings/departments" element={<DepartmentsPage />} />
-                <Route path="/settings/reporting-managers" element={<ReportingManagersPage />} />
-                <Route path="/settings/designations" element={<DesignationsPage />} />
-                <Route path="/settings/work-modes" element={<WorkModesPage />} />
-                <Route path="/settings/work-locations" element={<WorkLocationsPage />} />
-                <Route path="/settings/employment-types" element={<EmploymentTypesPage />} />
-                <Route path="/settings/job-statuses" element={<JobStatusesPage />} />
+                <Route
+                  path="/settings/departments"
+                  element={<DepartmentsPage />}
+                />
+                <Route
+                  path="/settings/reporting-managers"
+                  element={<ReportingManagersPage />}
+                />
+                <Route
+                  path="/settings/designations"
+                  element={<DesignationsPage />}
+                />
+                <Route
+                  path="/settings/work-modes"
+                  element={<WorkModesPage />}
+                />
+                <Route
+                  path="/settings/work-locations"
+                  element={<WorkLocationsPage />}
+                />
+                <Route
+                  path="/settings/employment-types"
+                  element={<EmploymentTypesPage />}
+                />
+                <Route
+                  path="/settings/job-statuses"
+                  element={<JobStatusesPage />}
+                />
                 <Route path="/settings/shifts" element={<ShiftsPage />} />
-                <Route path="/settings/leave-types" element={<LeaveTypesPage />} />
-                <Route path="/settings/leave-policies" element={<LeavePoliciesPage />} />
-                <Route path="/settings/payroll-components" element={<PayrollComponentsPage />} />
-                <Route path="/settings/penalties-config" element={<PenaltiesConfigPage />} />
-                <Route path="/settings/tax-config" element={<TaxConfigPage />} />
-                <Route path="/settings/global-days" element={<GlobalDaysPage />} />
-                
+                <Route
+                  path="/settings/leave-types"
+                  element={<LeaveTypesPage />}
+                />
+                <Route
+                  path="/settings/leave-policies"
+                  element={<LeavePoliciesPage />}
+                />
+                <Route
+                  path="/settings/payroll-components"
+                  element={<PayrollComponentsPage />}
+                />
+                <Route
+                  path="/settings/penalties-config"
+                  element={<PenaltiesConfigPage />}
+                />
+                <Route
+                  path="/settings/tax-config"
+                  element={<TaxConfigPage />}
+                />
+                <Route
+                  path="/settings/global-days"
+                  element={<GlobalDaysPage />}
+                />
+
                 {/* SuperAdmin + Head HR Only */}
-                <Route element={<ProtectedRoute allowedRoles={["super_admin", "head_hr"]} />}>
+                <Route
+                  element={
+                    <ProtectedRoute allowedRoles={["super_admin", "head_hr"]} />
+                  }
+                >
                   <Route path="/accounts" element={<Accounts />} />
                   <Route path="/audit-log" element={<AuditLog />} />
-                  <Route path="/settings/custom-fields" element={<CustomFields />} />
+                  <Route
+                    path="/settings/custom-fields"
+                    element={<CustomFields />}
+                  />
                 </Route>
               </Route>
             </Route>
@@ -183,7 +269,10 @@ const App = () => (
                 <Route path="/my-penalties" element={<MyPenalties />} />
                 <Route path="/my-profile" element={<MyProfile />} />
                 <Route path="/my-widgets" element={<EmployeeWidgets />} />
-                <Route path="/my-leave-wallet" element={<LeaveWalletHistory />} />
+                <Route
+                  path="/my-leave-wallet"
+                  element={<LeaveWalletHistory />}
+                />
                 <Route path="/my-directory" element={<Directory />} />
               </Route>
             </Route>

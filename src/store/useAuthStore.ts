@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export interface User {
   id?: string;
@@ -32,14 +32,14 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       permissions: [],
       isAuthenticated: false,
-      activeRole: 'employee', // default fallback
+      activeRole: "employee", // default fallback
 
       setAuth: (user, token) => {
         set((state) => ({
           user,
           token: token || state.token,
           isAuthenticated: true,
-          activeRole: user.role_name || user.role || 'employee',
+          activeRole: user.role_name || user.role || "employee",
         }));
       },
 
@@ -48,15 +48,21 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        set({ user: null, token: null, permissions: [], isAuthenticated: false });
+        set({
+          user: null,
+          token: null,
+          permissions: [],
+          isAuthenticated: false,
+          activeRole: "employee",
+        });
         // Also clear any legacy items
-        localStorage.removeItem('ems_user');
-        localStorage.removeItem('ems_token');
+        localStorage.removeItem("ems_user");
+        localStorage.removeItem("ems_token");
       },
 
       hasPermission: (permission) => {
         const { permissions, user } = get();
-        if (user?.role === 'super_admin') return true; // super_admin bypasses all
+        if (user?.role === "super_admin") return true; // super_admin bypasses all
         return permissions.includes(permission);
       },
 
@@ -67,17 +73,17 @@ export const useAuthStore = create<AuthState>()(
 
       setActiveRole: (role) => {
         set({ activeRole: role });
-      }
+      },
     }),
     {
-      name: 'auth-storage', // unique name
-      partialize: (state) => ({ 
-        user: state.user, 
-        token: state.token, 
+      name: "auth-storage", // unique name
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
         isAuthenticated: state.isAuthenticated,
         permissions: state.permissions,
-        activeRole: state.activeRole
+        activeRole: state.activeRole,
       }), // Save these fields to localStorage
-    }
-  )
+    },
+  ),
 );
