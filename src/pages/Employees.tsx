@@ -543,9 +543,9 @@ export default function Employees() {
                     </td>
                   </tr>
                 ) : (
-                  paged.map((e) => (
+                  paged.map((e, idx) => (
                     <tr
-                      key={e.id}
+                      key={e.id || e.employee_id || `${e.name || "row"}-${idx}`}
                       style={{
                         ...(selected.has(e.id)
                           ? { background: "#f5f3ff" }
