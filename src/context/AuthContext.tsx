@@ -1,6 +1,6 @@
 import React, { createContext, useContext, ReactNode, useEffect } from "react";
 import { useAuthStore, User as ZustandUser } from "../store/useAuthStore";
-import { apiClient } from "../services/apiClient";
+import { apiClient, isMustChangePasswordError } from "../services/apiClient";
 import { getAuthTokenFromFallback } from "../utils/authCookie";
 
 export interface User {
@@ -108,6 +108,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           zLogout();
         }
       } catch (err) {
+        if (isMustChangePasswordError(err)) {
+          const authState = useAuthStore.getState();
+          if (authState.user) {
+            setMustChangePassword(true);
+          } else {
+            setAuth(
+              {
+                email: "employee-session",
+                role: "employee",
+                role_name: "employee",
+                must_change_password: true,
+              },
+              authState.token || undefined,
+            );
+          }
+          return;
+        }
         authLog("Session restore failed", err);
         zLogout();
       } finally {
@@ -145,16 +162,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let roleName = udata.role_name || udata.role || "employee";
         const mustChangePassword = !!udata.must_change_password;
 
-        // Fetch permissions right after login (authoritative role_name)
-        try {
-          const permsRes = await apiClient.get("/auth/permissions");
-          if (permsRes.data?.success) {
-            const permData = permsRes.data.data || {};
-            roleName = permData.role_name || roleName;
-            setPermissions(permData.permissions || []);
+        // A first-login employee may be blocked from all endpoints except
+        // change-password until the temporary password is replaced.
+        if (!mustChangePassword) {
+          try {
+            const permsRes = await apiClient.get("/auth/permissions");
+            if (permsRes.data?.success) {
+              const permData = permsRes.data.data || {};
+              roleName = permData.role_name || roleName;
+              setPermissions(permData.permissions || []);
+            }
+          } catch (e) {
+            authLog("Failed to load permissions after login", e);
           }
-        } catch (e) {
-          authLog("Failed to load permissions after login", e);
         }
 
         setAuth(
@@ -175,6 +195,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: "Login failed" };
       }
     } catch (e: any) {
+      if (isMustChangePasswordError(e)) {
+        setAuth({
+          email: email.trim(),
+          role: "employee",
+          role_name: "employee",
+          must_change_password: true,
+        });
+        setMustChangePassword(true);
+        return { ok: true, mustChangePassword: true };
+      }
       authLog("login exception", e);
       const errorMsg =
         e.response?.data?.error?.message ||

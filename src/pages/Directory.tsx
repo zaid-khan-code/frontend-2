@@ -257,7 +257,7 @@ export default function Directory() {
 
       {/* Create/Edit Modal */}
       <Modal
-        isOpen={modalOpen}
+        open={modalOpen}
         onClose={() => {
           setModalOpen(false);
           setEditingEntry(null);

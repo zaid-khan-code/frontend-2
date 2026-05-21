@@ -1,9 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../services/apiClient';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "../services/apiClient";
 
 // Generic hook factory for basic config entities
 export function createConfigHook<T>(entityName: string) {
-  const queryKey = ['config', entityName];
+  const queryKey = ["config", entityName];
 
   return function useEntityConfig() {
     const queryClient = useQueryClient();
@@ -27,8 +27,17 @@ export function createConfigHook<T>(entityName: string) {
     });
 
     const updateMutation = useMutation({
-      mutationFn: async ({ id, updates }: { id: string; updates: Partial<T> }) => {
-        const { data } = await apiClient.patch(`/config/${entityName}/${id}`, updates);
+      mutationFn: async ({
+        id,
+        updates,
+      }: {
+        id: string;
+        updates: Partial<T>;
+      }) => {
+        const { data } = await apiClient.patch(
+          `/config/${entityName}/${id}`,
+          updates,
+        );
         return data.data;
       },
       onSuccess: () => {
@@ -47,14 +56,15 @@ export function createConfigHook<T>(entityName: string) {
 }
 
 // Specific hooks
-export const useDepartments = createConfigHook<any>('departments');
-export const useDesignations = createConfigHook<any>('designations');
-export const useEmploymentTypes = createConfigHook<any>('employment-types');
-export const useJobStatuses = createConfigHook<any>('job-statuses');
-export const useWorkModes = createConfigHook<any>('work-modes');
-export const useWorkLocations = createConfigHook<any>('work-locations');
-export const useShifts = createConfigHook<any>('shifts');
-export const useLeaveTypes = createConfigHook<any>('leave-types');
-export const useLeavePolicies = createConfigHook<any>('leave-policies');
-export const useRoles = createConfigHook<any>('roles');
-export const useReportingManagers = createConfigHook<any>('reporting-managers');
+export const useDepartments = createConfigHook<any>("departments");
+export const useDesignations = createConfigHook<any>("designations");
+export const useEmploymentTypes = createConfigHook<any>("employment-types");
+export const useJobStatuses = createConfigHook<any>("job-statuses");
+export const useWorkModes = createConfigHook<any>("work-modes");
+export const useWorkLocations = createConfigHook<any>("work-locations");
+export const useShifts = createConfigHook<any>("shifts");
+export const useLeaveTypes = createConfigHook<any>("leave-types");
+export const useLeavePolicies = createConfigHook<any>("leave-policies");
+export const useAllowanceTypes = createConfigHook<any>("allowance-types");
+export const useRoles = createConfigHook<any>("roles");
+export const useReportingManagers = createConfigHook<any>("reporting-managers");

@@ -4,6 +4,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import FeaturePlaceholder from '../components/FeaturePlaceholder';
 import {
   BRANCHES, EMP_DATA, INITIAL_LOCKS, INITIAL_REPORTS,
   nameGrad, getIni, SHARED_CSS,
@@ -197,6 +198,7 @@ export default function SavedReports() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
+    <FeaturePlaceholder>
     <>
       <style>{SHARED_CSS}</style>
       {ToastEl}
@@ -431,5 +433,6 @@ export default function SavedReports() {
         />
       )}
     </>
+    </FeaturePlaceholder>
   );
 }

@@ -12,8 +12,25 @@ export const apiClient = axios.create({
   },
 });
 
+export function isMustChangePasswordError(error: any) {
+  return error?.response?.data?.error?.code === "MUST_CHANGE_PASSWORD";
+}
+
+function routeToChangePassword() {
+  if (window.location.pathname === "/change-password") return;
+  window.history.replaceState({}, "", "/change-password");
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
 // Request interceptor: Attach Bearer token if available
 apiClient.interceptors.request.use((config) => {
+  const url = config.url || "";
+  const isPublicAuthRequest = url.endsWith("/auth/login");
+  if (isPublicAuthRequest) {
+    if (config.headers) delete config.headers.Authorization;
+    return config;
+  }
+
   const token = useAuthStore.getState().token;
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -31,6 +48,7 @@ apiClient.interceptors.response.use(
     }
 
     const { status, data } = error.response;
+    const errorCode = data?.error?.code;
 
     if (status === 401) {
       // Clear auth state and redirect
@@ -38,6 +56,9 @@ apiClient.interceptors.response.use(
       if (window.location.pathname !== "/login") {
         window.location.href = "/login";
       }
+    } else if (status === 403 && errorCode === "MUST_CHANGE_PASSWORD") {
+      useAuthStore.getState().setMustChangePassword(true);
+      routeToChangePassword();
     } else if (status === 403) {
       console.error("Permission denied", data);
       if (window.location.pathname !== "/unauthorized") {

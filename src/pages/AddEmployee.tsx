@@ -58,6 +58,7 @@ const S = `
   .add-form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
   .add-form-row-4{display:grid;grid-template-columns:1.2fr 1fr 160px 1.4fr;gap:14px;margin-bottom:14px;}
   .add-form-row-5{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:9px;margin-bottom:14px;width:100%;}
+  .add-form-row-allowance{display:grid;grid-template-columns:1.2fr 1fr auto;gap:10px;margin-bottom:10px;align-items:end;}
   .add-form-row-emg{display:grid;grid-template-columns:160px 1fr 1fr;gap:14px;margin-bottom:14px;align-items:end;}
   .emg-span-2{grid-column:2 / span 2;}
   .emg-stack{display:grid;grid-template-columns:1fr;gap:14px;}
@@ -120,6 +121,14 @@ const S = `
   .add-radio-group{display:flex;gap:14px;margin-top:7px;}
   .add-radio-label{font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:4px;color:#374151;}
 
+  /* Allowance amount helpers */
+  .amount-with-prefix{display:flex;align-items:center;gap:8px;}
+  .amount-prefix{height:38px;min-width:38px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid #e5e7eb;border-radius:10px;background:#f8f9fb;color:#6b7280;font-size:12px;font-weight:700;}
+  .allowance-toggle{display:inline-flex;gap:6px;background:#f8f9fb;border:1px solid #e5e7eb;border-radius:10px;padding:4px;}
+  .allowance-toggle button{border:none;background:transparent;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:700;color:#6b7280;cursor:pointer;}
+  .allowance-toggle .active{background:#111827;color:#fff;}
+  .allowance-type-field{max-width:max-content;}
+
   /* Footer nav */
   .add-footer{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding:12px 0;}
   .add-cancel-btn{height:38px;padding:0 18px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:12px;font-weight:600;color:#6b7280;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s;}
@@ -170,6 +179,7 @@ import {
   useWorkModes,
   useWorkLocations,
   useShifts,
+  useAllowanceTypes,
   useRoles,
 } from "../hooks/useConfig";
 import { useEmployees } from "../hooks/useEmployees";
@@ -185,6 +195,7 @@ export default function AddEmployee() {
   const { data: wModeData = [] } = useWorkModes();
   const { data: wLocData = [] } = useWorkLocations();
   const { data: shiftsData = [] } = useShifts();
+  const { data: allowanceTypeData = [] } = useAllowanceTypes();
   const { data: roleData = [] } = useRoles();
 
   const getOptionId = (d: any) =>
@@ -193,6 +204,7 @@ export default function AddEmployee() {
     d.name ??
     d.title ??
     d.label ??
+    d.field_name ??
     d.department_name ??
     d.designation_name ??
     d.type_name ??
@@ -228,7 +240,11 @@ export default function AddEmployee() {
       isActive: d.is_active ?? d.isActive ?? d.status !== "inactive",
     }))
     .filter((d: any) => d.isActive !== false);
-  const roles = roleData.map((d: any) => d.name ?? d.title ?? d.role ?? d.id);
+  const roles = roleData.map((d: any) => ({
+    id: d.id ?? d.uuid,
+    roleName: d.role_name ?? d.name ?? d.title ?? d.role,
+    description: d.description ?? d.label,
+  }));
   const employmentTypes = empTypeData.map((d: any) => ({
     id: getOptionId(d),
     name: getOptionName(d),
@@ -256,6 +272,13 @@ export default function AddEmployee() {
     start: s.start ?? s.start_time ?? s.startTime ?? s.start_at,
     end: s.end ?? s.end_time ?? s.endTime ?? s.end_at,
   }));
+  const allowanceTypes = allowanceTypeData
+    .map((a: any) => ({
+      id: getOptionId(a),
+      name: getOptionName(a) ?? a.field_name ?? a.allowance_type,
+      isActive: a.is_active ?? a.isActive ?? a.status !== "inactive",
+    }))
+    .filter((a: any) => a.isActive !== false);
 
   const { create: addEmployee } = useEmployees();
 
@@ -273,6 +296,18 @@ export default function AddEmployee() {
     const letters = val.replace(/[^a-zA-Z\s]/g, "");
     setter(letters);
   };
+  const handleCountryCodeChange = (
+    val: string,
+    setter: (v: string) => void,
+  ) => {
+    const trimmed = val.trim();
+    const digits = trimmed.replace(/[^0-9]/g, "");
+    if (!digits) {
+      setter("+");
+      return;
+    }
+    setter(`+${digits}`);
+  };
   const formatEmployeeId = (val: string) => {
     const raw = val.toUpperCase().replace(/[^A-Z0-9]/g, "");
     const digits = raw.replace(/[^0-9]/g, "").slice(0, 3);
@@ -285,7 +320,7 @@ export default function AddEmployee() {
   const [fatherName, setFatherName] = useState("");
   const [cnic, setCnic] = useState("");
   const [dob, setDob] = useState("");
-  const [gender, setGender] = useState("Male");
+  const [gender, setGender] = useState("male");
   const [contact1, setContact1] = useState("");
   const [contact2, setContact2] = useState("");
   const [emg1Relation, setEmg1Relation] = useState("father");
@@ -304,6 +339,11 @@ export default function AddEmployee() {
   const [sameAddress, setSameAddress] = useState(false);
   const [bankName, setBankName] = useState("");
   const [bankAccount, setBankAccount] = useState("");
+  const [bankIban, setBankIban] = useState("");
+  const [bankAccountTitle, setBankAccountTitle] = useState("");
+  const [bankBranchName, setBankBranchName] = useState("");
+  const [bankBranchCode, setBankBranchCode] = useState("");
+  const [bankAccountType, setBankAccountType] = useState("");
   const [paymentMode, setPaymentMode] = useState("Online Transfer");
   const [dept, setDept] = useState(departments[0]?.id || "");
   const [desig, setDesig] = useState(designations[0]?.id || "");
@@ -317,9 +357,7 @@ export default function AddEmployee() {
   const [probationEndDate, setProbationEndDate] = useState("");
   const [contractEndDate, setContractEndDate] = useState("");
   const [salBasic, setSalBasic] = useState(0);
-  const [salHouse, setSalHouse] = useState(0);
-  const [salMedical, setSalMedical] = useState(0);
-  const [salConveyance, setSalConveyance] = useState(0);
+  const [basicSalary, setBasicSalary] = useState(0);
   const [bloodGroup, setBloodGroup] = useState("");
   const [allergies, setAllergies] = useState("");
   const [chronic, setChronic] = useState("");
@@ -340,7 +378,7 @@ export default function AddEmployee() {
     selectedShift?.start && selectedShift?.end
       ? `${selectedShift.start} – ${selectedShift.end} PKT`
       : "";
-  const totalSalary = salBasic + salHouse + salMedical + salConveyance;
+  const totalSalary = basicSalary;
 
   const formatCnic = (val: string) => {
     const digits = val.replace(/\D/g, "").slice(0, 13);
@@ -353,7 +391,8 @@ export default function AddEmployee() {
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
-    if (step === 0) {
+    const currentStep = STEP_CONTENT[step];
+    if (currentStep === 0) {
       if (!employeeIdInput.trim() || employeeIdInput === "EMP") {
         e.employeeIdInput = "Required";
       } else if (!/^EMP\d{3}$/.test(employeeIdInput)) {
@@ -366,11 +405,41 @@ export default function AddEmployee() {
       if (!cnic.trim()) e.cnic = "Required";
       if (!dob.trim()) e.dob = "Required";
     }
-    if (step === 1) {
+    if (currentStep === 1) {
       if (!contact1.trim()) e.contact1 = "Required";
       if (!emg1Relation.trim()) e.emg1Relation = "Required";
       if (!emg1Name.trim()) e.emg1Name = "Required";
       if (!emg1Phone.trim()) e.emg1Phone = "Required";
+    }
+    if (currentStep === 7) {
+      allowances.forEach((row, idx) => {
+        if (!row.allowance_type_id) {
+          e[`allowanceType_${idx}`] = "Required";
+        }
+        if (Number.isNaN(row.amount) || row.amount === null) {
+          e[`allowanceAmount_${idx}`] = "Required";
+        } else if (row.amount < 0) {
+          e[`allowanceAmount_${idx}`] = "Must be 0 or more";
+        }
+      });
+    }
+    if (currentStep === 5) {
+      if (!empEmail || !empEmail.trim()) {
+        e.empEmail = "Required";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(empEmail)) {
+        e.empEmail = "Invalid email";
+      }
+    }
+    if (currentStep === 2) {
+      if (!bankName || !bankName.trim()) e.bankName = "Required";
+      if (!bankAccountTitle || bankAccountTitle.trim().length < 2)
+        e.bankAccountTitle = "Required";
+      if (!bankIban || bankIban.trim().length < 10) e.bankIban = "Required";
+    }
+    if (currentStep === 3) {
+      if (gender && !["male", "female", "other"].includes(gender)) {
+        e.gender = "Invalid option";
+      }
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -383,10 +452,16 @@ export default function AddEmployee() {
   const [roleId, setRoleId] = useState("");
   const [salaryEffectiveFrom, setSalaryEffectiveFrom] = useState("");
   const [currency, setCurrency] = useState("PKR");
-  const [revisionType, setRevisionType] = useState<"flat" | "percentage">(
-    "flat",
-  );
-  const [revisionPercent, setRevisionPercent] = useState(0);
+  const [revisionType, setRevisionType] = useState<
+    | "Initial"
+    | "Promotion"
+    | "Demotion"
+    | "Increment"
+    | "Decrement"
+    | "Correction"
+    | "Market Adjustment"
+  >("Initial");
+  const [revisionPercent, setRevisionPercent] = useState("");
   const [revisionReason, setRevisionReason] = useState("");
   const [createdTempPassword, setCreatedTempPassword] = useState<string | null>(
     null,
@@ -456,6 +531,7 @@ export default function AddEmployee() {
   };
 
   const handleSave = async () => {
+    if (!validate()) return;
     setSaving(true);
     try {
       const result = await addEmployee({
@@ -511,8 +587,12 @@ export default function AddEmployee() {
         },
         bankInfo: {
           bank_name: bankName,
-          account_number: bankAccount,
-          payment_mode: paymentMode,
+          branch_name: bankBranchName || undefined,
+          branch_code: bankBranchCode || undefined,
+          iban: bankIban,
+          account_title: bankAccountTitle,
+          account_number: bankAccount || undefined,
+          account_type: bankAccountType || undefined,
         },
         medicalInfo: {
           blood_group: bloodGroup,
@@ -522,12 +602,12 @@ export default function AddEmployee() {
           emergency_medication: medications,
         },
         salaryInfo: {
-          base_salary: salBasic,
+          base_salary: basicSalary,
           currency,
           effective_from: salaryEffectiveFrom || doj,
           revision_type: revisionType,
           revision_percent:
-            revisionType === "percentage" ? revisionPercent : undefined,
+            revisionPercent.trim() === "" ? undefined : Number(revisionPercent),
           revision_reason: revisionReason,
         },
         allowances: allowances.length ? allowances : undefined,
@@ -564,7 +644,6 @@ export default function AddEmployee() {
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
             <div className="form-sec-head">
-              <span style={{ fontSize: 18 }}>👤</span>
               <span className="form-sec-title">Employee Information</span>
               <span
                 className="form-sec-badge"
@@ -658,8 +737,9 @@ export default function AddEmployee() {
                   value={gender}
                   onChange={(e) => setGender(e.target.value)}
                 >
-                  <option>Male</option>
-                  <option>Female</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
             </div>
@@ -672,7 +752,6 @@ export default function AddEmployee() {
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
             <div className="form-sec-head">
-              <span style={{ fontSize: 18 }}>📞</span>
               <span className="form-sec-title">Extra Information</span>
               <span
                 className="form-sec-badge"
@@ -771,7 +850,12 @@ export default function AddEmployee() {
                 <input
                   className="add-input add-input-sm"
                   value={emg1PhoneCode}
-                  onChange={(e) => setEmg1PhoneCode(e.target.value)}
+                  onChange={(e) =>
+                    handleCountryCodeChange(e.target.value, setEmg1PhoneCode)
+                  }
+                  onBlur={(e) =>
+                    handleCountryCodeChange(e.target.value, setEmg1PhoneCode)
+                  }
                 />
               </div>
               <div className="add-form-group">
@@ -837,7 +921,12 @@ export default function AddEmployee() {
                 <input
                   className="add-input add-input-sm"
                   value={emg2PhoneCode}
-                  onChange={(e) => setEmg2PhoneCode(e.target.value)}
+                  onChange={(e) =>
+                    handleCountryCodeChange(e.target.value, setEmg2PhoneCode)
+                  }
+                  onBlur={(e) =>
+                    handleCountryCodeChange(e.target.value, setEmg2PhoneCode)
+                  }
                 />
               </div>
               <div className="add-form-group">
@@ -904,7 +993,6 @@ export default function AddEmployee() {
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
             <div className="form-sec-head">
-              <span style={{ fontSize: 18 }}>🏦</span>
               <span className="form-sec-title">Bank Details</span>
               <span
                 className="form-sec-badge"
@@ -917,18 +1005,78 @@ export default function AddEmployee() {
                 Step 4 of 8
               </span>
             </div>
-            <div className="add-form-row">
+            <div className="add-form-row-3">
               <div className="add-form-group">
                 <label className="add-label">Bank Name</label>
                 <input
-                  className="add-input"
+                  className={`add-input${errors.bankName ? " error" : ""}`}
                   placeholder="e.g. HBL, Alfalah"
                   value={bankName}
                   onChange={(e) =>
                     handleTextChange(e.target.value, setBankName)
                   }
                 />
+                {errors.bankName && (
+                  <div className="add-err">{errors.bankName}</div>
+                )}
               </div>
+              <div className="add-form-group">
+                <label className="add-label">Account Title</label>
+                <input
+                  className={`add-input${errors.bankAccountTitle ? " error" : ""}`}
+                  placeholder="e.g. John Doe"
+                  value={bankAccountTitle}
+                  onChange={(e) => setBankAccountTitle(e.target.value)}
+                />
+                {errors.bankAccountTitle && (
+                  <div className="add-err">{errors.bankAccountTitle}</div>
+                )}
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">IBAN</label>
+                <input
+                  className={`add-input mono${errors.bankIban ? " error" : ""}`}
+                  placeholder="PK00XXXX0000..."
+                  value={bankIban}
+                  onChange={(e) => setBankIban(e.target.value)}
+                />
+                {errors.bankIban && (
+                  <div className="add-err">{errors.bankIban}</div>
+                )}
+              </div>
+            </div>
+            <div className="add-form-row-3">
+              <div className="add-form-group">
+                <label className="add-label">Branch Name</label>
+                <input
+                  className="add-input"
+                  value={bankBranchName}
+                  onChange={(e) => setBankBranchName(e.target.value)}
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Branch Code</label>
+                <input
+                  className="add-input"
+                  value={bankBranchCode}
+                  onChange={(e) => setBankBranchCode(e.target.value)}
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Account Type</label>
+                <select
+                  className={`add-select`}
+                  value={bankAccountType}
+                  onChange={(e) => setBankAccountType(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  <option value="current">Current</option>
+                  <option value="savings">Savings</option>
+                  <option value="salary">Salary</option>
+                </select>
+              </div>
+            </div>
+            <div className="add-form-row">
               <div className="add-form-group">
                 <label className="add-label">Account Number</label>
                 <input
@@ -962,7 +1110,6 @@ export default function AddEmployee() {
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
             <div className="form-sec-head">
-              <span style={{ fontSize: 18 }}>🩺</span>
               <span className="form-sec-title">Medical Information</span>
               <span
                 className="form-sec-badge"
@@ -1037,7 +1184,6 @@ export default function AddEmployee() {
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
             <div className="form-sec-head">
-              <span style={{ fontSize: 18 }}>💼</span>
               <span className="form-sec-title">Job Information</span>
               <span
                 className="form-sec-badge"
@@ -1191,7 +1337,6 @@ export default function AddEmployee() {
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
             <div className="form-sec-head">
-              <span style={{ fontSize: 18 }}>💰</span>
               <span className="form-sec-title">Salary</span>
               <span
                 className="form-sec-badge"
@@ -1230,24 +1375,36 @@ export default function AddEmployee() {
                   className="add-select"
                   value={revisionType}
                   onChange={(e) =>
-                    setRevisionType(e.target.value as "flat" | "percentage")
+                    setRevisionType(
+                      e.target.value as
+                        | "Initial"
+                        | "Promotion"
+                        | "Demotion"
+                        | "Increment"
+                        | "Decrement"
+                        | "Correction"
+                        | "Market Adjustment",
+                    )
                   }
                 >
-                  <option value="flat">Flat</option>
-                  <option value="percentage">Percentage</option>
+                  <option value="Initial">Initial</option>
+                  <option value="Promotion">Promotion</option>
+                  <option value="Demotion">Demotion</option>
+                  <option value="Increment">Increment</option>
+                  <option value="Decrement">Decrement</option>
+                  <option value="Correction">Correction</option>
+                  <option value="Market Adjustment">Market Adjustment</option>
                 </select>
               </div>
-              {revisionType === "percentage" && (
-                <div className="add-form-group">
-                  <label className="add-label">Revision %</label>
-                  <input
-                    className="add-input"
-                    type="number"
-                    value={revisionPercent}
-                    onChange={(e) => setRevisionPercent(+e.target.value)}
-                  />
-                </div>
-              )}
+              <div className="add-form-group">
+                <label className="add-label">Revision %</label>
+                <input
+                  className="add-input"
+                  type="number"
+                  value={revisionPercent}
+                  onChange={(e) => setRevisionPercent(e.target.value)}
+                />
+              </div>
             </div>
             <div className="add-form-group" style={{ marginBottom: 14 }}>
               <label className="add-label">Revision Reason</label>
@@ -1257,64 +1414,17 @@ export default function AddEmployee() {
                 onChange={(e) => setRevisionReason(e.target.value)}
               />
             </div>
-            <table className="sal-table">
-              <thead>
-                <tr>
-                  <th>Component</th>
-                  <th>Monthly Amount (PKR)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Basic Salary</td>
-                  <td>
-                    <input
-                      className="add-input mono"
-                      type="number"
-                      value={salBasic || ""}
-                      onChange={(e) => setSalBasic(+e.target.value)}
-                      style={{ width: 160 }}
-                    />
-                  </td>
-                </tr>
-                <tr>
-                  <td>House Rent</td>
-                  <td>
-                    <input
-                      className="add-input mono"
-                      type="number"
-                      value={salHouse || ""}
-                      onChange={(e) => setSalHouse(+e.target.value)}
-                      style={{ width: 160 }}
-                    />
-                  </td>
-                </tr>
-                <tr>
-                  <td>Medical</td>
-                  <td>
-                    <input
-                      className="add-input mono"
-                      type="number"
-                      value={salMedical || ""}
-                      onChange={(e) => setSalMedical(+e.target.value)}
-                      style={{ width: 160 }}
-                    />
-                  </td>
-                </tr>
-                <tr>
-                  <td>Conveyance</td>
-                  <td>
-                    <input
-                      className="add-input mono"
-                      type="number"
-                      value={salConveyance || ""}
-                      onChange={(e) => setSalConveyance(+e.target.value)}
-                      style={{ width: 160 }}
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="add-form-row">
+              <div className="add-form-group">
+                <label className="add-label">Basic Salary</label>
+                <input
+                  className="add-input mono"
+                  type="number"
+                  value={basicSalary || ""}
+                  onChange={(e) => setBasicSalary(+e.target.value)}
+                />
+              </div>
+            </div>
             <div className="sal-total-box">
               <span className="sal-total-label">Total Monthly Package</span>
               <span className="sal-total-val">{formatPKR(totalSalary)}</span>
@@ -1328,7 +1438,6 @@ export default function AddEmployee() {
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
             <div className="form-sec-head">
-              <span style={{ fontSize: 18 }}>📋</span>
               <span className="form-sec-title">Allowances</span>
               <span
                 className="form-sec-badge"
@@ -1342,49 +1451,83 @@ export default function AddEmployee() {
               </span>
             </div>
             {allowances.map((row, idx) => (
-              <div
-                key={idx}
-                className="add-form-row-3"
-                style={{ marginBottom: 10 }}
-              >
+              <div key={idx} className="add-form-row-allowance">
                 <div className="add-form-group">
-                  <label className="add-label">Type ID</label>
-                  <input
-                    className="add-input"
+                  <label className="add-label">Allowance Type</label>
+                  <select
+                    className="add-select"
                     value={row.allowance_type_id}
                     onChange={(e) => {
                       const next = [...allowances];
-                      next[idx] = { ...row, allowance_type_id: e.target.value };
+                      next[idx] = {
+                        ...row,
+                        allowance_type_id: e.target.value,
+                      };
                       setAllowances(next);
                     }}
-                  />
+                  >
+                    <option value="">Select type</option>
+                    {allowanceTypes.map((t: any) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name || t.id}
+                      </option>
+                    ))}
+                  </select>
+                  {errors[`allowanceType_${idx}`] && (
+                    <div className="add-err">
+                      {errors[`allowanceType_${idx}`]}
+                    </div>
+                  )}
                 </div>
                 <div className="add-form-group">
                   <label className="add-label">Amount</label>
-                  <input
-                    className="add-input"
-                    type="number"
-                    value={row.amount}
-                    onChange={(e) => {
-                      const next = [...allowances];
-                      next[idx] = { ...row, amount: +e.target.value };
-                      setAllowances(next);
-                    }}
-                  />
-                </div>
-                <div className="add-form-group">
-                  <label className="add-check-label">
+                  <div className="amount-with-prefix">
+                    <span className="amount-prefix">
+                      {row.is_percentage ? "%" : "Rs"}
+                    </span>
                     <input
-                      type="checkbox"
-                      checked={row.is_percentage}
+                      className="add-input"
+                      type="number"
+                      value={row.amount}
                       onChange={(e) => {
                         const next = [...allowances];
-                        next[idx] = { ...row, is_percentage: e.target.checked };
+                        next[idx] = { ...row, amount: +e.target.value };
                         setAllowances(next);
                       }}
-                    />{" "}
-                    Percentage
-                  </label>
+                    />
+                  </div>
+                  {errors[`allowanceAmount_${idx}`] && (
+                    <div className="add-err">
+                      {errors[`allowanceAmount_${idx}`]}
+                    </div>
+                  )}
+                </div>
+                <div className="add-form-group allowance-type-field">
+                  <label className="add-label">Amount Type</label>
+                  <div className="allowance-toggle">
+                    <button
+                      type="button"
+                      className={row.is_percentage ? "" : "active"}
+                      onClick={() => {
+                        const next = [...allowances];
+                        next[idx] = { ...row, is_percentage: false };
+                        setAllowances(next);
+                      }}
+                    >
+                      Rs
+                    </button>
+                    <button
+                      type="button"
+                      className={row.is_percentage ? "active" : ""}
+                      onClick={() => {
+                        const next = [...allowances];
+                        next[idx] = { ...row, is_percentage: true };
+                        setAllowances(next);
+                      }}
+                    >
+                      %
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -1394,7 +1537,11 @@ export default function AddEmployee() {
               onClick={() =>
                 setAllowances([
                   ...allowances,
-                  { allowance_type_id: "", amount: 0, is_percentage: false },
+                  {
+                    allowance_type_id: allowanceTypes[0]?.id || "",
+                    amount: 0,
+                    is_percentage: false,
+                  },
                 ])
               }
             >
@@ -1409,7 +1556,6 @@ export default function AddEmployee() {
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
             <div className="form-sec-head">
-              <span style={{ fontSize: 18 }}>🔐</span>
               <span className="form-sec-title">User Creation</span>
               <span
                 className="form-sec-badge"
@@ -1440,14 +1586,17 @@ export default function AddEmployee() {
               <div>
                 <div className="add-form-row">
                   <div className="add-form-group" style={{ marginBottom: 14 }}>
-                    <label className="add-label">Username</label>
+                    <label className="add-label">Employee Email</label>
                     <input
                       className="add-input"
-                      value={
-                        username || fullName.toLowerCase().replace(/\s+/g, ".")
-                      }
-                      onChange={(e) => setUsername(e.target.value)}
+                      type="email"
+                      value={empEmail}
+                      onChange={(e) => setEmpEmail(e.target.value)}
+                      placeholder="employee@company.com"
                     />
+                    {errors.empEmail && (
+                      <div className="add-err">{errors.empEmail}</div>
+                    )}
                   </div>
                   <div className="add-form-group">
                     <label className="add-label">Temporary Password</label>
@@ -1470,6 +1619,9 @@ export default function AddEmployee() {
                     value={empEmail}
                     onChange={(e) => setEmpEmail(e.target.value)}
                   />
+                  {errors.empEmail && (
+                    <div className="add-err">{errors.empEmail}</div>
+                  )}
                 </div>
                 <div style={{ fontSize: 11, color: "#9ca3af" }}>
                   Employee will receive a link and set their own password.
@@ -1485,9 +1637,9 @@ export default function AddEmployee() {
                 onChange={(e) => setRoleId(e.target.value)}
               >
                 <option value="">Select a role</option>
-                {roles.map((role: string) => (
-                  <option key={role} value={role}>
-                    {role}
+                {roles.map((role: any) => (
+                  <option key={role.id} value={role.id}>
+                    {role.description || role.roleName}
                   </option>
                 ))}
               </select>
@@ -1509,7 +1661,7 @@ export default function AddEmployee() {
                   marginBottom: 16,
                 }}
               >
-                📎 Required Attachments
+                Required Attachments
               </div>
               <input
                 type="file"
@@ -1547,7 +1699,7 @@ export default function AddEmployee() {
                   {att.status === "uploaded" ? (
                     <>
                       <span className="att-pill-green">
-                        ✓ Uploaded — {att.file}
+                        Uploaded — {att.file}
                       </span>
                       <button
                         className="att-btn"
@@ -1558,7 +1710,7 @@ export default function AddEmployee() {
                     </>
                   ) : (
                     <>
-                      <span className="att-pill-amber">⚠ Missing</span>
+                      <span className="att-pill-amber">Missing</span>
                       <button
                         className="att-btn"
                         onClick={() =>

@@ -20,10 +20,8 @@ export default function PenaltyWorkflow() {
 
   const handleApprove = async (id: string) => {
     try {
-      await approve({ id, amount: 0 }); // Assuming amount is updated in a modal, passing 0 as a placeholder if not required here, wait, approve needs amount?
-      // Actually backend approve might just take the same amount. Let's just use the current amount.
       const penalty = cases.find((c: any) => c.id === id);
-      await approve({ id, amount: penalty.amount });
+      await approve({ id, amount: penalty?.amount ?? 0 });
       showToast('Penalty approved');
     } catch (e: any) {
       showToast(e.response?.data?.message || 'Failed to approve', 'error');
