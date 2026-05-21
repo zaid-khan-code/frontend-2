@@ -27,6 +27,7 @@ function AuthProbe() {
       <div data-testid="user-email">{user?.username || "no-user"}</div>
       <div data-testid="user-role">{user?.role || "no-role"}</div>
       <div data-testid="active-role">{activeRole}</div>
+      <div data-testid="employee-id">{user?.employeeId || "no-employee-id"}</div>
       <div data-testid="must-change">
         {user?.mustChangePassword ? "yes" : "no"}
       </div>
@@ -255,6 +256,48 @@ describe("AuthProvider session restore", () => {
     expect(clearServerSessionSilentlyMock.mock.invocationCallOrder[0]).toBeLessThan(
       apiPostMock.mock.invocationCallOrder[0],
     );
+  });
+
+  it("restores employee id from nested session employee data", async () => {
+    useAuthStore.setState({
+      user: null,
+      token: "employee-token",
+      permissions: [],
+      isAuthenticated: true,
+      activeRole: "employee",
+    });
+    apiGetMock
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: {
+            email: "employee@example.com",
+            employee: {
+              employee_id: "EMP777",
+            },
+            must_change_password: false,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: {
+            role_name: "employee",
+            permissions: ["view_own_profile"],
+          },
+        },
+      });
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("employee-id").textContent).toBe("EMP777");
+    });
   });
 });
 

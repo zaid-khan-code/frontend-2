@@ -82,6 +82,19 @@ export function mapRole(backendRole: string = ""): User["role"] {
   return "employee";
 }
 
+function resolveEmployeeId(data: any, fallback?: string) {
+  return (
+    data?.employee_id ||
+    data?.employeeId ||
+    data?.emp_id ||
+    data?.id ||
+    data?.employee?.employee_id ||
+    data?.employee?.employeeId ||
+    data?.employee?.emp_id ||
+    fallback
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     user: zUser,
@@ -118,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: udata.email || existingEmail,
             role: roleName || udata.role || "employee",
             role_name: roleName || udata.role,
-            employee_id: udata.employee_id || existingEmployeeId,
+            employee_id: resolveEmployeeId(udata, existingEmployeeId),
             must_change_password: !!udata.must_change_password,
           });
           setMustChangePassword(!!udata.must_change_password);
@@ -202,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: udata.email || email.trim(),
             role: roleName,
             role_name: roleName,
-            employee_id: udata.employee_id,
+            employee_id: resolveEmployeeId(udata),
             must_change_password: mustChangePassword,
           },
           token,
@@ -250,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       username: zUser.email,
       name: (zUser as any).name || zUser.email,
       role: mapRole(zUser.role_name || zUser.role),
-      employeeId: zUser.employee_id,
+      employeeId: zUser.employee_id || zUser.id,
       mustChangePassword: zUser.must_change_password,
     };
   }

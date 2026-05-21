@@ -1,165 +1,305 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useEmployee } from '../hooks/useEmployees';
-import { apiClient } from '../services/apiClient';
-import { Save, Camera, Loader2 } from 'lucide-react';
-import { useToastContext } from '../context/ToastContext';
+import React from "react";
+import { useAuth } from "../context/AuthContext";
+import { useEmployee } from "../hooks/useEmployees";
+import { useEmployeeSelfMetrics } from "../hooks/useDashboard";
+import { Loader2 } from "lucide-react";
 
-export default function MyProfile() {
-  const { user } = useAuth();
-  const employeeId = user?.employeeId;
-  // If employeeId is not yet available, show a loading state
-  if (!employeeId) {
-    return <div style={{ padding: 40, textAlign: 'center' }}><Loader2 className="spinner" size={24} /></div>;
-  }
-  const { data: emp, isLoading, isError } = useEmployee(employeeId);
-  const { showToast } = useToastContext();
-  
-  const [editing, setEditing] = useState(false);
-  const [contact, setContact] = useState('');
-  const [ice1, setIce1] = useState('');
-  const [ice2, setIce2] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [bankAcc, setBankAcc] = useState('');
+function getSelfProfile(payload: any) {
+  if (!payload || typeof payload !== "object") return payload;
+  return payload.employee || payload.profile || payload.user || payload.data || payload;
+}
 
-  // Sync state when data loads
-  useEffect(() => {
-    console.log('MyProfile employeeId:', employeeId);
-  }, [employeeId]);
-  useEffect(() => {
-    console.log('MyProfile emp data:', emp);
-  }, [emp]);
-  useEffect(() => {
-    if (emp) {
-      setContact((emp.accountInfo?.phone) || emp.contact1 || emp.phone || '');
-      setIce1((emp.emergencyContacts?.e_contact_1_phone) || emp.emergency1 || '');
-      setIce2((emp.emergencyContacts?.e_contact_2_phone) || emp.emergency2 || '');
-      setBankName((emp.bankInfo?.bank_name) || emp.bankName || '');
-      setBankAcc((emp.bankInfo?.account_number) || emp.bankAccount || '');
-    }
-  }, [emp]);
-
-  const handleSave = async () => {
-    if (!employeeId) return;
-    try {
-      await apiClient.patch(`/employees/${employeeId}`, {
-        accountInfo: { phone: contact },
-        emergencyContacts: { e_contact_1_phone: ice1, e_contact_2_phone: ice2 },
-        bankInfo: { bank_name: bankName, account_number: bankAcc }
-      });
-      showToast('Profile updated');
-      setEditing(false);
-    } catch (e) {
-      showToast('Failed to update profile', 'error');
-    }
-  };
-
-  const InfoItem = ({ label, value, editable, editValue, onEdit }: { label: string; value: string; editable?: boolean; editValue?: string; onEdit?: (v: string) => void }) => (
-    <div>
-      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
-      {editing && editable ? (
-        <input className="input" value={editValue} onChange={e => onEdit?.(e.target.value)} style={{ fontSize: 13 }} />
-      ) : (
-        <div style={{ fontSize: 13 }}>{value}</div>
-      )}
-    </div>
-  );
-
-  if (isLoading) return <div style={{ padding: 40, textAlign: 'center' }}><Loader2 className="spinner" size={24} /></div>;
-  if (isError || !emp) return <div style={{ padding: 40, textAlign: 'center', color: 'red' }}>Error loading profile.</div>;
-
-  const displayAvatar = (emp.accountInfo?.email?.split('@')[0]?.slice(0,2)?.toUpperCase()) || emp.avatar || emp.name?.slice(0,2)?.toUpperCase() || '?';
-  const displayName = emp.name || emp.personalInfo?.name || '—';
-  const displayDept = emp.department_name || emp.jobInfo?.department_name || emp.department || '—';
-  const displayDesig = emp.designation_name || emp.jobInfo?.designation_name || emp.designation || '—';
-
+function getEmployeeIdFromPayload(payload: any) {
+  const node = getSelfProfile(payload);
   return (
-    <div>
-      <div className="pg-head">
-        <div><div className="pg-greet">My Profile</div><div className="pg-sub">View and update your information</div></div>
-        {editing ? (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={() => setEditing(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSave}><Save size={13} /> Save Changes</button>
+    node?.employee_id ||
+    node?.employeeId ||
+    node?.emp_id ||
+    node?.id ||
+    payload?.employee_id ||
+    payload?.employeeId ||
+    payload?.emp_id ||
+    payload?.id
+  );
+}
+
+function isEmployeeProfile(payload: any) {
+  if (!payload || typeof payload !== "object") return false;
+  return !!(
+    payload.name ||
+    payload.father_name ||
+    payload.salaryInfo ||
+    payload.emergencyContacts ||
+    payload.bankInfo ||
+    payload.medicalInfo ||
+    payload.department_name ||
+    payload.designation_title
+  );
+}
+
+const rootFields = [
+  "id",
+  "employee_id",
+  "name",
+  "father_name",
+  "cnic",
+  "date_of_birth",
+  "created_at",
+  "updated_at",
+];
+
+const jobFields = [
+  "department_id",
+  "designation_id",
+  "employment_type_id",
+  "job_status_id",
+  "work_mode_id",
+  "work_location_id",
+  "shift_id",
+  "date_of_joining",
+  "date_of_exit",
+  "probation_end_date",
+  "contract_end_date",
+  "department_name",
+  "department_code",
+  "designation_title",
+  "employment_type_name",
+  "job_status_name",
+  "work_mode_name",
+  "work_location_name",
+  "shift_name",
+  "shift_start_time",
+  "shift_end_time",
+  "late_after_minutes",
+];
+
+const salaryFields = [
+  "base_salary",
+  "currency",
+  "effective_from",
+  "revision_type",
+  "revision_percent",
+  "revision_reason",
+];
+
+const allowanceFields = [
+  "id",
+  "employee_id",
+  "allowance_type_id",
+  "amount",
+  "is_percentage",
+  "is_current",
+  "is_active",
+  "created_by",
+  "created_at",
+  "updated_at",
+  "field_name",
+];
+
+const emergencyFields = [
+  "contact_1",
+  "contact_2",
+  "perment_address",
+  "postal_address",
+  "e_contact_1_relation",
+  "e_contact_1_full_name",
+  "e_contact_1_phone",
+  "e_contact_1_phone_country_code",
+  "e_contact_1_email",
+  "e_contact_2_relation",
+  "e_contact_2_full_name",
+  "e_contact_2_phone",
+  "e_contact_2_phone_country_code",
+  "e_contact_2_email",
+  "primary_contact",
+];
+
+const bankFields = [
+  "bank_name",
+  "branch_name",
+  "branch_code",
+  "iban",
+  "account_title",
+  "account_number",
+  "account_type",
+  "is_verified",
+];
+
+const medicalFields = [
+  "blood_group",
+  "date_of_birth",
+  "gender",
+  "height_cm",
+  "weight_kg",
+  "has_disability",
+  "disability_type",
+  "disability_description",
+  "has_chronic_condition",
+  "chronic_condition_notes",
+  "has_known_allergies",
+  "allergy_notes",
+  "emergency_medication",
+  "fitness_status",
+  "last_medical_exam_date",
+  "next_medical_exam_date",
+];
+
+function formatValue(value: any) {
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return String(value);
+}
+
+function FieldGrid({ source, fields }: { source: any; fields: string[] }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+        gap: 14,
+      }}
+    >
+      {fields.map((field) => (
+        <div key={field}>
+          <div
+            style={{
+              fontSize: 10.5,
+              fontWeight: 700,
+              color: "var(--t3)",
+              marginBottom: 4,
+            }}
+          >
+            {field}
           </div>
-        ) : (
-          <button className="btn btn-secondary" onClick={() => setEditing(true)}>Edit Profile</button>
-        )}
-      </div>
-
-      {/* Avatar header */}
-      <div className="card" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 16 }}>
-        <div style={{ position: 'relative' }}>
-          <div className="avatar avatar-lg" style={{ background: 'var(--p)' }}>{displayAvatar}</div>
-          {editing && (
-            <div style={{ position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, borderRadius: '50%', background: 'var(--p)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid white' }}>
-              <Camera size={10} />
-            </div>
-          )}
+          <div
+            className="mono"
+            style={{
+              fontSize: 12,
+              color: "var(--t1)",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {formatValue(source?.[field])}
+          </div>
         </div>
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>{displayName}</div>
-          <div className="mono" style={{ fontSize: 11, color: 'var(--t3)' }}>{emp.employee_id || emp.id} · {displayDept} · {displayDesig}</div>
-        </div>
-      </div>
-
-      {/* Personal Info (read-only) */}
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 12 }}>Personal Information</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-          <InfoItem label="Full Name" value={displayName} />
-          <InfoItem label="Father Name" value={emp.personalInfo?.father_name || emp.fatherName || '—'} />
-          <InfoItem label="Date of Birth" value={emp.personalInfo?.date_of_birth || emp.dob || '—'} />
-          <InfoItem label="CNIC" value={emp.personalInfo?.cnic || emp.cnic || '—'} />
-          <InfoItem label="Gender" value={emp.personalInfo?.gender || emp.gender || '—'} />
-          <InfoItem label="Blood Group" value={emp.medicalInfo?.blood_group || emp.bloodGroup || '—'} />
-        </div>
-      </div>
-
-      {/* Contact (editable) */}
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 12 }}>Contact Details</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-          <InfoItem label="Phone" value={contact || '—'} editable editValue={contact} onEdit={setContact} />
-          <InfoItem label="Emergency Contact 1" value={ice1 || '—'} editable editValue={ice1} onEdit={setIce1} />
-          <InfoItem label="Emergency Contact 2" value={ice2 || 'N/A'} editable editValue={ice2} onEdit={setIce2} />
-        </div>
-      </div>
-
-      {/* Bank (editable with note) */}
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 12 }}>Bank Details</div>
-        {editing && <div style={{ fontSize: 11, color: 'var(--amber)', marginBottom: 8, background: 'var(--amberl)', padding: '6px 10px', borderRadius: 'var(--rxs)' }}>⚠ Bank detail changes require HR approval</div>}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-          <InfoItem label="Bank Name" value={bankName || 'Not provided'} editable editValue={bankName} onEdit={setBankName} />
-          <InfoItem label="Account Number" value={bankAcc || 'Not provided'} editable editValue={bankAcc} onEdit={setBankAcc} />
-          <InfoItem label="Payment Mode" value={emp.paymentMode || '—'} />
-        </div>
-      </div>
-
-      {/* Job Info (read-only) */}
-      <div className="card">
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 12 }}>Job Information</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-          <InfoItem label="Department" value={displayDept} />
-          <InfoItem label="Designation" value={displayDesig} />
-          <InfoItem label="Work Mode" value={emp.work_mode_name || emp.workMode || '—'} />
-          <InfoItem label="Shift" value={emp.shift_name || emp.shift || '—'} />
-          <InfoItem label="Date of Joining" value={emp.jobInfo?.date_of_joining || emp.dateOfJoining || '—'} />
-          <InfoItem label="Reporting Manager" value={emp.manager_emp_id || emp.reportingManager || '—'} />
-        </div>
-      </div>
+      ))}
     </div>
   );
 }
 
+function DataSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 800,
+          color: "var(--t2)",
+          marginBottom: 12,
+        }}
+      >
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
 
+export default function MyProfile() {
+  const { user } = useAuth();
+  const employeeId = user?.employeeId;
+  const {
+    data: selfMetrics,
+    isLoading: isSelfLoading,
+    isError: isSelfError,
+  } = useEmployeeSelfMetrics();
+  const selfProfile = getSelfProfile(selfMetrics);
+  const resolvedEmployeeId = employeeId || getEmployeeIdFromPayload(selfMetrics);
+  const {
+    data: employeeById,
+    isLoading: isEmployeeLoading,
+    isError: isEmployeeError,
+  } = useEmployee(resolvedEmployeeId);
+  const emp = employeeById || (isEmployeeProfile(selfProfile) ? selfProfile : null);
 
+  const isLoading =
+    !emp && (isSelfLoading || (!!resolvedEmployeeId && isEmployeeLoading));
+  const isError =
+    !emp && (isSelfError || (!!resolvedEmployeeId && isEmployeeError));
 
+  if (isLoading) {
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <Loader2 className="spinner" size={24} />
+      </div>
+    );
+  }
 
+  if (isError || !emp) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "red" }}>
+        Error loading profile.
+      </div>
+    );
+  }
 
+  const allowances = Array.isArray(emp.allowances) ? emp.allowances : [];
 
+  return (
+    <div>
+      <div className="pg-head">
+        <div>
+          <div className="pg-greet">My Profile</div>
+        </div>
+      </div>
 
+      <DataSection title="employee">
+        <FieldGrid source={emp} fields={rootFields} />
+      </DataSection>
 
+      <DataSection title="job">
+        <FieldGrid source={emp} fields={jobFields} />
+      </DataSection>
 
+      <DataSection title="salaryInfo">
+        <FieldGrid source={emp.salaryInfo} fields={salaryFields} />
+      </DataSection>
 
+      <DataSection title="allowances">
+        {allowances.length ? (
+          <div style={{ display: "grid", gap: 12 }}>
+            {allowances.map((allowance: any, index: number) => (
+              <FieldGrid
+                key={allowance?.id || index}
+                source={allowance}
+                fields={allowanceFields}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mono" style={{ fontSize: 12 }}>
+            []
+          </div>
+        )}
+      </DataSection>
+
+      <DataSection title="emergencyContacts">
+        <FieldGrid source={emp.emergencyContacts} fields={emergencyFields} />
+      </DataSection>
+
+      <DataSection title="bankInfo">
+        <FieldGrid source={emp.bankInfo} fields={bankFields} />
+      </DataSection>
+
+      <DataSection title="medicalInfo">
+        <FieldGrid source={emp.medicalInfo} fields={medicalFields} />
+      </DataSection>
+    </div>
+  );
+}

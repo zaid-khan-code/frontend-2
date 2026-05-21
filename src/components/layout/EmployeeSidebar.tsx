@@ -13,13 +13,12 @@ import{
   Zap,
   AlertTriangle,
   Users,
-  Loader2,
 } from "lucide-react";
 
 export default function EmployeeSidebar() {
   const { user, logout } = useAuth();
   const employeeId = user?.employeeId;
-  const { data: employee, isLoading: empLoading, isError: empError } = useEmployee(employeeId);
+  const { data: employee, isLoading: empLoading } = useEmployee(employeeId);
   const links = [
     { to: "/my-dashboard", icon: LayoutDashboard, label: "My Dashboard" },
     { to: "/my-attendance", icon: CalendarCheck, label: "My Attendance" },
@@ -43,7 +42,12 @@ export default function EmployeeSidebar() {
   };
 
   // Compute display name and role using employee data and auth role config
-  const displayName = employee?.name || employee?.personalInfo?.name || user?.name || '';
+  const displayName =
+    employee?.name ||
+    employee?.personalInfo?.name ||
+    user?.name ||
+    user?.username ||
+    "Employee";
   const roleConfig = getRoleAccessConfig(user);
   const roleLabelMap: Record<string, string> = {
     superadmin: 'Super Admin',
@@ -54,8 +58,6 @@ export default function EmployeeSidebar() {
   };
   const roleLabel = roleConfig.dashboardType === 'superadmin' ? 'Super Admin' : roleLabelMap[roleConfig.dashboardType] || 'Employee';
 
-
-  if (empLoading) return <div style={{ padding: 40, textAlign: "center" }}><Loader2 className="spinner" size={24} /></div>;
 
   return (
     <div className="sidebar emp-sidebar">
@@ -89,7 +91,9 @@ export default function EmployeeSidebar() {
             <div className="sb-av">{getInitials(displayName)}</div>
             <div>
               <div className="sb-un">{displayName}</div>
-              <div className="sb-ur">{roleLabel}</div>
+              <div className="sb-ur">
+                {empLoading ? "Loading profile..." : roleLabel}
+              </div>
             </div>
             <LogOut
               size={14}
