@@ -164,8 +164,8 @@ describe("MyProfile", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Muhammad ZAid Khan").length).toBeGreaterThan(0);
     });
-    expect(screen.getByText("IT-Support")).toBeTruthy();
-    expect(screen.getByText("Medical Allowance")).toBeTruthy();
+    expect(screen.getAllByText("IT-Support").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Medical Allowance").length).toBeGreaterThan(0);
     expect(screen.getByText("Voluptas laboriosam")).toBeTruthy();
     expect(screen.getByText("Repellendus Delenit")).toBeTruthy();
     expect(screen.getAllByText("false").length).toBeGreaterThan(0);
