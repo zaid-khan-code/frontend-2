@@ -70,4 +70,50 @@ describe("apiClient auth errors", () => {
 
     expect(authorizationHeader).toBeUndefined();
   });
+
+  it("keeps the current page/session when a data endpoint returns a normal 403", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    useAuthStore.setState({
+      user: {
+        email: "hr.manager@example.com",
+        role: "hr_manager",
+        role_name: "hr_manager",
+      },
+      token: "hr-manager-token",
+      permissions: ["view_dashboard"],
+      isAuthenticated: true,
+      activeRole: "hr_manager",
+    });
+
+    apiClient.defaults.adapter = async (config) => {
+      return Promise.reject({
+        config,
+        response: {
+          status: 403,
+          data: {
+            success: false,
+            error: {
+              code: "INSUFFICIENT_PERMISSIONS",
+              message: "Forbidden for this resource.",
+            },
+          },
+        },
+      });
+    };
+
+    await expect(apiClient.get("/dashboard/metrics")).rejects.toBeTruthy();
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+    expect(useAuthStore.getState().activeRole).toBe("hr_manager");
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "Permission denied",
+      expect.objectContaining({
+        error: expect.objectContaining({ code: "INSUFFICIENT_PERMISSIONS" }),
+      }),
+    );
+  });
 });

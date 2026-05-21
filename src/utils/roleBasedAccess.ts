@@ -29,13 +29,23 @@ export function getRoleAccessConfig(user: User | null): RoleAccessConfig {
     };
   }
 
-  if (user.role === 'head_hr') {
+  if (user.role === 'head_hr' || user.role === 'hr_manager') {
     return {
       canViewAllBranches: true,
       canViewAllDepartments: true,
       canViewAllEmployees: true,
       canEditApprovals: true,
       dashboardType: 'head_hr',
+    };
+  }
+
+  if (user.role === 'hr_executive') {
+    return {
+      canViewAllBranches: false,
+      canViewAllDepartments: true,
+      canViewAllEmployees: true,
+      canEditApprovals: false,
+      dashboardType: 'department',
     };
   }
 
@@ -73,7 +83,11 @@ export function getRoleAccessConfig(user: User | null): RoleAccessConfig {
 export function filterEmployeesByRole(employees: any[], user: User | null): any[] {
   if (!user) return [];
 
-  if (user.role === 'super_admin' || user.role === 'head_hr') {
+  if (user.role === 'super_admin' || user.role === 'head_hr' || user.role === 'hr_manager') {
+    return employees;
+  }
+
+  if (user.role === 'hr_executive') {
     return employees;
   }
 
@@ -99,7 +113,11 @@ export function filterEmployeesByRole(employees: any[], user: User | null): any[
 export function filterAttendanceByRole(attendance: any[], user: User | null): any[] {
   if (!user) return [];
 
-  if (user.role === 'super_admin' || user.role === 'head_hr') {
+  if (user.role === 'super_admin' || user.role === 'head_hr' || user.role === 'hr_manager') {
+    return attendance;
+  }
+
+  if (user.role === 'hr_executive') {
     return attendance;
   }
 
@@ -125,7 +143,11 @@ export function filterAttendanceByRole(attendance: any[], user: User | null): an
 export function filterLeaveByRole(leaves: any[], user: User | null): any[] {
   if (!user) return [];
 
-  if (user.role === 'super_admin' || user.role === 'head_hr') {
+  if (user.role === 'super_admin' || user.role === 'head_hr' || user.role === 'hr_manager') {
+    return leaves;
+  }
+
+  if (user.role === 'hr_executive') {
     return leaves;
   }
 
@@ -151,7 +173,11 @@ export function filterLeaveByRole(leaves: any[], user: User | null): any[] {
 export function filterPenaltiesByRole(penalties: any[], user: User | null): any[] {
   if (!user) return [];
 
-  if (user.role === 'super_admin' || user.role === 'head_hr') {
+  if (user.role === 'super_admin' || user.role === 'head_hr' || user.role === 'hr_manager') {
+    return penalties;
+  }
+
+  if (user.role === 'hr_executive') {
     return penalties;
   }
 
@@ -177,7 +203,7 @@ export function filterPenaltiesByRole(penalties: any[], user: User | null): any[
 export function getBranchesForUser(user: User | null, allBranches: string[]): string[] {
   if (!user) return [];
 
-  if (user.role === 'super_admin' || user.role === 'head_hr') {
+  if (user.role === 'super_admin' || user.role === 'head_hr' || user.role === 'hr_manager') {
     return allBranches;
   }
 
@@ -193,7 +219,7 @@ export function getBranchesForUser(user: User | null, allBranches: string[]): st
 export function getDepartmentsForUser(user: User | null, allDepartments: string[]): string[] {
   if (!user) return [];
 
-  if (user.role === 'super_admin' || user.role === 'head_hr') {
+  if (user.role === 'super_admin' || user.role === 'head_hr' || user.role === 'hr_manager' || user.role === 'hr_executive') {
     return allDepartments;
   }
 

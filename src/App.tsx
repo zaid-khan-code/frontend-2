@@ -141,6 +141,8 @@ function RootRedirect() {
     return <Navigate to="/dashboard" />; // Department HR sees filtered dashboard
   } else if (activeRole === "head_hr") {
     return <Navigate to="/attendance-head-review" />; // Head HR sees head office review
+  } else if (activeRole === "hr_manager" || activeRole === "hr_executive") {
+    return <Navigate to="/dashboard" />;
   } else {
     // super_admin
     return <Navigate to="/launchpad" />;
@@ -173,6 +175,8 @@ const App = () => (
                     "head_hr",
                     "branch_hr",
                     "department_hr",
+                    "hr_manager",
+                    "hr_executive",
                   ]}
                 />
               }

@@ -12,6 +12,22 @@ export const apiClient = axios.create({
   },
 });
 
+const authSessionClient = axios.create({
+  baseURL,
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+export async function clearServerSessionSilently() {
+  try {
+    await authSessionClient.post("/auth/logout");
+  } catch {
+    // A missing or expired session is fine before login/logout.
+  }
+}
+
 export function isMustChangePasswordError(error: any) {
   return error?.response?.data?.error?.code === "MUST_CHANGE_PASSWORD";
 }
@@ -61,9 +77,6 @@ apiClient.interceptors.response.use(
       routeToChangePassword();
     } else if (status === 403) {
       console.error("Permission denied", data);
-      if (window.location.pathname !== "/unauthorized") {
-        window.location.href = "/unauthorized";
-      }
     }
 
     return Promise.reject(error);

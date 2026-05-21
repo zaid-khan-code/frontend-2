@@ -1,12 +1,23 @@
 import React, { createContext, useContext, ReactNode, useEffect } from "react";
 import { useAuthStore, User as ZustandUser } from "../store/useAuthStore";
-import { apiClient, isMustChangePasswordError } from "../services/apiClient";
+import {
+  apiClient,
+  clearServerSessionSilently,
+  isMustChangePasswordError,
+} from "../services/apiClient";
 import { getAuthTokenFromFallback } from "../utils/authCookie";
 
 export interface User {
   username: string;
   name?: string;
-  role: "super_admin" | "head_hr" | "branch_hr" | "department_hr" | "employee";
+  role:
+    | "super_admin"
+    | "head_hr"
+    | "branch_hr"
+    | "department_hr"
+    | "hr_manager"
+    | "hr_executive"
+    | "employee";
   employeeId?: string;
   branch?: string | null;
   departments?: string[];
@@ -24,6 +35,8 @@ interface AuthContextType {
     | "head_hr"
     | "branch_hr"
     | "department_hr"
+    | "hr_manager"
+    | "hr_executive"
     | "employee";
   loading: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
@@ -34,6 +47,8 @@ interface AuthContextType {
       | "head_hr"
       | "branch_hr"
       | "department_hr"
+      | "hr_manager"
+      | "hr_executive"
       | "employee",
   ) => void;
 }
@@ -47,20 +62,23 @@ function authLog(...args: unknown[]) {
 }
 
 // Ensure the user role maps correctly to the expected types
-function mapRole(backendRole: string = ""): User["role"] {
+export function mapRole(backendRole: string = ""): User["role"] {
   const normalized = backendRole.toLowerCase().trim();
+  const normalizedKey = normalized.replace(/\s+/g, "_");
   if (
-    normalized === "super_admin" ||
-    normalized === "superadmin" ||
-    normalized === "admin"
+    normalizedKey === "super_admin" ||
+    normalizedKey === "superadmin" ||
+    normalizedKey === "admin"
   )
     return "super_admin";
-  if (normalized === "head_hr" || normalized === "headoffice_hr")
+  if (normalizedKey === "head_hr" || normalizedKey === "headoffice_hr")
     return "head_hr";
-  if (normalized === "branch_hr") return "branch_hr";
-  if (normalized === "department_hr" || normalized === "dept_hr")
+  if (normalizedKey === "branch_hr") return "branch_hr";
+  if (normalizedKey === "department_hr" || normalizedKey === "dept_hr")
     return "department_hr";
-  if (normalized === "hr") return "head_hr";
+  if (normalizedKey === "hr_manager" || normalizedKey === "hr")
+    return "hr_manager";
+  if (normalizedKey === "hr_executive") return "hr_executive";
   return "employee";
 }
 
@@ -150,6 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<LoginResult> => {
     try {
       authLog("POST /auth/login", { email: email.trim() });
+      useAuthStore.getState().logout();
+      await clearServerSessionSilently();
 
       const res = await apiClient.post("/auth/login", {
         email: email.trim(),
@@ -216,8 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     zLogout();
-    // Also notify backend if needed
-    apiClient.post("/auth/logout").catch(() => {});
+    clearServerSessionSilently();
   };
 
   const switchRole = (role: User["role"]) => {
@@ -230,7 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     legacyUser = {
       username: zUser.email,
       name: (zUser as any).name || zUser.email,
-      role: mapRole(zUser.role),
+      role: mapRole(zUser.role_name || zUser.role),
       employeeId: zUser.employee_id,
       mustChangePassword: zUser.must_change_password,
     };

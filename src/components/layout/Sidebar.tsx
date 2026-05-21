@@ -133,11 +133,15 @@ export default function Sidebar() {
       ? superAdminLinks
       : activeRole === "head_hr"
         ? headHrLinks
-        : activeRole === "branch_hr"
-          ? branchHrLinks
-          : activeRole === "department_hr"
+        : activeRole === "hr_manager"
+          ? headHrLinks
+          : activeRole === "hr_executive"
             ? departmentHrLinks
-            : [];
+            : activeRole === "branch_hr"
+              ? branchHrLinks
+              : activeRole === "department_hr"
+                ? departmentHrLinks
+                : [];
 
   const { showToast } = useToastContext();
 
@@ -287,7 +291,9 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {(activeRole === "super_admin" || activeRole === "head_hr") && (
+      {(activeRole === "super_admin" ||
+        activeRole === "head_hr" ||
+        activeRole === "hr_manager") && (
         <>
           <div className="sb-div" />
           <div className="sb-sec">
