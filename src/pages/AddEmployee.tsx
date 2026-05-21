@@ -56,10 +56,15 @@ const S = `
   /* Form elements */
   .add-form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;}
   .add-form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+  .add-form-row-4{display:grid;grid-template-columns:1.2fr 1fr 160px 1.4fr;gap:14px;margin-bottom:14px;}
+  .add-form-row-emg{display:grid;grid-template-columns:160px 1fr 1fr;gap:14px;margin-bottom:14px;align-items:end;}
+  .emg-span-2{grid-column:2 / span 2;}
+  .emg-stack{display:grid;grid-template-columns:1fr;gap:14px;}
   .add-form-group{display:flex;flex-direction:column;}
   .add-label{font-size:11px;font-weight:700;color:#374151;margin-bottom:5px;letter-spacing:.02em;}
   .add-label span{color:#ef4444;}
   .add-input{height:38px;border:1.5px solid #e5e7eb;border-radius:10px;padding:0 12px;font-size:12px;color:#1e1b4b;outline:none;transition:border .15s,box-shadow .15s;background:#fafafa;font-family:inherit;}
+  .add-input-sm{max-width:140px;}
   .add-input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);background:#fff;}
   .add-input:disabled{background:#f8f9fb;color:#9ca3af;cursor:not-allowed;}
   .add-input.mono{font-family:'SF Mono',Consolas,monospace;font-size:11.5px;}
@@ -68,6 +73,7 @@ const S = `
   .add-textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);background:#fff;}
   .add-textarea:disabled{background:#f8f9fb;color:#9ca3af;}
   .add-select{height:38px;border:1.5px solid #e5e7eb;border-radius:10px;padding:0 12px;font-size:12px;color:#1e1b4b;outline:none;background:#fafafa;cursor:pointer;transition:border .15s,box-shadow .15s;font-family:inherit;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;}
+  .add-select-sm{max-width:160px;}
   .add-select:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);background-color:#fff;}
   .add-err{color:#ef4444;font-size:10px;margin-top:3px;}
 
@@ -661,11 +667,11 @@ export default function AddEmployee() {
                 />
               </div>
             </div>
-            <div className="add-form-row-3">
+            <div className="add-form-row-emg">
               <div className="add-form-group">
                 <label className="add-label">Emergency 1 Relation</label>
                 <select
-                  className="add-select"
+                  className="add-select add-select-sm"
                   value={emg1Relation}
                   onChange={(e) => setEmg1Relation(e.target.value)}
                 >
@@ -688,6 +694,9 @@ export default function AddEmployee() {
                   ))}
                 </select>
               </div>
+              <div className="add-form-group" />
+            </div>
+            <div className="add-form-row-4">
               <div className="add-form-group">
                 <label className="add-label">Emergency 1 Name</label>
                 <input
@@ -706,12 +715,10 @@ export default function AddEmployee() {
                   }
                 />
               </div>
-            </div>
-            <div className="add-form-row">
               <div className="add-form-group">
                 <label className="add-label">Emergency 1 Country Code</label>
                 <input
-                  className="add-input"
+                  className="add-input add-input-sm"
                   value={emg1PhoneCode}
                   onChange={(e) => setEmg1PhoneCode(e.target.value)}
                 />
@@ -726,11 +733,11 @@ export default function AddEmployee() {
                 />
               </div>
             </div>
-            <div className="add-form-row-3">
+            <div className="add-form-row-emg">
               <div className="add-form-group">
                 <label className="add-label">Emergency 2 Relation</label>
                 <select
-                  className="add-select"
+                  className="add-select add-select-sm"
                   value={emg2Relation}
                   onChange={(e) => setEmg2Relation(e.target.value)}
                 >
@@ -754,6 +761,9 @@ export default function AddEmployee() {
                   ))}
                 </select>
               </div>
+              <div className="add-form-group" />
+            </div>
+            <div className="add-form-row-4">
               <div className="add-form-group">
                 <label className="add-label">Emergency 2 Name</label>
                 <input
@@ -772,12 +782,10 @@ export default function AddEmployee() {
                   }
                 />
               </div>
-            </div>
-            <div className="add-form-row">
               <div className="add-form-group">
                 <label className="add-label">Emergency 2 Country Code</label>
                 <input
-                  className="add-input"
+                  className="add-input add-input-sm"
                   value={emg2PhoneCode}
                   onChange={(e) => setEmg2PhoneCode(e.target.value)}
                 />
