@@ -57,6 +57,7 @@ const S = `
   .add-form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;}
   .add-form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
   .add-form-row-4{display:grid;grid-template-columns:1.2fr 1fr 160px 1.4fr;gap:14px;margin-bottom:14px;}
+  .add-form-row-5{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:9px;margin-bottom:14px;width:100%;}
   .add-form-row-emg{display:grid;grid-template-columns:160px 1fr 1fr;gap:14px;margin-bottom:14px;align-items:end;}
   .emg-span-2{grid-column:2 / span 2;}
   .emg-stack{display:grid;grid-template-columns:1fr;gap:14px;}
@@ -64,7 +65,7 @@ const S = `
   .add-label{font-size:11px;font-weight:700;color:#374151;margin-bottom:5px;letter-spacing:.02em;}
   .add-label span{color:#ef4444;}
   .add-input{height:38px;border:1.5px solid #e5e7eb;border-radius:10px;padding:0 12px;font-size:12px;color:#1e1b4b;outline:none;transition:border .15s,box-shadow .15s;background:#fafafa;font-family:inherit;}
-  .add-input-sm{max-width:140px;}
+  .add-input-sm{}
   .add-input:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);background:#fff;}
   .add-input:disabled{background:#f8f9fb;color:#9ca3af;cursor:not-allowed;}
   .add-input.mono{font-family:'SF Mono',Consolas,monospace;font-size:11.5px;}
@@ -73,7 +74,8 @@ const S = `
   .add-textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);background:#fff;}
   .add-textarea:disabled{background:#f8f9fb;color:#9ca3af;}
   .add-select{height:38px;border:1.5px solid #e5e7eb;border-radius:10px;padding:0 12px;font-size:12px;color:#1e1b4b;outline:none;background:#fafafa;cursor:pointer;transition:border .15s,box-shadow .15s;font-family:inherit;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;}
-  .add-select-sm{max-width:160px;}
+  .add-select.error{border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.1);}
+  .add-select-sm{}
   .add-select:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);background-color:#fff;}
   .add-err{color:#ef4444;font-size:10px;margin-top:3px;}
 
@@ -271,6 +273,12 @@ export default function AddEmployee() {
     const letters = val.replace(/[^a-zA-Z\s]/g, "");
     setter(letters);
   };
+  const formatEmployeeId = (val: string) => {
+    const raw = val.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const digits = raw.replace(/[^0-9]/g, "").slice(0, 3);
+    if (!digits) return "EMP";
+    return `EMP${digits}`;
+  };
 
   const [fullName, setFullName] = useState("");
   const [employeeIdInput, setEmployeeIdInput] = useState("");
@@ -346,8 +354,23 @@ export default function AddEmployee() {
   const validate = (): boolean => {
     const e: Record<string, string> = {};
     if (step === 0) {
+      if (!employeeIdInput.trim() || employeeIdInput === "EMP") {
+        e.employeeIdInput = "Required";
+      } else if (!/^EMP\d{3}$/.test(employeeIdInput)) {
+        e.employeeIdInput = "Use EMP000 format";
+      } else if (Number(employeeIdInput.slice(3)) < 1) {
+        e.employeeIdInput = "Use 001-999";
+      }
       if (!fullName.trim()) e.fullName = "Required";
+      if (!fatherName.trim()) e.fatherName = "Required";
       if (!cnic.trim()) e.cnic = "Required";
+      if (!dob.trim()) e.dob = "Required";
+    }
+    if (step === 1) {
+      if (!contact1.trim()) e.contact1 = "Required";
+      if (!emg1Relation.trim()) e.emg1Relation = "Required";
+      if (!emg1Name.trim()) e.emg1Name = "Required";
+      if (!emg1Phone.trim()) e.emg1Phone = "Required";
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -559,11 +582,16 @@ export default function AddEmployee() {
                 <label className="add-label">Employee ID</label>
                 <div style={{ position: "relative" }}>
                   <input
-                    className="add-input mono"
+                    className={`add-input mono${errors.employeeIdInput ? " error" : ""}`}
                     placeholder="Enter ID"
                     value={employeeIdInput}
-                    onChange={(e) => setEmployeeIdInput(e.target.value)}
+                    onChange={(e) =>
+                      setEmployeeIdInput(formatEmployeeId(e.target.value))
+                    }
                   />
+                  {errors.employeeIdInput && (
+                    <div className="add-err">{errors.employeeIdInput}</div>
+                  )}
                 </div>
               </div>
               <div className="add-form-group">
@@ -574,19 +602,28 @@ export default function AddEmployee() {
                   className={`add-input${errors.fullName ? " error" : ""}`}
                   placeholder="Enter full name"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(e) =>
+                    handleTextChange(e.target.value, setFullName)
+                  }
                 />
                 {errors.fullName && (
                   <div className="add-err">{errors.fullName}</div>
                 )}
               </div>
               <div className="add-form-group">
-                <label className="add-label">Father Name</label>
+                <label className="add-label">
+                  Father Name <span>*</span>
+                </label>
                 <input
-                  className="add-input"
+                  className={`add-input${errors.fatherName ? " error" : ""}`}
                   value={fatherName}
-                  onChange={(e) => setFatherName(e.target.value)}
+                  onChange={(e) =>
+                    handleTextChange(e.target.value, setFatherName)
+                  }
                 />
+                {errors.fatherName && (
+                  <div className="add-err">{errors.fatherName}</div>
+                )}
               </div>
             </div>
             <div className="add-form-row-3">
@@ -603,13 +640,16 @@ export default function AddEmployee() {
                 {errors.cnic && <div className="add-err">{errors.cnic}</div>}
               </div>
               <div className="add-form-group">
-                <label className="add-label">Date of Birth</label>
+                <label className="add-label">
+                  Date of Birth <span>*</span>
+                </label>
                 <input
-                  className="add-input"
+                  className={`add-input${errors.dob ? " error" : ""}`}
                   type="date"
                   value={dob}
                   onChange={(e) => setDob(e.target.value)}
                 />
+                {errors.dob && <div className="add-err">{errors.dob}</div>}
               </div>
               <div className="add-form-group">
                 <label className="add-label">Gender</label>
@@ -649,12 +689,15 @@ export default function AddEmployee() {
               <div className="add-form-group">
                 <label className="add-label">Contact 1 *</label>
                 <input
-                  className="add-input"
+                  className={`add-input${errors.contact1 ? " error" : ""}`}
                   value={contact1}
                   onChange={(e) =>
                     handleNumberChange(e.target.value, setContact1)
                   }
                 />
+                {errors.contact1 && (
+                  <div className="add-err">{errors.contact1}</div>
+                )}
               </div>
               <div className="add-form-group">
                 <label className="add-label">Contact 2</label>
@@ -667,11 +710,11 @@ export default function AddEmployee() {
                 />
               </div>
             </div>
-            <div className="add-form-row-emg">
+            <div className="add-form-row-5">
               <div className="add-form-group">
                 <label className="add-label">Emergency 1 Relation</label>
                 <select
-                  className="add-select add-select-sm"
+                  className={`add-select add-select-sm${errors.emg1Relation ? " error" : ""}`}
                   value={emg1Relation}
                   onChange={(e) => setEmg1Relation(e.target.value)}
                 >
@@ -693,27 +736,35 @@ export default function AddEmployee() {
                     </option>
                   ))}
                 </select>
+                {errors.emg1Relation && (
+                  <div className="add-err">{errors.emg1Relation}</div>
+                )}
               </div>
-              <div className="add-form-group" />
-            </div>
-            <div className="add-form-row-4">
               <div className="add-form-group">
                 <label className="add-label">Emergency 1 Name</label>
                 <input
-                  className="add-input"
+                  className={`add-input${errors.emg1Name ? " error" : ""}`}
                   value={emg1Name}
-                  onChange={(e) => setEmg1Name(e.target.value)}
+                  onChange={(e) =>
+                    handleTextChange(e.target.value, setEmg1Name)
+                  }
                 />
+                {errors.emg1Name && (
+                  <div className="add-err">{errors.emg1Name}</div>
+                )}
               </div>
               <div className="add-form-group">
                 <label className="add-label">Emergency 1 Phone</label>
                 <input
-                  className="add-input"
+                  className={`add-input${errors.emg1Phone ? " error" : ""}`}
                   value={emg1Phone}
                   onChange={(e) =>
                     handleNumberChange(e.target.value, setEmg1Phone)
                   }
                 />
+                {errors.emg1Phone && (
+                  <div className="add-err">{errors.emg1Phone}</div>
+                )}
               </div>
               <div className="add-form-group">
                 <label className="add-label">Emergency 1 Country Code</label>
@@ -733,7 +784,7 @@ export default function AddEmployee() {
                 />
               </div>
             </div>
-            <div className="add-form-row-emg">
+            <div className="add-form-row-5">
               <div className="add-form-group">
                 <label className="add-label">Emergency 2 Relation</label>
                 <select
@@ -761,15 +812,14 @@ export default function AddEmployee() {
                   ))}
                 </select>
               </div>
-              <div className="add-form-group" />
-            </div>
-            <div className="add-form-row-4">
               <div className="add-form-group">
                 <label className="add-label">Emergency 2 Name</label>
                 <input
                   className="add-input"
                   value={emg2Name}
-                  onChange={(e) => setEmg2Name(e.target.value)}
+                  onChange={(e) =>
+                    handleTextChange(e.target.value, setEmg2Name)
+                  }
                 />
               </div>
               <div className="add-form-group">
