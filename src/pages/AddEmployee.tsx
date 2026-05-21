@@ -274,8 +274,17 @@ export default function AddEmployee() {
   const [gender, setGender] = useState("Male");
   const [contact1, setContact1] = useState("");
   const [contact2, setContact2] = useState("");
-  const [ice1, setIce1] = useState("");
-  const [ice2, setIce2] = useState("");
+  const [emg1Relation, setEmg1Relation] = useState("father");
+  const [emg1Name, setEmg1Name] = useState("");
+  const [emg1Phone, setEmg1Phone] = useState("");
+  const [emg1PhoneCode, setEmg1PhoneCode] = useState("+92");
+  const [emg1Email, setEmg1Email] = useState("");
+  const [emg2Relation, setEmg2Relation] = useState("");
+  const [emg2Name, setEmg2Name] = useState("");
+  const [emg2Phone, setEmg2Phone] = useState("");
+  const [emg2PhoneCode, setEmg2PhoneCode] = useState("+92");
+  const [emg2Email, setEmg2Email] = useState("");
+  const [primaryContact, setPrimaryContact] = useState<1 | 2>(1);
   const [permAddress, setPermAddress] = useState("");
   const [postAddress, setPostAddress] = useState("");
   const [sameAddress, setSameAddress] = useState(false);
@@ -455,9 +464,21 @@ export default function AddEmployee() {
         },
         emergencyContacts: {
           contact_1: contact1,
-          contact_2: contact2,
-          perment_address: permAddress,
-          postal_address: sameAddress ? permAddress : postAddress,
+          contact_2: contact2 || undefined,
+          perment_address: permAddress || undefined,
+          postal_address:
+            (sameAddress ? permAddress : postAddress) || undefined,
+          e_contact_1_relation: emg1Relation,
+          e_contact_1_full_name: emg1Name,
+          e_contact_1_phone: emg1Phone,
+          e_contact_1_phone_country_code: emg1PhoneCode || "+92",
+          e_contact_1_email: emg1Email || undefined,
+          e_contact_2_relation: emg2Relation || undefined,
+          e_contact_2_full_name: emg2Name || undefined,
+          e_contact_2_phone: emg2Phone || undefined,
+          e_contact_2_phone_country_code: emg2PhoneCode || "+92",
+          e_contact_2_email: emg2Email || undefined,
+          primary_contact: primaryContact,
         },
         bankInfo: {
           bank_name: bankName,
@@ -640,22 +661,150 @@ export default function AddEmployee() {
                 />
               </div>
             </div>
-            <div className="add-form-row">
+            <div className="add-form-row-3">
               <div className="add-form-group">
-                <label className="add-label">ICE 1</label>
+                <label className="add-label">Emergency 1 Relation</label>
+                <select
+                  className="add-select"
+                  value={emg1Relation}
+                  onChange={(e) => setEmg1Relation(e.target.value)}
+                >
+                  {[
+                    "father",
+                    "mother",
+                    "brother",
+                    "sister",
+                    "wife",
+                    "husband",
+                    "son",
+                    "daughter",
+                    "friend",
+                    "neighbor",
+                    "other",
+                  ].map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Emergency 1 Name</label>
                 <input
                   className="add-input"
-                  value={ice1}
-                  onChange={(e) => handleNumberChange(e.target.value, setIce1)}
+                  value={emg1Name}
+                  onChange={(e) => setEmg1Name(e.target.value)}
                 />
               </div>
               <div className="add-form-group">
-                <label className="add-label">ICE 2</label>
+                <label className="add-label">Emergency 1 Phone</label>
                 <input
                   className="add-input"
-                  value={ice2}
-                  onChange={(e) => handleNumberChange(e.target.value, setIce2)}
+                  value={emg1Phone}
+                  onChange={(e) =>
+                    handleNumberChange(e.target.value, setEmg1Phone)
+                  }
                 />
+              </div>
+            </div>
+            <div className="add-form-row">
+              <div className="add-form-group">
+                <label className="add-label">Emergency 1 Country Code</label>
+                <input
+                  className="add-input"
+                  value={emg1PhoneCode}
+                  onChange={(e) => setEmg1PhoneCode(e.target.value)}
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Emergency 1 Email</label>
+                <input
+                  className="add-input"
+                  type="email"
+                  value={emg1Email}
+                  onChange={(e) => setEmg1Email(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="add-form-row-3">
+              <div className="add-form-group">
+                <label className="add-label">Emergency 2 Relation</label>
+                <select
+                  className="add-select"
+                  value={emg2Relation}
+                  onChange={(e) => setEmg2Relation(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {[
+                    "father",
+                    "mother",
+                    "brother",
+                    "sister",
+                    "wife",
+                    "husband",
+                    "son",
+                    "daughter",
+                    "friend",
+                    "neighbor",
+                    "other",
+                  ].map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Emergency 2 Name</label>
+                <input
+                  className="add-input"
+                  value={emg2Name}
+                  onChange={(e) => setEmg2Name(e.target.value)}
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Emergency 2 Phone</label>
+                <input
+                  className="add-input"
+                  value={emg2Phone}
+                  onChange={(e) =>
+                    handleNumberChange(e.target.value, setEmg2Phone)
+                  }
+                />
+              </div>
+            </div>
+            <div className="add-form-row">
+              <div className="add-form-group">
+                <label className="add-label">Emergency 2 Country Code</label>
+                <input
+                  className="add-input"
+                  value={emg2PhoneCode}
+                  onChange={(e) => setEmg2PhoneCode(e.target.value)}
+                />
+              </div>
+              <div className="add-form-group">
+                <label className="add-label">Emergency 2 Email</label>
+                <input
+                  className="add-input"
+                  type="email"
+                  value={emg2Email}
+                  onChange={(e) => setEmg2Email(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="add-form-row">
+              <div className="add-form-group">
+                <label className="add-label">Primary Contact</label>
+                <select
+                  className="add-select"
+                  value={primaryContact}
+                  onChange={(e) =>
+                    setPrimaryContact(Number(e.target.value) as 1 | 2)
+                  }
+                >
+                  <option value={1}>Emergency 1</option>
+                  <option value={2}>Emergency 2</option>
+                </select>
               </div>
             </div>
             <div className="add-form-group" style={{ marginBottom: 10 }}>
