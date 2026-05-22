@@ -18,6 +18,7 @@ import {
   useUpdateCalendarEvent,
 } from "../hooks/useCalendarEvents";
 import { useAuthStore } from "../store/useAuthStore";
+import { useData } from "../context/DataContext";
 
 const eventTypeColors: Record<string, string> = {
   holiday: "#ef4444",
@@ -27,6 +28,7 @@ const eventTypeColors: Record<string, string> = {
   training: "#10b981",
   emergency: "#b91c1c",
   other: "#6b7280",
+  birthday: "#ec4899",
 };
 
 const monthNames = [
@@ -152,16 +154,46 @@ export default function Calendar() {
   }, [from, order, rangeMode, search, sort, to, type, visibility, year]);
 
   const { data: events = [], isLoading, isError } = useCalendarEvents(filters);
+  const { employees } = useData();
+
+  const birthdayEvents = useMemo(() => {
+    const list: CalendarEvent[] = [];
+    employees.forEach((emp) => {
+      if (!emp.dob && !emp.date_of_birth) return;
+      const dobDate = new Date(emp.dob || emp.date_of_birth);
+      // Create an event for the birthday in the current calendar view year
+      const bday = new Date(
+        currentDate.getFullYear(),
+        dobDate.getMonth(),
+        dobDate.getDate(),
+      );
+      const dateKey = `${bday.getFullYear()}-${String(bday.getMonth() + 1).padStart(2, "0")}-${String(bday.getDate()).padStart(2, "0")}`;
+      list.push({
+        id: `bday-${emp.id}`,
+        title: `🎂 Birthday: ${emp.name}`,
+        date: bday.toISOString(),
+        dateKey,
+        type: "birthday" as any,
+        visibility: "all",
+      });
+    });
+    return list;
+  }, [employees, currentDate]);
+
+  const allEvents = useMemo(() => [...events, ...birthdayEvents], [
+    events,
+    birthdayEvents,
+  ]);
 
   const sortedEvents = useMemo(
     () =>
-      [...events].sort(
+      [...allEvents].sort(
         (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
       ),
-    [events],
+    [allEvents],
   );
 
-  const visibleEvents = sortedEvents.slice(0, 25);
+  const visibleEvents = sortedEvents.slice(0, 50);
   const days = getDaysInMonth(currentDate, sortedEvents);
   const selectedDateEvents = selectedDate
     ? sortedEvents.filter((event) => event.dateKey === selectedDate)

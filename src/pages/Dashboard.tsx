@@ -42,11 +42,11 @@ import { useCalendarEvents } from "../hooks/useCalendarEvents";
 
 // ─── Static fallback chart data ───────────────────────────────────────────────
 const DEPT_DATA = [
-  { name: "Engineering", value: 84, color: "#6366f1" },
-  { name: "Sales", value: 49, color: "#ec4899" },
-  { name: "Marketing", value: 45, color: "#f97316" },
-  { name: "HR", value: 34, color: "#14b8a6" },
-  { name: "Finance", value: 35, color: "#06b6d4" },
+  { name: "Engineering", value: 35, color: "#6366f1" },
+  { name: "Sales", value: 25, color: "#ec4899" },
+  { name: "Marketing", value: 20, color: "#f97316" },
+  { name: "HR", value: 10, color: "#14b8a6" },
+  { name: "Finance", value: 10, color: "#06b6d4" },
 ];
 const ANNOUNCEMENTS = [
   {
@@ -627,6 +627,7 @@ export default function Dashboard() {
   }, [visibleEmployees, selectedBranch]);
 
   const deptData = useMemo(() => {
+    if (!filteredEmployees?.length) return [];
     const deptCounts: Record<string, number> = {};
     filteredEmployees.forEach((emp) => {
       const dept = emp.department || "Unassigned";
@@ -640,8 +641,11 @@ export default function Dashboard() {
   }, [filteredEmployees]);
 
   // ── Real data ──
-  const totalEmp = 100;
-  const activeEmp = 92;
+  const totalEmp = metrics?.total_employees ?? filteredEmployees?.length ?? 0;
+  const activeEmp =
+    metrics?.present_today ??
+    filteredEmployees?.filter((e: any) => e.status === "active").length ??
+    0;
   const visibleEmployeeIds = new Set(
     filteredEmployees.map((e: any) => e.id || e.employee_id),
   );
@@ -1035,21 +1039,19 @@ export default function Dashboard() {
       if (bday < today)
         bday = new Date(today.getFullYear() + 1, dob.getMonth(), dob.getDate());
       const days = Math.ceil((bday.getTime() - today.getTime()) / 86400000);
-      if (days <= 30) {
-        list.push({
-          name: emp.name,
-          dept: emp.department || "—",
-          date: bday,
-          daysUntil: days,
-          ini: (emp.name || "?")
-            .split(" ")
-            .map((n: string) => n[0])
-            .join("")
-            .slice(0, 2)
-            .toUpperCase(),
-          color: AV_COLORS[idx % AV_COLORS.length],
-        });
-      }
+      list.push({
+        name: emp.name,
+        dept: emp.department || "—",
+        date: bday,
+        daysUntil: days,
+        ini: (emp.name || "?")
+          .split(" ")
+          .map((n: string) => n[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase(),
+        color: AV_COLORS[idx % AV_COLORS.length],
+      });
     });
     return list.sort((a, b) => a.daysUntil - b.daysUntil);
   }, [filteredEmployees, employees, metrics]);
@@ -1382,7 +1384,7 @@ export default function Dashboard() {
                 {c.icon}
               </div>
               <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1 }}>
-                {c.val}
+                {c.val !== undefined && c.val !== null ? c.val : "N/A"}
               </div>
               <div style={{ fontSize: 11, opacity: 0.9, marginTop: 4 }}>
                 {c.label}
@@ -2164,7 +2166,7 @@ export default function Dashboard() {
           <WCard>
             <SHead
               icon={<Cake size={14} color="#ec4899" />}
-              title="Upcoming Birthdays"
+              title="Employee Birthdays"
               right={
                 <span
                   style={{
@@ -2176,7 +2178,7 @@ export default function Dashboard() {
                     fontWeight: 700,
                   }}
                 >
-                  Birthdays this month · {birthdays.length}
+                  Full Year · {birthdays.length}
                 </span>
               }
             />
