@@ -5,8 +5,6 @@ import { formatPKR } from "../services/api";
 import {
   Check,
   Lock,
-  Upload,
-  FileText,
   X,
   ChevronLeft,
   ChevronRight,
@@ -17,6 +15,20 @@ import {
   IdCard,
   ShieldCheck,
   UserRound,
+  Briefcase,
+  Building2,
+  Clock,
+  Home,
+  Mail,
+  MapPin,
+  Phone,
+  Users,
+  Banknote,
+  Calculator,
+  HeartPulse,
+  Landmark,
+  PlusCircle,
+  WalletCards,
 } from "lucide-react";
 import DecisionBanner from "../components/common/DecisionBanner";
 import { useToastContext } from "../context/ToastContext";
@@ -64,7 +76,9 @@ const S = `
   .add-form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
   .add-form-row-4{display:grid;grid-template-columns:1.2fr 1fr 160px 1.4fr;gap:14px;margin-bottom:14px;}
   .add-form-row-5{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:9px;margin-bottom:14px;width:100%;}
-  .add-form-row-allowance{display:grid;grid-template-columns:1.2fr 1fr auto;gap:10px;margin-bottom:10px;align-items:end;}
+  .add-form-row-allowance{display:grid;grid-template-columns:1.2fr 1fr auto auto;gap:10px;margin-bottom:10px;align-items:end;padding:12px;border:1px solid #eef2f7;border-radius:14px;background:#fbfcff;}
+  .allowance-row-action{height:38px;width:38px;border:1px solid #fee2e2;border-radius:10px;background:#fff;color:#ef4444;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;}
+  .allowance-row-action:hover{background:#fef2f2;border-color:#fca5a5;}
   .add-form-row-emg{display:grid;grid-template-columns:160px 1fr 1fr;gap:14px;margin-bottom:14px;align-items:end;}
   .emg-span-2{grid-column:2 / span 2;}
   .emg-stack{display:grid;grid-template-columns:1fr;gap:14px;}
@@ -128,6 +142,19 @@ const S = `
   .personal-fields{display:grid;gap:13px;}
   .personal-field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .add-hint{margin-top:5px;font-size:10px;line-height:1.35;color:#9ca3af;}
+  .wizard-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .wizard-field-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+  .wizard-aside-stat{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .wizard-stat{border:1px solid #edf0f7;border-radius:12px;padding:10px;background:#fff;}
+  .wizard-stat span{display:block;font-size:9px;font-weight:800;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;}
+  .wizard-stat strong{display:block;margin-top:4px;color:#1e1b4b;font-size:12px;line-height:1.25;word-break:break-word;}
+  .wizard-note{border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8;border-radius:12px;padding:10px 12px;font-size:11px;line-height:1.45;}
+  .contact-card{border:1px solid #edf0f7;border-radius:16px;background:#fff;padding:15px;box-shadow:0 10px 24px rgba(15,23,42,.04);}
+  .contact-card.primary{border-color:#c7d2fe;background:linear-gradient(180deg,#fff,#f8f9ff);}
+  .contact-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+  .contact-card-title{margin:0;color:#1e1b4b;font-size:13px;font-weight:800;}
+  .contact-card-sub{margin:3px 0 0;color:#9ca3af;font-size:10.5px;line-height:1.35;}
+  .address-card{border:1px solid #edf0f7;border-radius:16px;background:#fff;padding:15px;box-shadow:0 10px 24px rgba(15,23,42,.04);}
 
   /* Salary table */
   .sal-table{width:100%;border-collapse:collapse;border-radius:12px;overflow:hidden;border:1px solid #f1f5f9;}
@@ -139,13 +166,46 @@ const S = `
   .sal-total-box{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:12px;padding:14px 18px;margin-top:12px;display:flex;justify-content:space-between;align-items:center;}
   .sal-total-label{font-size:13px;font-weight:700;color:#1e1b4b;}
   .sal-total-val{font-size:20px;font-weight:800;color:#6366f1;font-family:'SF Mono',Consolas,monospace;}
-
-  /* Attachment row */
-  .att-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9;}
-  .att-pill-green{background:#dcfce7;color:#166534;padding:3px 9px;border-radius:20px;font-size:9px;font-weight:700;}
-  .att-pill-amber{background:#fef3c7;color:#d97706;padding:3px 9px;border-radius:20px;font-size:9px;font-weight:700;}
-  .att-btn{height:28px;padding:0 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-size:11px;color:#6366f1;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .12s;}
-  .att-btn:hover{background:#eff6ff;border-color:#c7d2fe;}
+  .salary-studio{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.85fr);gap:16px;align-items:start;}
+  .salary-panel,.salary-snapshot,.allowance-panel,.allowance-summary{border:1px solid #edf0f7;border-radius:16px;background:#fff;padding:16px;box-shadow:0 10px 24px rgba(15,23,42,.04);}
+  .salary-panel-head,.allowance-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+  .salary-panel-title,.allowance-panel-title{margin:0;color:#1e1b4b;font-size:14px;font-weight:800;}
+  .salary-panel-sub,.allowance-panel-sub{margin:4px 0 0;color:#9ca3af;font-size:10.5px;line-height:1.4;}
+  .salary-snapshot{background:linear-gradient(180deg,#ffffff,#f8f9ff);position:sticky;top:14px;}
+  .salary-snapshot-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .salary-snapshot-icon{width:38px;height:38px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:#eef2ff;color:#6366f1;}
+  .salary-snapshot-title{margin:0;color:#1e1b4b;font-size:14px;font-weight:800;}
+  .salary-snapshot-sub{margin:2px 0 0;color:#9ca3af;font-size:10.5px;}
+  .salary-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .salary-stat{border:1px solid #edf0f7;border-radius:12px;padding:11px;background:#fff;}
+  .salary-stat span{display:block;color:#9ca3af;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;}
+  .salary-stat strong{display:block;margin-top:5px;color:#1e1b4b;font-size:12px;line-height:1.25;word-break:break-word;}
+  .salary-stat.primary{grid-column:1 / -1;background:#111827;border-color:#111827;}
+  .salary-stat.primary span{color:#c7d2fe;}
+  .salary-stat.primary strong{color:#fff;font-size:20px;font-family:'SF Mono',Consolas,monospace;}
+  .revision-context{margin-top:12px;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8;border-radius:12px;padding:10px 12px;}
+  .revision-context strong{display:block;font-size:11px;margin-bottom:4px;color:#1e40af;}
+  .revision-context span{display:block;font-size:10.5px;line-height:1.45;}
+  .allowance-workbench{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.75fr);gap:16px;align-items:start;}
+  .allowance-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
+  .allowance-metric{border:1px solid #edf0f7;background:#fff;border-radius:12px;padding:10px;}
+  .allowance-metric span{display:block;color:#9ca3af;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;}
+  .allowance-metric strong{display:block;margin-top:5px;color:#1e1b4b;font-size:13px;}
+  .allowance-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;}
+  .allowance-card-title{margin:0;color:#1e1b4b;font-size:13px;font-weight:800;}
+  .allowance-status-pill{border-radius:999px;background:#f1f5f9;color:#64748b;padding:5px 9px;font-size:10px;font-weight:800;white-space:nowrap;}
+  .allowance-status-pill.selected{background:#ecfdf5;color:#047857;}
+  .allowance-card-body{display:grid;grid-template-columns:1.2fr 1fr auto auto;gap:10px;align-items:end;}
+  .allowance-summary{background:linear-gradient(180deg,#fff,#fbfcff);position:sticky;top:14px;}
+  .allowance-summary-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .allowance-summary-icon{width:36px;height:36px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:#f0fdf4;color:#059669;}
+  .allowance-summary-title{margin:0;color:#1e1b4b;font-size:14px;font-weight:800;}
+  .allowance-summary-sub{margin:2px 0 0;color:#9ca3af;font-size:10.5px;}
+  .allowance-summary-row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f1f5f9;padding:10px 0;font-size:12px;color:#6b7280;}
+  .allowance-summary-row strong{color:#1e1b4b;font-family:'SF Mono',Consolas,monospace;}
+  .allowance-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;}
+  .allowance-tag{border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;}
+  .allowance-empty-mini{border:1px dashed #cbd5e1;border-radius:12px;padding:12px;color:#64748b;font-size:11px;line-height:1.45;background:#f8fafc;margin-top:12px;}
 
   /* Account toggle */
   .acc-toggle{display:flex;gap:0;background:#f8f9fb;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;margin-bottom:18px;}
@@ -175,6 +235,7 @@ const S = `
   .add-cancel-btn:hover{border-color:#6366f1;color:#6366f1;background:#f5f3ff;}
   .add-back-btn{height:38px;padding:0 18px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:12px;font-weight:600;color:#374151;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;}
   .add-back-btn:hover{border-color:#6366f1;color:#6366f1;}
+  .add-back-btn:disabled{opacity:.55;cursor:not-allowed;border-color:#e5e7eb;color:#9ca3af;background:#f9fafb;}
   .add-next-btn{height:38px;padding:0 22px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(99,102,241,.35);transition:opacity .15s,transform .15s;}
   .add-next-btn:hover{opacity:.9;transform:translateY(-1px);}
   .add-next-btn:disabled{opacity:.55;cursor:default;transform:none;}
@@ -196,8 +257,10 @@ const S = `
   @media(max-width:760px){
     .add-pg{padding:16px;}
     .personal-intro{flex-direction:column;}
-    .personal-panels,.personal-field-row{grid-template-columns:1fr;}
+    .personal-panels,.personal-field-row,.wizard-field-grid,.wizard-field-grid-3,.wizard-aside-stat,.salary-studio,.allowance-workbench,.allowance-card-body{grid-template-columns:1fr;}
     .personal-aside{display:flex;}
+    .salary-snapshot,.allowance-summary{position:static;}
+    .allowance-metrics{grid-template-columns:1fr;}
   }
 `;
 
@@ -397,13 +460,13 @@ export default function AddEmployee() {
   const [bankBranchCode, setBankBranchCode] = useState("");
   const [bankAccountType, setBankAccountType] = useState("");
   const [paymentMode, setPaymentMode] = useState("Online Transfer");
-  const [dept, setDept] = useState(departments[0]?.id || "");
-  const [desig, setDesig] = useState(designations[0]?.id || "");
-  const [empType, setEmpType] = useState(employmentTypes[0]?.id || "");
-  const [jobStat, setJobStat] = useState(jobStatuses[0]?.id || "");
-  const [wMode, setWMode] = useState(workModes[0]?.id || "");
-  const [wLoc, setWLoc] = useState(workLocations[0]?.id || "");
-  const [shift, setShift] = useState(shifts[0]?.id || "");
+  const [dept, setDept] = useState("");
+  const [desig, setDesig] = useState("");
+  const [empType, setEmpType] = useState("");
+  const [jobStat, setJobStat] = useState("");
+  const [wMode, setWMode] = useState("");
+  const [wLoc, setWLoc] = useState("");
+  const [shift, setShift] = useState("");
   const [doj, setDoj] = useState("");
   const [doe, setDoe] = useState("");
   const [probationEndDate, setProbationEndDate] = useState("");
@@ -411,9 +474,19 @@ export default function AddEmployee() {
   const [salBasic, setSalBasic] = useState(0);
   const [basicSalary, setBasicSalary] = useState(0);
   const [bloodGroup, setBloodGroup] = useState("");
+  const [heightCm, setHeightCm] = useState("");
+  const [weightKg, setWeightKg] = useState("");
+  const [hasDisability, setHasDisability] = useState(false);
+  const [disabilityType, setDisabilityType] = useState("");
+  const [disabilityDescription, setDisabilityDescription] = useState("");
+  const [hasChronicCondition, setHasChronicCondition] = useState(false);
+  const [hasKnownAllergies, setHasKnownAllergies] = useState(false);
   const [allergies, setAllergies] = useState("");
   const [chronic, setChronic] = useState("");
   const [medications, setMedications] = useState("");
+  const [fitnessStatus, setFitnessStatus] = useState("");
+  const [lastMedicalExamDate, setLastMedicalExamDate] = useState("");
+  const [nextMedicalExamDate, setNextMedicalExamDate] = useState("");
   const [accountMethod, setAccountMethod] = useState<"A" | "B">("A");
   const [username, setUsername] = useState("");
   const [tempPassword, setTempPassword] = useState("");
@@ -421,9 +494,11 @@ export default function AddEmployee() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const selectedDept = departments.find((d: any) => d.id === dept);
-  const filteredDesignations = designations.filter((d: any) =>
-    d.departmentId ? d.departmentId === dept : true,
-  );
+  const filteredDesignations = dept
+    ? designations.filter((d: any) =>
+        d.departmentId ? d.departmentId === dept : true,
+      )
+    : [];
   const selectedDesig = filteredDesignations.find((d: any) => d.id === desig);
   const selectedShift = shifts.find((s: any) => s.id === shift);
   const shiftTiming =
@@ -459,14 +534,36 @@ export default function AddEmployee() {
     }
     if (currentStep === 1) {
       if (!contact1.trim()) e.contact1 = "Required";
+      else if (contact1.trim().length < 7) e.contact1 = "Use at least 7 digits";
+      if (contact2.trim() && contact2.trim().length < 7)
+        e.contact2 = "Use at least 7 digits";
       if (!emg1Relation.trim()) e.emg1Relation = "Required";
       if (!emg1Name.trim()) e.emg1Name = "Required";
       if (!emg1Phone.trim()) e.emg1Phone = "Required";
+      else if (emg1Phone.trim().length < 7)
+        e.emg1Phone = "Use at least 7 digits";
+      if (emg2Phone.trim() && emg2Phone.trim().length < 7)
+        e.emg2Phone = "Use at least 7 digits";
+    }
+    if (currentStep === 4) {
+      if (!dept) e.dept = "Required";
+      if (!desig) e.desig = "Required";
+      if (!empType) e.empType = "Required";
+      if (!jobStat) e.jobStat = "Required";
+      if (!wMode) e.wMode = "Required";
+      if (!wLoc) e.wLoc = "Required";
+      if (!shift) e.shift = "Required";
+      if (!doj) e.doj = "Required";
     }
     if (currentStep === 7) {
+      const selectedAllowanceTypes = new Map<string, number>();
       allowances.forEach((row, idx) => {
         if (!row.allowance_type_id) {
           e[`allowanceType_${idx}`] = "Required";
+        } else if (selectedAllowanceTypes.has(row.allowance_type_id)) {
+          e[`allowanceType_${idx}`] = "Allowance type already selected";
+        } else {
+          selectedAllowanceTypes.set(row.allowance_type_id, idx);
         }
         if (Number.isNaN(row.amount) || row.amount === null) {
           e[`allowanceAmount_${idx}`] = "Required";
@@ -492,6 +589,13 @@ export default function AddEmployee() {
       if (gender && !["male", "female", "other"].includes(gender)) {
         e.gender = "Invalid option";
       }
+      if (heightCm && (!Number.isInteger(Number(heightCm)) || Number(heightCm) <= 0))
+        e.heightCm = "Use a positive whole number";
+      if (weightKg && (!Number.isInteger(Number(weightKg)) || Number(weightKg) <= 0))
+        e.weightKg = "Use a positive whole number";
+      if (disabilityType.length > 100)
+        e.disabilityType = "Max 100 characters";
+      if (fitnessStatus.length > 30) e.fitnessStatus = "Max 30 characters";
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -512,10 +616,25 @@ export default function AddEmployee() {
     if (!fatherName.trim()) e.fatherName = "Required";
     if (!cnic.trim()) e.cnic = "Required";
     if (!dob.trim()) e.dob = "Required";
+    if (!dept) e.dept = "Required";
+    if (!desig) e.desig = "Required";
+    if (!empType) e.empType = "Required";
+    if (!jobStat) e.jobStat = "Required";
+    if (!wMode) e.wMode = "Required";
+    if (!wLoc) e.wLoc = "Required";
+    if (!shift) e.shift = "Required";
+    if (!doj) e.doj = "Required";
     if (!contact1.trim()) e.contact1 = "Required";
+    else if (contact1.trim().length < 7) e.contact1 = "Use at least 7 digits";
+    if (contact2.trim() && contact2.trim().length < 7)
+      e.contact2 = "Use at least 7 digits";
     if (!emg1Relation.trim()) e.emg1Relation = "Required";
     if (!emg1Name.trim()) e.emg1Name = "Required";
     if (!emg1Phone.trim()) e.emg1Phone = "Required";
+    else if (emg1Phone.trim().length < 7)
+      e.emg1Phone = "Use at least 7 digits";
+    if (emg2Phone.trim() && emg2Phone.trim().length < 7)
+      e.emg2Phone = "Use at least 7 digits";
     if (!empEmail || !empEmail.trim()) {
       e.empEmail = "Required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(empEmail)) {
@@ -525,8 +644,15 @@ export default function AddEmployee() {
     if (!bankAccountTitle || bankAccountTitle.trim().length < 2)
       e.bankAccountTitle = "Required";
     if (!bankIban || bankIban.trim().length < 10) e.bankIban = "Required";
+    const selectedAllowanceTypes = new Map<string, number>();
     allowances.forEach((row, idx) => {
-      if (!row.allowance_type_id) e[`allowanceType_${idx}`] = "Required";
+      if (!row.allowance_type_id) {
+        e[`allowanceType_${idx}`] = "Required";
+      } else if (selectedAllowanceTypes.has(row.allowance_type_id)) {
+        e[`allowanceType_${idx}`] = "Allowance type already selected";
+      } else {
+        selectedAllowanceTypes.set(row.allowance_type_id, idx);
+      }
       if (Number.isNaN(row.amount) || row.amount === null)
         e[`allowanceAmount_${idx}`] = "Required";
       else if (row.amount < 0) e[`allowanceAmount_${idx}`] = "Must be 0 or more";
@@ -541,10 +667,20 @@ export default function AddEmployee() {
         fatherName: 0,
         cnic: 0,
         dob: 0,
+        dept: 1,
+        desig: 1,
+        empType: 1,
+        jobStat: 1,
+        wMode: 1,
+        wLoc: 1,
+        shift: 1,
+        doj: 1,
         contact1: 2,
+        contact2: 2,
         emg1Relation: 2,
         emg1Name: 2,
         emg1Phone: 2,
+        emg2Phone: 2,
         bankName: 3,
         bankAccountTitle: 3,
         bankIban: 3,
@@ -567,6 +703,29 @@ export default function AddEmployee() {
   const [allowances, setAllowances] = useState<
     { allowance_type_id: string; amount: number; is_percentage: boolean }[]
   >([]);
+  const selectedAllowanceRows = allowances.filter(
+    (row) => row.allowance_type_id,
+  );
+  const fixedAllowanceTotal = allowances.reduce(
+    (sum, row) =>
+      row.is_percentage
+        ? sum
+        : sum + (Number.isFinite(row.amount) ? row.amount : 0),
+    0,
+  );
+  const percentageAllowanceCount = allowances.filter(
+    (row) => row.is_percentage && row.amount > 0,
+  ).length;
+  const selectedAllowanceNames = selectedAllowanceRows.map((row) => {
+    const option = allowanceTypes.find(
+      (type: any) => type.id === row.allowance_type_id,
+    );
+    return option?.name || row.allowance_type_id;
+  });
+  const remainingAllowanceTypes = Math.max(
+    allowanceTypes.length - selectedAllowanceRows.length,
+    0,
+  );
   const [empPhone, setEmpPhone] = useState("");
   const [roleId, setRoleId] = useState("");
   const [salaryEffectiveFrom, setSalaryEffectiveFrom] = useState("");
@@ -598,34 +757,10 @@ export default function AddEmployee() {
   }, [step, fullName]);
 
   useEffect(() => {
-    if (!dept && departments[0]?.id) setDept(departments[0].id);
-    if (
-      filteredDesignations.length &&
-      (!desig || !filteredDesignations.some((d: any) => d.id === desig))
-    ) {
-      setDesig(filteredDesignations[0].id);
+    if (desig && !filteredDesignations.some((d: any) => d.id === desig)) {
+      setDesig("");
     }
-    if (!empType && employmentTypes[0]?.id) setEmpType(employmentTypes[0].id);
-    if (!jobStat && jobStatuses[0]?.id) setJobStat(jobStatuses[0].id);
-    if (!wMode && workModes[0]?.id) setWMode(workModes[0].id);
-    if (!wLoc && workLocations[0]?.id) setWLoc(workLocations[0].id);
-    if (!shift && shifts[0]?.id) setShift(shifts[0].id);
-  }, [
-    dept,
-    desig,
-    empType,
-    jobStat,
-    wMode,
-    wLoc,
-    shift,
-    departments,
-    filteredDesignations,
-    employmentTypes,
-    jobStatuses,
-    workModes,
-    workLocations,
-    shifts,
-  ]);
+  }, [desig, filteredDesignations]);
 
   const goNext = () => {
     if (!validate()) return;
@@ -659,7 +794,7 @@ export default function AddEmployee() {
         name: fullName.trim(),
         father_name: fatherName.trim(),
         cnic,
-        date_of_birth: dob || undefined,
+        date_of_birth: dob,
         department_id: dept,
         designation_id: desig,
         employment_type_id: empType,
@@ -670,13 +805,13 @@ export default function AddEmployee() {
         date_of_joining: doj,
         email: empEmail || username,
         phone: empPhone || contact1,
-        role_id: roleId || undefined,
+        role_id: roleId || null,
         personalInfo: {
           employee_id: normalizedEmployeeId,
           name: fullName.trim(),
           father_name: fatherName.trim(),
           cnic,
-          date_of_birth: dob || undefined,
+          date_of_birth: dob,
         },
         jobInfo: {
           department_id: dept,
@@ -687,14 +822,14 @@ export default function AddEmployee() {
           work_location_id: wLoc,
           shift_id: shift,
           date_of_joining: doj,
-          date_of_exit: doe || undefined,
-          probation_end_date: probationEndDate || undefined,
-          contract_end_date: contractEndDate || undefined,
+          date_of_exit: doe || null,
+          probation_end_date: probationEndDate || null,
+          contract_end_date: contractEndDate || null,
         },
         accountInfo: {
           email: empEmail || username,
           phone: empPhone || contact1,
-          role_id: roleId || undefined,
+          role_id: roleId || null,
           account_method: accountMethod,
           username:
             accountMethod === "A"
@@ -705,37 +840,48 @@ export default function AddEmployee() {
         },
         emergencyContacts: {
           contact_1: contact1,
-          contact_2: contact2 || undefined,
-          perment_address: permAddress || undefined,
+          contact_2: contact2 || null,
+          perment_address: permAddress || null,
           postal_address:
-            (sameAddress ? permAddress : postAddress) || undefined,
+            (sameAddress ? permAddress : postAddress) || null,
           e_contact_1_relation: emg1Relation,
           e_contact_1_full_name: emg1Name,
           e_contact_1_phone: emg1Phone,
-          e_contact_1_phone_country_code: emg1PhoneCode || "+92",
-          e_contact_1_email: emg1Email || undefined,
-          e_contact_2_relation: emg2Relation || undefined,
-          e_contact_2_full_name: emg2Name || undefined,
-          e_contact_2_phone: emg2Phone || undefined,
-          e_contact_2_phone_country_code: emg2PhoneCode || "+92",
-          e_contact_2_email: emg2Email || undefined,
+          e_contact_1_phone_country_code: "+92",
+          e_contact_1_email: emg1Email || null,
+          e_contact_2_relation: emg2Relation || null,
+          e_contact_2_full_name: emg2Name || null,
+          e_contact_2_phone: emg2Phone || null,
+          e_contact_2_phone_country_code: "+92",
+          e_contact_2_email: emg2Email || null,
           primary_contact: primaryContact,
         },
         bankInfo: {
           bank_name: bankName,
-          branch_name: bankBranchName || undefined,
-          branch_code: bankBranchCode || undefined,
+          branch_name: bankBranchName || null,
+          branch_code: bankBranchCode || null,
           iban: bankIban,
           account_title: bankAccountTitle,
-          account_number: bankAccount || undefined,
-          account_type: bankAccountType || undefined,
+          account_number: bankAccount || null,
+          account_type: bankAccountType || null,
         },
         medicalInfo: {
-          blood_group: bloodGroup,
+          blood_group: bloodGroup || null,
+          date_of_birth: dob || null,
           gender,
-          allergy_notes: allergies,
-          chronic_condition_notes: chronic,
-          emergency_medication: medications,
+          height_cm: heightCm ? Number(heightCm) : null,
+          weight_kg: weightKg ? Number(weightKg) : null,
+          has_disability: hasDisability,
+          disability_type: disabilityType || null,
+          disability_description: disabilityDescription || null,
+          has_chronic_condition: hasChronicCondition,
+          chronic_condition_notes: chronic || null,
+          has_known_allergies: hasKnownAllergies,
+          allergy_notes: allergies || null,
+          emergency_medication: medications || null,
+          fitness_status: fitnessStatus || null,
+          last_medical_exam_date: lastMedicalExamDate || null,
+          next_medical_exam_date: nextMedicalExamDate || null,
         },
         salaryInfo: {
           base_salary: basicSalary,
@@ -743,8 +889,8 @@ export default function AddEmployee() {
           effective_from: salaryEffectiveFrom || doj,
           revision_type: revisionType,
           revision_percent:
-            revisionPercent.trim() === "" ? undefined : Number(revisionPercent),
-          revision_reason: revisionReason,
+            revisionPercent.trim() === "" ? null : Number(revisionPercent),
+          revision_reason: revisionReason || null,
         },
         allowances: allowances.length ? allowances : undefined,
       });
@@ -793,6 +939,39 @@ export default function AddEmployee() {
   const personalReadyPercent = Math.round(
     (personalReadyCount / personalChecklist.length) * 100,
   );
+  const jobChecklist = [
+    { label: "Department", done: Boolean(dept) },
+    { label: "Designation", done: Boolean(desig) },
+    { label: "Location", done: Boolean(wLoc) },
+    { label: "Shift", done: Boolean(shift) },
+    { label: "Joining date", done: Boolean(doj) },
+  ];
+  const jobReadyCount = jobChecklist.filter((item) => item.done).length;
+  const jobReadyPercent = Math.round((jobReadyCount / jobChecklist.length) * 100);
+  const contactChecklist = [
+    { label: "Primary phone", done: Boolean(contact1.trim()) },
+    { label: "Emergency relation", done: Boolean(emg1Relation.trim()) },
+    { label: "Emergency name", done: Boolean(emg1Name.trim()) },
+    { label: "Emergency phone", done: Boolean(emg1Phone.trim()) },
+    { label: "Address", done: Boolean(permAddress.trim()) },
+  ];
+  const contactReadyCount = contactChecklist.filter((item) => item.done).length;
+  const contactReadyPercent = Math.round(
+    (contactReadyCount / contactChecklist.length) * 100,
+  );
+  const relationOptions = [
+    "father",
+    "mother",
+    "brother",
+    "sister",
+    "wife",
+    "husband",
+    "son",
+    "daughter",
+    "friend",
+    "neighbor",
+    "other",
+  ];
 
   const renderStep = () => {
     switch (STEP_CONTENT[step]) {
@@ -1023,238 +1202,373 @@ export default function AddEmployee() {
           <div
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
-            <div className="form-sec-head">
-              <span className="form-sec-title">Extra Information</span>
-              <span
-                className="form-sec-badge"
-                style={{
-                  background: "#fdf2f8",
-                  color: "#db2777",
-                  marginLeft: "auto",
-                }}
-              >
-                Step 3 of 8
-              </span>
-            </div>
-            <div className="add-form-row">
-              <div className="add-form-group">
-                <label className="add-label">Contact 1 *</label>
-                <input
-                  className={`add-input${errors.contact1 ? " error" : ""}`}
-                  value={contact1}
-                  onChange={(e) =>
-                    handleNumberChange(e.target.value, setContact1)
-                  }
-                />
-                {errors.contact1 && (
-                  <div className="add-err">{errors.contact1}</div>
-                )}
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Contact 2</label>
-                <input
-                  className="add-input"
-                  value={contact2}
-                  onChange={(e) =>
-                    handleNumberChange(e.target.value, setContact2)
-                  }
-                />
-              </div>
-            </div>
-            <div className="add-form-row-5">
-              <div className="add-form-group">
-                <label className="add-label">Emergency 1 Relation</label>
-                <select
-                  className={`add-select add-select-sm${errors.emg1Relation ? " error" : ""}`}
-                  value={emg1Relation}
-                  onChange={(e) => setEmg1Relation(e.target.value)}
-                >
-                  {[
-                    "father",
-                    "mother",
-                    "brother",
-                    "sister",
-                    "wife",
-                    "husband",
-                    "son",
-                    "daughter",
-                    "friend",
-                    "neighbor",
-                    "other",
-                  ].map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
+            <div className="personal-shell">
+              <aside className="personal-aside" aria-label="Contact safety net">
+                <div className="personal-kicker">
+                  <span>Contact safety net</span>
+                  <span className="personal-icon-badge">
+                    <Phone size={16} />
+                  </span>
+                </div>
+                <div className="personal-avatar">
+                  <Users size={30} />
+                </div>
+                <div>
+                  <h2 className="personal-name">
+                    {emg1Name.trim() || "Primary contact pending"}
+                  </h2>
+                  <p className="personal-muted">
+                    {emg1Relation
+                      ? `${emg1Relation} contact${emg1Phone ? ` at +92 ${emg1Phone}` : ""}`
+                      : "Add the first reliable person to call in an emergency."}
+                  </p>
+                </div>
+                <span className="personal-id-pill">
+                  <Phone size={13} />
+                  {contact1 ? `Employee phone ${contact1}` : "Employee phone pending"}
+                </span>
+                <div className="personal-progress-card">
+                  <div className="personal-progress-top">
+                    <span className="personal-progress-title">
+                      Contact readiness
+                    </span>
+                    <span className="personal-progress-count">
+                      {contactReadyCount}/{contactChecklist.length}
+                    </span>
+                  </div>
+                  <div className="personal-meter" aria-hidden="true">
+                    <span style={{ width: `${contactReadyPercent}%` }} />
+                  </div>
+                </div>
+                <div className="personal-checklist">
+                  {contactChecklist.map((item) => (
+                    <div
+                      key={item.label}
+                      className={`personal-check${item.done ? " done" : ""}`}
+                    >
+                      <Check size={14} />
+                      <span>{item.label}</span>
+                    </div>
                   ))}
-                </select>
-                {errors.emg1Relation && (
-                  <div className="add-err">{errors.emg1Relation}</div>
-                )}
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Emergency 1 Name</label>
-                <input
-                  className={`add-input${errors.emg1Name ? " error" : ""}`}
-                  value={emg1Name}
-                  onChange={(e) =>
-                    handleTextChange(e.target.value, setEmg1Name)
-                  }
-                />
-                {errors.emg1Name && (
-                  <div className="add-err">{errors.emg1Name}</div>
-                )}
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Emergency 1 Phone</label>
-                <input
-                  className={`add-input${errors.emg1Phone ? " error" : ""}`}
-                  value={emg1Phone}
-                  onChange={(e) =>
-                    handleNumberChange(e.target.value, setEmg1Phone)
-                  }
-                />
-                {errors.emg1Phone && (
-                  <div className="add-err">{errors.emg1Phone}</div>
-                )}
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Emergency 1 Country Code</label>
-                <input
-                  className="add-input add-input-sm"
-                  value={emg1PhoneCode}
-                  onChange={(e) =>
-                    handleCountryCodeChange(e.target.value, setEmg1PhoneCode)
-                  }
-                  onBlur={(e) =>
-                    handleCountryCodeChange(e.target.value, setEmg1PhoneCode)
-                  }
-                />
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Emergency 1 Email</label>
-                <input
-                  className="add-input"
-                  type="email"
-                  value={emg1Email}
-                  onChange={(e) => setEmg1Email(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="add-form-row-5">
-              <div className="add-form-group">
-                <label className="add-label">Emergency 2 Relation</label>
-                <select
-                  className="add-select add-select-sm"
-                  value={emg2Relation}
-                  onChange={(e) => setEmg2Relation(e.target.value)}
-                >
-                  <option value="">Select</option>
-                  {[
-                    "father",
-                    "mother",
-                    "brother",
-                    "sister",
-                    "wife",
-                    "husband",
-                    "son",
-                    "daughter",
-                    "friend",
-                    "neighbor",
-                    "other",
-                  ].map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Emergency 2 Name</label>
-                <input
-                  className="add-input"
-                  value={emg2Name}
-                  onChange={(e) =>
-                    handleTextChange(e.target.value, setEmg2Name)
-                  }
-                />
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Emergency 2 Phone</label>
-                <input
-                  className="add-input"
-                  value={emg2Phone}
-                  onChange={(e) =>
-                    handleNumberChange(e.target.value, setEmg2Phone)
-                  }
-                />
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Emergency 2 Country Code</label>
-                <input
-                  className="add-input add-input-sm"
-                  value={emg2PhoneCode}
-                  onChange={(e) =>
-                    handleCountryCodeChange(e.target.value, setEmg2PhoneCode)
-                  }
-                  onBlur={(e) =>
-                    handleCountryCodeChange(e.target.value, setEmg2PhoneCode)
-                  }
-                />
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Emergency 2 Email</label>
-                <input
-                  className="add-input"
-                  type="email"
-                  value={emg2Email}
-                  onChange={(e) => setEmg2Email(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="add-form-row">
-              <div className="add-form-group">
-                <label className="add-label">Primary Contact</label>
-                <select
-                  className="add-select"
-                  value={primaryContact}
-                  onChange={(e) =>
-                    setPrimaryContact(Number(e.target.value) as 1 | 2)
-                  }
-                >
-                  <option value={1}>Emergency 1</option>
-                  <option value={2}>Emergency 2</option>
-                </select>
-              </div>
-            </div>
-            <div className="add-form-group" style={{ marginBottom: 10 }}>
-              <label className="add-label">Permanent Address</label>
-              <textarea
-                className="add-textarea"
-                rows={2}
-                value={permAddress}
-                onChange={(e) => setPermAddress(e.target.value)}
-              />
-            </div>
-            <label className="add-check-label" style={{ marginBottom: 10 }}>
-              <input
-                type="checkbox"
-                checked={sameAddress}
-                onChange={(e) => {
-                  setSameAddress(e.target.checked);
-                  if (e.target.checked) setPostAddress(permAddress);
-                }}
-              />
-              Same as permanent address
-            </label>
-            <div className="add-form-group">
-              <label className="add-label">Postal Address</label>
-              <textarea
-                className="add-textarea"
-                rows={2}
-                value={sameAddress ? permAddress : postAddress}
-                onChange={(e) => setPostAddress(e.target.value)}
-                disabled={sameAddress}
-              />
+                </div>
+              </aside>
+
+              <section className="personal-main">
+                <div className="personal-intro">
+                  <div>
+                    <h2>Emergency Contacts</h2>
+                    <p>
+                      Capture reliable phone numbers, backup contacts, and
+                      addresses so HR can respond quickly when it matters.
+                    </p>
+                  </div>
+                  <span className="personal-step-chip">
+                    <ShieldCheck size={13} />
+                    Step 3 of 8
+                  </span>
+                </div>
+
+                <div className="wizard-field-grid">
+                  <div className="contact-card primary">
+                    <div className="contact-card-head">
+                      <div>
+                        <h3 className="contact-card-title">
+                          Primary emergency contact
+                        </h3>
+                        <p className="contact-card-sub">
+                          Required contact used first during urgent situations.
+                        </p>
+                      </div>
+                      <span className="personal-id-pill">Primary</span>
+                    </div>
+                    <div className="personal-fields">
+                      <div className="wizard-field-grid">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="primary-phone">
+                            Primary Phone <span>*</span>
+                          </label>
+                          <input
+                            id="primary-phone"
+                            className={`add-input${errors.contact1 ? " error" : ""}`}
+                            value={contact1}
+                            onChange={(e) =>
+                              handleNumberChange(e.target.value, setContact1)
+                            }
+                          />
+                          {errors.contact1 && (
+                            <div className="add-err">{errors.contact1}</div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="alternate-phone">
+                            Alternate Phone
+                          </label>
+                          <input
+                            id="alternate-phone"
+                            className={`add-input${errors.contact2 ? " error" : ""}`}
+                            value={contact2}
+                            onChange={(e) =>
+                              handleNumberChange(e.target.value, setContact2)
+                            }
+                          />
+                          {errors.contact2 && (
+                            <div className="add-err">{errors.contact2}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="wizard-field-grid">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="emergency-1-relation">
+                            Relation <span>*</span>
+                          </label>
+                          <select
+                            id="emergency-1-relation"
+                            className={`add-select${errors.emg1Relation ? " error" : ""}`}
+                            value={emg1Relation}
+                            onChange={(e) => setEmg1Relation(e.target.value)}
+                          >
+                            {relationOptions.map((r) => (
+                              <option key={r} value={r}>
+                                {r}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.emg1Relation && (
+                            <div className="add-err">{errors.emg1Relation}</div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="emergency-1-name">
+                            Contact Name <span>*</span>
+                          </label>
+                          <input
+                            id="emergency-1-name"
+                            className={`add-input${errors.emg1Name ? " error" : ""}`}
+                            value={emg1Name}
+                            onChange={(e) =>
+                              handleTextChange(e.target.value, setEmg1Name)
+                            }
+                          />
+                          {errors.emg1Name && (
+                            <div className="add-err">{errors.emg1Name}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="wizard-field-grid">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="emergency-1-phone">
+                            Contact Phone <span>*</span>
+                          </label>
+                          <input
+                            id="emergency-1-phone"
+                            className={`add-input${errors.emg1Phone ? " error" : ""}`}
+                            value={emg1Phone}
+                            onChange={(e) =>
+                              handleNumberChange(e.target.value, setEmg1Phone)
+                            }
+                          />
+                          {errors.emg1Phone && (
+                            <div className="add-err">{errors.emg1Phone}</div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="emergency-1-code">
+                            Country Code
+                          </label>
+                          <input
+                            id="emergency-1-code"
+                            className="add-input add-input-sm add-input-readonly"
+                            value="+92"
+                            disabled
+                            readOnly
+                          />
+                          <div className="add-hint">Locked for Pakistan numbers.</div>
+                        </div>
+                      </div>
+                      <div className="add-form-group">
+                        <label className="add-label" htmlFor="emergency-1-email">
+                          Email
+                        </label>
+                        <input
+                          id="emergency-1-email"
+                          className="add-input"
+                          type="email"
+                          value={emg1Email}
+                          onChange={(e) => setEmg1Email(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="contact-card">
+                    <div className="contact-card-head">
+                      <div>
+                        <h3 className="contact-card-title">Backup contact</h3>
+                        <p className="contact-card-sub">
+                          Optional second contact when the primary is not reachable.
+                        </p>
+                      </div>
+                      <span className="personal-id-pill">Optional</span>
+                    </div>
+                    <div className="personal-fields">
+                      <div className="wizard-field-grid">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="emergency-2-relation">
+                            Relation
+                          </label>
+                          <select
+                            id="emergency-2-relation"
+                            className="add-select"
+                            value={emg2Relation}
+                            onChange={(e) => setEmg2Relation(e.target.value)}
+                          >
+                            <option value="">Select</option>
+                            {relationOptions.map((r) => (
+                              <option key={r} value={r}>
+                                {r}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="emergency-2-name">
+                            Contact Name
+                          </label>
+                          <input
+                            id="emergency-2-name"
+                            className="add-input"
+                            value={emg2Name}
+                            onChange={(e) =>
+                              handleTextChange(e.target.value, setEmg2Name)
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="wizard-field-grid">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="emergency-2-phone">
+                            Contact Phone
+                          </label>
+                          <input
+                            id="emergency-2-phone"
+                            className={`add-input${errors.emg2Phone ? " error" : ""}`}
+                            value={emg2Phone}
+                            onChange={(e) =>
+                              handleNumberChange(e.target.value, setEmg2Phone)
+                            }
+                          />
+                          {errors.emg2Phone && (
+                            <div className="add-err">{errors.emg2Phone}</div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="emergency-2-code">
+                            Country Code
+                          </label>
+                          <input
+                            id="emergency-2-code"
+                            className="add-input add-input-sm add-input-readonly"
+                            value="+92"
+                            disabled
+                            readOnly
+                          />
+                          <div className="add-hint">Locked for Pakistan numbers.</div>
+                        </div>
+                      </div>
+                      <div className="add-form-group">
+                        <label className="add-label" htmlFor="emergency-2-email">
+                          Email
+                        </label>
+                        <input
+                          id="emergency-2-email"
+                          className="add-input"
+                          type="email"
+                          value={emg2Email}
+                          onChange={(e) => setEmg2Email(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="address-card">
+                  <div className="personal-panel-head">
+                    <span className="personal-panel-icon">
+                      <Home size={17} />
+                    </span>
+                    <div>
+                      <h3 className="personal-panel-title">
+                        Address and reachability
+                      </h3>
+                      <p className="personal-panel-sub">
+                        Choose the primary emergency route and keep addresses clear.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="personal-fields">
+                    <div className="wizard-field-grid">
+                      <div className="add-form-group">
+                        <label className="add-label" htmlFor="primary-contact">
+                          Primary Contact
+                        </label>
+                        <select
+                          id="primary-contact"
+                          className="add-select"
+                          value={primaryContact}
+                          onChange={(e) =>
+                            setPrimaryContact(Number(e.target.value) as 1 | 2)
+                          }
+                        >
+                          <option value={1}>Primary emergency contact</option>
+                          <option value={2}>Backup contact</option>
+                        </select>
+                      </div>
+                      <div className="wizard-note">
+                        <Mail size={13} style={{ verticalAlign: "text-bottom" }} />{" "}
+                        Email fields are optional, but useful for HR follow-up.
+                      </div>
+                    </div>
+                    <div className="wizard-field-grid">
+                      <div className="add-form-group">
+                        <label className="add-label" htmlFor="permanent-address">
+                          Permanent Address
+                        </label>
+                        <textarea
+                          id="permanent-address"
+                          className="add-textarea"
+                          rows={3}
+                          value={permAddress}
+                          onChange={(e) => setPermAddress(e.target.value)}
+                        />
+                      </div>
+                      <div className="add-form-group">
+                        <label className="add-label" htmlFor="postal-address">
+                          Postal Address
+                        </label>
+                        <textarea
+                          id="postal-address"
+                          className="add-textarea"
+                          rows={3}
+                          value={sameAddress ? permAddress : postAddress}
+                          onChange={(e) => setPostAddress(e.target.value)}
+                          disabled={sameAddress}
+                        />
+                      </div>
+                    </div>
+                    <label className="add-check-label">
+                      <input
+                        type="checkbox"
+                        checked={sameAddress}
+                        onChange={(e) => {
+                          setSameAddress(e.target.checked);
+                          if (e.target.checked) setPostAddress(permAddress);
+                        }}
+                      />
+                      Same as permanent address
+                    </label>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         );
@@ -1264,23 +1578,26 @@ export default function AddEmployee() {
           <div
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
-            <div className="form-sec-head">
-              <span className="form-sec-title">Bank Details</span>
-              <span
-                className="form-sec-badge"
-                style={{
-                  background: "#fff7ed",
-                  color: "#c2410c",
-                  marginLeft: "auto",
-                }}
-              >
+            <div className="personal-intro" style={{ marginBottom: 16 }}>
+              <div>
+                <h2>Bank account profile</h2>
+                <p>
+                  Capture required payroll banking fields and nullable branch
+                  details exactly as the backend expects.
+                </p>
+              </div>
+              <span className="personal-step-chip">
+                <Landmark size={13} />
                 Step 4 of 8
               </span>
             </div>
             <div className="add-form-row-3">
               <div className="add-form-group">
-                <label className="add-label">Bank Name</label>
+                <label className="add-label" htmlFor="bank-name">
+                  Bank Name <span>*</span>
+                </label>
                 <input
+                  id="bank-name"
                   className={`add-input${errors.bankName ? " error" : ""}`}
                   placeholder="e.g. HBL, Alfalah"
                   value={bankName}
@@ -1293,8 +1610,11 @@ export default function AddEmployee() {
                 )}
               </div>
               <div className="add-form-group">
-                <label className="add-label">Account Title</label>
+                <label className="add-label" htmlFor="account-title">
+                  Account Title <span>*</span>
+                </label>
                 <input
+                  id="account-title"
                   className={`add-input${errors.bankAccountTitle ? " error" : ""}`}
                   placeholder="e.g. John Doe"
                   value={bankAccountTitle}
@@ -1305,8 +1625,11 @@ export default function AddEmployee() {
                 )}
               </div>
               <div className="add-form-group">
-                <label className="add-label">IBAN</label>
+                <label className="add-label" htmlFor="iban">
+                  IBAN <span>*</span>
+                </label>
                 <input
+                  id="iban"
                   className={`add-input mono${errors.bankIban ? " error" : ""}`}
                   placeholder="PK00XXXX0000..."
                   value={bankIban}
@@ -1319,24 +1642,33 @@ export default function AddEmployee() {
             </div>
             <div className="add-form-row-3">
               <div className="add-form-group">
-                <label className="add-label">Branch Name</label>
+                <label className="add-label" htmlFor="branch-name">
+                  Branch Name
+                </label>
                 <input
+                  id="branch-name"
                   className="add-input"
                   value={bankBranchName}
                   onChange={(e) => setBankBranchName(e.target.value)}
                 />
               </div>
               <div className="add-form-group">
-                <label className="add-label">Branch Code</label>
+                <label className="add-label" htmlFor="branch-code">
+                  Branch Code
+                </label>
                 <input
+                  id="branch-code"
                   className="add-input"
                   value={bankBranchCode}
                   onChange={(e) => setBankBranchCode(e.target.value)}
                 />
               </div>
               <div className="add-form-group">
-                <label className="add-label">Account Type</label>
+                <label className="add-label" htmlFor="account-type">
+                  Account Type
+                </label>
                 <select
+                  id="account-type"
                   className={`add-select`}
                   value={bankAccountType}
                   onChange={(e) => setBankAccountType(e.target.value)}
@@ -1350,8 +1682,11 @@ export default function AddEmployee() {
             </div>
             <div className="add-form-row">
               <div className="add-form-group">
-                <label className="add-label">Account Number</label>
+                <label className="add-label" htmlFor="account-number">
+                  Account Number
+                </label>
                 <input
+                  id="account-number"
                   className="add-input mono"
                   placeholder="Numbers only"
                   value={bankAccount}
@@ -1362,8 +1697,11 @@ export default function AddEmployee() {
               </div>
             </div>
             <div className="add-form-group">
-              <label className="add-label">Payment Mode</label>
+              <label className="add-label" htmlFor="payment-mode">
+                Payment Mode
+              </label>
               <select
+                id="payment-mode"
                 className="add-select"
                 value={paymentMode}
                 onChange={(e) => setPaymentMode(e.target.value)}
@@ -1381,71 +1719,377 @@ export default function AddEmployee() {
           <div
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
-            <div className="form-sec-head">
-              <span className="form-sec-title">Medical Information</span>
-              <span
-                className="form-sec-badge"
-                style={{
-                  background: "#fdf4ff",
-                  color: "#a21caf",
-                  marginLeft: "auto",
-                }}
-              >
-                Step 5 of 8
-              </span>
-            </div>
-            <div className="add-form-row">
-              <div className="add-form-group">
-                <label className="add-label">Blood Group</label>
-                <select
-                  className="add-select"
-                  value={bloodGroup}
-                  onChange={(e) => setBloodGroup(e.target.value)}
-                >
-                  <option value="">Select</option>
-                  {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(
-                    (b) => (
-                      <option key={b}>{b}</option>
-                    ),
-                  )}
-                </select>
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Allergies</label>
-                <textarea
-                  className="add-textarea"
-                  rows={2}
-                  placeholder="No numbers allowed"
-                  value={allergies}
-                  onChange={(e) =>
-                    handleTextChange(e.target.value, setAllergies)
-                  }
-                />
-              </div>
-            </div>
-            <div className="add-form-row">
-              <div className="add-form-group">
-                <label className="add-label">Chronic Conditions</label>
-                <textarea
-                  className="add-textarea"
-                  rows={2}
-                  placeholder="No numbers allowed"
-                  value={chronic}
-                  onChange={(e) => handleTextChange(e.target.value, setChronic)}
-                />
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Medications</label>
-                <textarea
-                  className="add-textarea"
-                  rows={2}
-                  placeholder="No numbers allowed"
-                  value={medications}
-                  onChange={(e) =>
-                    handleTextChange(e.target.value, setMedications)
-                  }
-                />
-              </div>
+            <div className="personal-shell">
+              <aside className="personal-aside" aria-label="Medical profile">
+                <div className="personal-kicker">
+                  <span>Medical profile</span>
+                  <span className="personal-icon-badge">
+                    <HeartPulse size={16} />
+                  </span>
+                </div>
+                <div className="personal-avatar">
+                  <HeartPulse size={30} />
+                </div>
+                <div>
+                  <h2 className="personal-name">
+                    {bloodGroup || "Health details pending"}
+                  </h2>
+                  <p className="personal-muted">
+                    Optional medical context for workplace safety and emergency
+                    readiness.
+                  </p>
+                </div>
+                <div className="wizard-aside-stat">
+                  <div className="wizard-stat">
+                    <span>Height</span>
+                    <strong>{heightCm ? `${heightCm} cm` : "Nullable"}</strong>
+                  </div>
+                  <div className="wizard-stat">
+                    <span>Weight</span>
+                    <strong>{weightKg ? `${weightKg} kg` : "Nullable"}</strong>
+                  </div>
+                </div>
+                <div className="wizard-note">
+                  Backend limits: disability type max 100 characters, fitness
+                  status max 30 characters. Height and weight must be positive
+                  whole numbers.
+                </div>
+              </aside>
+
+              <section className="personal-main">
+                <div className="personal-intro">
+                  <div>
+                    <h2>Medical Information</h2>
+                    <p>
+                      Add health fields exactly as accepted by employee medical
+                      records. Empty optional fields are sent as null.
+                    </p>
+                  </div>
+                  <span className="personal-step-chip">
+                    <ShieldCheck size={13} />
+                    Step 5 of 8
+                  </span>
+                </div>
+
+                <div className="personal-panels">
+                  <div className="personal-panel">
+                    <div className="personal-panel-head">
+                      <span className="personal-panel-icon">
+                        <IdCard size={17} />
+                      </span>
+                      <div>
+                        <h3 className="personal-panel-title">
+                          Baseline details
+                        </h3>
+                        <p className="personal-panel-sub">
+                          Blood group, DOB, gender, height, and weight.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="personal-fields">
+                      <div className="wizard-field-grid-3">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="blood-group">
+                            Blood Group
+                          </label>
+                          <select
+                            id="blood-group"
+                            className="add-select"
+                            value={bloodGroup}
+                            onChange={(e) => setBloodGroup(e.target.value)}
+                          >
+                            <option value="">Nullable</option>
+                            {[
+                              "A+",
+                              "A-",
+                              "B+",
+                              "B-",
+                              "AB+",
+                              "AB-",
+                              "O+",
+                              "O-",
+                              "unknown",
+                            ].map((b) => (
+                              <option key={b} value={b}>
+                                {b}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="medical-dob">
+                            Date of Birth
+                          </label>
+                          <input
+                            id="medical-dob"
+                            className="add-input add-input-readonly"
+                            value={dob || "Nullable"}
+                            readOnly
+                          />
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="medical-gender">
+                            Gender
+                          </label>
+                          <input
+                            id="medical-gender"
+                            className="add-input add-input-readonly"
+                            value={gender || "Nullable"}
+                            readOnly
+                          />
+                        </div>
+                      </div>
+                      <div className="wizard-field-grid">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="height-cm">
+                            Height (cm)
+                          </label>
+                          <input
+                            id="height-cm"
+                            className={`add-input${errors.heightCm ? " error" : ""}`}
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={heightCm}
+                            onChange={(e) => setHeightCm(e.target.value)}
+                          />
+                          <div className="add-hint">Positive whole number.</div>
+                          {errors.heightCm && (
+                            <div className="add-err">{errors.heightCm}</div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="weight-kg">
+                            Weight (kg)
+                          </label>
+                          <input
+                            id="weight-kg"
+                            className={`add-input${errors.weightKg ? " error" : ""}`}
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={weightKg}
+                            onChange={(e) => setWeightKg(e.target.value)}
+                          />
+                          <div className="add-hint">Positive whole number.</div>
+                          {errors.weightKg && (
+                            <div className="add-err">{errors.weightKg}</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="personal-panel">
+                    <div className="personal-panel-head">
+                      <span className="personal-panel-icon">
+                        <ShieldCheck size={17} />
+                      </span>
+                      <div>
+                        <h3 className="personal-panel-title">
+                          Conditions and support
+                        </h3>
+                        <p className="personal-panel-sub">
+                          Disability, chronic condition, allergy, and medication.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="personal-fields">
+                      <label className="add-check-label">
+                        <input
+                          type="checkbox"
+                          checked={hasDisability}
+                          onChange={(e) => setHasDisability(e.target.checked)}
+                        />
+                        Has disability
+                      </label>
+                      <div className="wizard-field-grid">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="disability-type">
+                            Disability Type
+                          </label>
+                          <input
+                            id="disability-type"
+                            className={`add-input${errors.disabilityType ? " error" : ""}`}
+                            value={disabilityType}
+                            maxLength={100}
+                            onChange={(e) => setDisabilityType(e.target.value)}
+                          />
+                          <div className="add-hint">
+                            Optional, max 100 characters.
+                          </div>
+                          {errors.disabilityType && (
+                            <div className="add-err">
+                              {errors.disabilityType}
+                            </div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label
+                            className="add-label"
+                            htmlFor="fitness-status"
+                          >
+                            Fitness Status
+                          </label>
+                          <input
+                            id="fitness-status"
+                            className={`add-input${errors.fitnessStatus ? " error" : ""}`}
+                            value={fitnessStatus}
+                            maxLength={30}
+                            onChange={(e) => setFitnessStatus(e.target.value)}
+                          />
+                          <div className="add-hint">
+                            Optional, max 30 characters.
+                          </div>
+                          {errors.fitnessStatus && (
+                            <div className="add-err">
+                              {errors.fitnessStatus}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="add-form-group">
+                        <label
+                          className="add-label"
+                          htmlFor="disability-description"
+                        >
+                          Disability Description
+                        </label>
+                        <textarea
+                          id="disability-description"
+                          className="add-textarea"
+                          rows={2}
+                          value={disabilityDescription}
+                          onChange={(e) =>
+                            setDisabilityDescription(e.target.value)
+                          }
+                        />
+                        <div className="add-hint">
+                          Optional nullable text field.
+                        </div>
+                      </div>
+                      <label className="add-check-label">
+                        <input
+                          type="checkbox"
+                          checked={hasChronicCondition}
+                          onChange={(e) =>
+                            setHasChronicCondition(e.target.checked)
+                          }
+                        />
+                        Has chronic condition
+                      </label>
+                      <div className="add-form-group">
+                        <label className="add-label" htmlFor="chronic-notes">
+                          Chronic Condition Notes
+                        </label>
+                        <textarea
+                          id="chronic-notes"
+                          className="add-textarea"
+                          rows={2}
+                          value={chronic}
+                          onChange={(e) => setChronic(e.target.value)}
+                        />
+                        <div className="add-hint">
+                          Optional nullable text field.
+                        </div>
+                      </div>
+                      <label className="add-check-label">
+                        <input
+                          type="checkbox"
+                          checked={hasKnownAllergies}
+                          onChange={(e) =>
+                            setHasKnownAllergies(e.target.checked)
+                          }
+                        />
+                        Has known allergies
+                      </label>
+                      <div className="add-form-group">
+                        <label className="add-label" htmlFor="allergy-notes">
+                          Allergy Notes
+                        </label>
+                        <textarea
+                          id="allergy-notes"
+                          className="add-textarea"
+                          rows={2}
+                          value={allergies}
+                          onChange={(e) => setAllergies(e.target.value)}
+                        />
+                        <div className="add-hint">
+                          Optional nullable text field.
+                        </div>
+                      </div>
+                      <div className="add-form-group">
+                        <label
+                          className="add-label"
+                          htmlFor="emergency-medication"
+                        >
+                          Emergency Medication
+                        </label>
+                        <textarea
+                          id="emergency-medication"
+                          className="add-textarea"
+                          rows={2}
+                          value={medications}
+                          onChange={(e) => setMedications(e.target.value)}
+                        />
+                        <div className="add-hint">
+                          Optional nullable text field.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="address-card">
+                  <div className="personal-panel-head">
+                    <span className="personal-panel-icon">
+                      <CalendarDays size={17} />
+                    </span>
+                    <div>
+                      <h3 className="personal-panel-title">
+                        Medical examination dates
+                      </h3>
+                      <p className="personal-panel-sub">
+                        Last and next exam dates are optional nullable fields.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="wizard-field-grid">
+                    <div className="add-form-group">
+                      <label
+                        className="add-label"
+                        htmlFor="last-medical-exam-date"
+                      >
+                        Last Medical Exam Date
+                      </label>
+                      <input
+                        id="last-medical-exam-date"
+                        className="add-input"
+                        type="date"
+                        value={lastMedicalExamDate}
+                        onChange={(e) =>
+                          setLastMedicalExamDate(e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="add-form-group">
+                      <label
+                        className="add-label"
+                        htmlFor="next-medical-exam-date"
+                      >
+                        Next Medical Exam Date
+                      </label>
+                      <input
+                        id="next-medical-exam-date"
+                        className="add-input"
+                        type="date"
+                        value={nextMedicalExamDate}
+                        onChange={(e) => setNextMedicalExamDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         );
@@ -1455,150 +2099,389 @@ export default function AddEmployee() {
           <div
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
-            <div className="form-sec-head">
-              <span className="form-sec-title">Job Information</span>
-              <span
-                className="form-sec-badge"
-                style={{
-                  background: "#f0fdf4",
-                  color: "#15803d",
-                  marginLeft: "auto",
-                }}
-              >
-                Step 2 of 8
-              </span>
-            </div>
-            <div className="add-form-row-3">
-              <div className="add-form-group">
-                <label className="add-label">Department *</label>
-                <select
-                  className="add-select"
-                  value={dept}
-                  onChange={(e) => setDept(e.target.value)}
-                >
-                  {departments.map((d: any) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name || d.id}
-                    </option>
+            <div className="personal-shell">
+              <aside className="personal-aside" aria-label="Workforce placement">
+                <div className="personal-kicker">
+                  <span>Workforce placement</span>
+                  <span className="personal-icon-badge">
+                    <Briefcase size={16} />
+                  </span>
+                </div>
+                <div className="personal-avatar">
+                  <Building2 size={30} />
+                </div>
+                <div>
+                  <h2 className="personal-name">
+                    {selectedDept?.name || "Department pending"}
+                  </h2>
+                  <p className="personal-muted">
+                    {selectedDesig?.name || "Choose the role, shift, and work setup."}
+                  </p>
+                </div>
+                <div className="wizard-aside-stat">
+                  <div className="wizard-stat">
+                    <span>Mode</span>
+                    <strong>
+                      {workModes.find((d: any) => d.id === wMode)?.name || "Pending"}
+                    </strong>
+                  </div>
+                  <div className="wizard-stat">
+                    <span>Shift</span>
+                    <strong>{selectedShift?.name || "Pending"}</strong>
+                  </div>
+                </div>
+                <div className="personal-progress-card">
+                  <div className="personal-progress-top">
+                    <span className="personal-progress-title">
+                      Placement readiness
+                    </span>
+                    <span className="personal-progress-count">
+                      {jobReadyCount}/{jobChecklist.length}
+                    </span>
+                  </div>
+                  <div className="personal-meter" aria-hidden="true">
+                    <span style={{ width: `${jobReadyPercent}%` }} />
+                  </div>
+                </div>
+                <div className="personal-checklist">
+                  {jobChecklist.map((item) => (
+                    <div
+                      key={item.label}
+                      className={`personal-check${item.done ? " done" : ""}`}
+                    >
+                      <Check size={14} />
+                      <span>{item.label}</span>
+                    </div>
                   ))}
-                </select>
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Designation *</label>
-                <select
-                  className="add-select"
-                  value={desig}
-                  onChange={(e) => setDesig(e.target.value)}
-                >
-                  {filteredDesignations.map((d: any) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name || d.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Employment Type</label>
-                <select
-                  className="add-select"
-                  value={empType}
-                  onChange={(e) => setEmpType(e.target.value)}
-                >
-                  {employmentTypes.map((d: any) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name || d.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="add-form-row-3">
-              <div className="add-form-group">
-                <label className="add-label">Job Status</label>
-                <select
-                  className="add-select"
-                  value={jobStat}
-                  onChange={(e) => setJobStat(e.target.value)}
-                >
-                  {jobStatuses.map((d: any) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name || d.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Work Location *</label>
-                <select
-                  className="add-select"
-                  value={wLoc}
-                  onChange={(e) => setWLoc(e.target.value)}
-                >
-                  {workLocations.map((d: any) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name || d.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Work Mode</label>
-                <select
-                  className="add-select"
-                  value={wMode}
-                  onChange={(e) => setWMode(e.target.value)}
-                >
-                  {workModes.map((d: any) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name || d.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="add-form-row-3">
-              <div className="add-form-group">
-                <label className="add-label">Shift *</label>
-                <select
-                  className="add-select"
-                  value={shift}
-                  onChange={(e) => setShift(e.target.value)}
-                >
-                  {shifts.map((s: any) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name || s.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Timing</label>
-                <input
-                  className="add-input mono add-input-readonly"
-                  value={shiftTiming}
-                  readOnly
-                />
-              </div>
-            </div>
-            <div className="add-form-row-3">
-              <div className="add-form-group">
-                <label className="add-label">Date of Joining *</label>
-                <input
-                  className="add-input"
-                  type="date"
-                  value={doj}
-                  onChange={(e) => setDoj(e.target.value)}
-                />
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Date of Exit</label>
-                <input
-                  className="add-input"
-                  type="date"
-                  value={doe}
-                  onChange={(e) => setDoe(e.target.value)}
-                />
-              </div>
+                </div>
+              </aside>
+
+              <section className="personal-main">
+                <div className="personal-intro">
+                  <div>
+                    <h2>Job Information</h2>
+                    <p>
+                      Place the employee in the right team, workplace, and shift
+                      before compensation and account setup.
+                    </p>
+                  </div>
+                  <span className="personal-step-chip">
+                    <ShieldCheck size={13} />
+                    Step 2 of 8
+                  </span>
+                </div>
+
+                <div className="personal-panels">
+                  <div className="personal-panel">
+                    <div className="personal-panel-head">
+                      <span className="personal-panel-icon">
+                        <Users size={17} />
+                      </span>
+                      <div>
+                        <h3 className="personal-panel-title">
+                          Role and schedule
+                        </h3>
+                        <p className="personal-panel-sub">
+                          Department, designation, employment type, and shift.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="personal-fields">
+                      <div className="wizard-field-grid">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="department">
+                            Department <span>*</span>
+                          </label>
+                          <select
+                            id="department"
+                            className={`add-select${errors.dept ? " error" : ""}`}
+                            value={dept}
+                            onChange={(e) => {
+                              setDept(e.target.value);
+                              setDesig("");
+                            }}
+                          >
+                            <option value="" disabled hidden style={{ display: "none" }}>
+                              Please Select
+                            </option>
+                            {!departments.length && (
+                              <option value="" disabled>
+                                No departments configured
+                              </option>
+                            )}
+                            {departments.map((d: any) => (
+                              <option key={d.id} value={d.id}>
+                                {d.name || d.id}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.dept && (
+                            <div className="add-err">{errors.dept}</div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="designation">
+                            Designation <span>*</span>
+                          </label>
+                          <select
+                            id="designation"
+                            className={`add-select${errors.desig ? " error" : ""}`}
+                            value={desig}
+                            onChange={(e) => setDesig(e.target.value)}
+                          >
+                            <option value="" disabled hidden style={{ display: "none" }}>
+                              Please Select
+                            </option>
+                            {!filteredDesignations.length && (
+                              <option value="" disabled>
+                                {dept
+                                  ? "No designations configured"
+                                  : "Select department first"}
+                              </option>
+                            )}
+                            {filteredDesignations.map((d: any) => (
+                              <option key={d.id} value={d.id}>
+                                {d.name || d.id}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.desig && (
+                            <div className="add-err">{errors.desig}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="wizard-field-grid-3">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="employment-type">
+                            Employment Type <span>*</span>
+                          </label>
+                          <select
+                            id="employment-type"
+                            className={`add-select${errors.empType ? " error" : ""}`}
+                            value={empType}
+                            onChange={(e) => setEmpType(e.target.value)}
+                          >
+                            <option value="" disabled hidden style={{ display: "none" }}>
+                              Please Select
+                            </option>
+                            {!employmentTypes.length && (
+                              <option value="" disabled>
+                                No types configured
+                              </option>
+                            )}
+                            {employmentTypes.map((d: any) => (
+                              <option key={d.id} value={d.id}>
+                                {d.name || d.id}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.empType && (
+                            <div className="add-err">{errors.empType}</div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="job-status">
+                            Job Status <span>*</span>
+                          </label>
+                          <select
+                            id="job-status"
+                            className={`add-select${errors.jobStat ? " error" : ""}`}
+                            value={jobStat}
+                            onChange={(e) => setJobStat(e.target.value)}
+                          >
+                            <option value="" disabled hidden style={{ display: "none" }}>
+                              Please Select
+                            </option>
+                            {!jobStatuses.length && (
+                              <option value="" disabled>
+                                No statuses configured
+                              </option>
+                            )}
+                            {jobStatuses.map((d: any) => (
+                              <option key={d.id} value={d.id}>
+                                {d.name || d.id}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.jobStat && (
+                            <div className="add-err">{errors.jobStat}</div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="shift">
+                            Shift <span>*</span>
+                          </label>
+                          <select
+                            id="shift"
+                            className={`add-select${errors.shift ? " error" : ""}`}
+                            value={shift}
+                            onChange={(e) => setShift(e.target.value)}
+                          >
+                            <option value="" disabled hidden style={{ display: "none" }}>
+                              Please Select
+                            </option>
+                            {!shifts.length && (
+                              <option value="" disabled>
+                                No shifts configured
+                              </option>
+                            )}
+                            {shifts.map((s: any) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name || s.id}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.shift && (
+                            <div className="add-err">{errors.shift}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="wizard-note">
+                        {shiftTiming
+                          ? `Selected shift timing: ${shiftTiming}`
+                          : "Shift timing appears here once a configured shift is selected."}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="personal-panel">
+                    <div className="personal-panel-head">
+                      <span className="personal-panel-icon">
+                        <MapPin size={17} />
+                      </span>
+                      <div>
+                        <h3 className="personal-panel-title">
+                          Location and timeline
+                        </h3>
+                        <p className="personal-panel-sub">
+                          Workplace, mode, joining date, and optional exit date.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="personal-fields">
+                      <div className="wizard-field-grid">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="work-location">
+                            Work Location <span>*</span>
+                          </label>
+                          <select
+                            id="work-location"
+                            className={`add-select${errors.wLoc ? " error" : ""}`}
+                            value={wLoc}
+                            onChange={(e) => setWLoc(e.target.value)}
+                          >
+                            <option value="" disabled hidden style={{ display: "none" }}>
+                              Please Select
+                            </option>
+                            {!workLocations.length && (
+                              <option value="" disabled>
+                                No locations configured
+                              </option>
+                            )}
+                            {workLocations.map((d: any) => (
+                              <option key={d.id} value={d.id}>
+                                {d.name || d.id}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.wLoc && (
+                            <div className="add-err">{errors.wLoc}</div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="work-mode">
+                            Work Mode <span>*</span>
+                          </label>
+                          <select
+                            id="work-mode"
+                            className={`add-select${errors.wMode ? " error" : ""}`}
+                            value={wMode}
+                            onChange={(e) => setWMode(e.target.value)}
+                          >
+                            <option value="" disabled hidden style={{ display: "none" }}>
+                              Please Select
+                            </option>
+                            {!workModes.length && (
+                              <option value="" disabled>
+                                No work modes configured
+                              </option>
+                            )}
+                            {workModes.map((d: any) => (
+                              <option key={d.id} value={d.id}>
+                                {d.name || d.id}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.wMode && (
+                            <div className="add-err">{errors.wMode}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="wizard-field-grid">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="date-of-joining">
+                            Date of Joining <span>*</span>
+                          </label>
+                          <input
+                            id="date-of-joining"
+                            className={`add-input${errors.doj ? " error" : ""}`}
+                            type="date"
+                            value={doj}
+                            onChange={(e) => setDoj(e.target.value)}
+                          />
+                          {errors.doj && (
+                            <div className="add-err">{errors.doj}</div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="date-of-exit">
+                            Date of Exit
+                          </label>
+                          <input
+                            id="date-of-exit"
+                            className="add-input"
+                            type="date"
+                            value={doe}
+                            onChange={(e) => setDoe(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="wizard-field-grid">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="probation-end-date">
+                            Probation End Date
+                          </label>
+                          <input
+                            id="probation-end-date"
+                            className="add-input"
+                            type="date"
+                            value={probationEndDate}
+                            onChange={(e) => setProbationEndDate(e.target.value)}
+                          />
+                          <div className="add-hint">Nullable if not applicable.</div>
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="contract-end-date">
+                            Contract End Date
+                          </label>
+                          <input
+                            id="contract-end-date"
+                            className="add-input"
+                            type="date"
+                            value={contractEndDate}
+                            onChange={(e) => setContractEndDate(e.target.value)}
+                          />
+                          <div className="add-hint">Nullable for permanent roles.</div>
+                        </div>
+                      </div>
+                      <div className="personal-id-pill">
+                        <Clock size={13} />
+                        {doj ? `Joining ${doj}` : "Joining date pending"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         );
@@ -1608,98 +2491,178 @@ export default function AddEmployee() {
           <div
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
-            <div className="form-sec-head">
-              <span className="form-sec-title">Salary</span>
-              <span
-                className="form-sec-badge"
-                style={{
-                  background: "#f0fdf4",
-                  color: "#15803d",
-                  marginLeft: "auto",
-                }}
-              >
+            <div className="personal-intro" style={{ marginBottom: 16 }}>
+              <div>
+                <h2>Salary plan</h2>
+                <p>
+                  Define the current compensation record. Effective date falls
+                  back to joining date when left blank.
+                </p>
+              </div>
+              <span className="personal-step-chip">
+                <Calculator size={13} />
                 Step 6 of 8
               </span>
             </div>
-            <div className="add-form-row">
-              <div className="add-form-group">
-                <label className="add-label">Effective From</label>
-                <input
-                  className="add-input"
-                  type="date"
-                  value={salaryEffectiveFrom}
-                  onChange={(e) => setSalaryEffectiveFrom(e.target.value)}
-                />
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Currency</label>
-                <input
-                  className="add-input"
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="add-form-row">
-              <div className="add-form-group">
-                <label className="add-label">Revision Type</label>
-                <select
-                  className="add-select"
-                  value={revisionType}
-                  onChange={(e) =>
-                    setRevisionType(
-                      e.target.value as
-                        | "Initial"
-                        | "Promotion"
-                        | "Demotion"
-                        | "Increment"
-                        | "Decrement"
-                        | "Correction"
-                        | "Market Adjustment",
-                    )
-                  }
-                >
-                  <option value="Initial">Initial</option>
-                  <option value="Promotion">Promotion</option>
-                  <option value="Demotion">Demotion</option>
-                  <option value="Increment">Increment</option>
-                  <option value="Decrement">Decrement</option>
-                  <option value="Correction">Correction</option>
-                  <option value="Market Adjustment">Market Adjustment</option>
-                </select>
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Revision %</label>
-                <input
-                  className="add-input"
-                  type="number"
-                  value={revisionPercent}
-                  onChange={(e) => setRevisionPercent(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="add-form-group" style={{ marginBottom: 14 }}>
-              <label className="add-label">Revision Reason</label>
-              <input
-                className="add-input"
-                value={revisionReason}
-                onChange={(e) => setRevisionReason(e.target.value)}
-              />
-            </div>
-            <div className="add-form-row">
-              <div className="add-form-group">
-                <label className="add-label">Basic Salary</label>
-                <input
-                  className="add-input mono"
-                  type="number"
-                  value={basicSalary || ""}
-                  onChange={(e) => setBasicSalary(+e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="sal-total-box">
-              <span className="sal-total-label">Total Monthly Package</span>
-              <span className="sal-total-val">{formatPKR(totalSalary)}</span>
+            <div className="salary-studio">
+              <section className="salary-panel">
+                <div className="salary-panel-head">
+                  <div>
+                    <h3 className="salary-panel-title">Payroll inputs</h3>
+                    <p className="salary-panel-sub">
+                      Keep the required salary record precise and easy to audit.
+                    </p>
+                  </div>
+                  <span className="personal-id-pill">
+                    <Banknote size={13} />
+                    {currency || "PKR"}
+                  </span>
+                </div>
+                <div className="wizard-field-grid">
+                  <div className="add-form-group">
+                    <label className="add-label" htmlFor="salary-effective-from">
+                      Effective From
+                    </label>
+                    <input
+                      id="salary-effective-from"
+                      className="add-input"
+                      type="date"
+                      value={salaryEffectiveFrom}
+                      onChange={(e) => setSalaryEffectiveFrom(e.target.value)}
+                    />
+                    <div className="add-hint">
+                      Uses joining date when this is left empty.
+                    </div>
+                  </div>
+                  <div className="add-form-group">
+                    <label className="add-label" htmlFor="salary-currency">
+                      Currency
+                    </label>
+                    <input
+                      id="salary-currency"
+                      className="add-input"
+                      maxLength={3}
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                    />
+                  </div>
+                </div>
+                <div className="wizard-field-grid">
+                  <div className="add-form-group">
+                    <label className="add-label" htmlFor="revision-type">
+                      Revision Type <span>*</span>
+                    </label>
+                    <select
+                      id="revision-type"
+                      className="add-select"
+                      value={revisionType}
+                      onChange={(e) =>
+                        setRevisionType(
+                          e.target.value as
+                            | "Initial"
+                            | "Promotion"
+                            | "Demotion"
+                            | "Increment"
+                            | "Decrement"
+                            | "Correction"
+                            | "Market Adjustment",
+                        )
+                      }
+                    >
+                      <option value="Initial">Initial</option>
+                      <option value="Promotion">Promotion</option>
+                      <option value="Demotion">Demotion</option>
+                      <option value="Increment">Increment</option>
+                      <option value="Decrement">Decrement</option>
+                      <option value="Correction">Correction</option>
+                      <option value="Market Adjustment">Market Adjustment</option>
+                    </select>
+                  </div>
+                  <div className="add-form-group">
+                    <label className="add-label" htmlFor="revision-percent">
+                      Revision %
+                    </label>
+                    <input
+                      id="revision-percent"
+                      className="add-input"
+                      type="number"
+                      value={revisionPercent}
+                      onChange={(e) => setRevisionPercent(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="add-form-group" style={{ marginBottom: 14 }}>
+                  <label className="add-label" htmlFor="revision-reason">
+                    Revision Reason
+                  </label>
+                  <input
+                    id="revision-reason"
+                    className="add-input"
+                    maxLength={500}
+                    value={revisionReason}
+                    onChange={(e) => setRevisionReason(e.target.value)}
+                  />
+                </div>
+                <div className="add-form-group">
+                  <label className="add-label" htmlFor="basic-salary">
+                    Basic Salary <span>*</span>
+                  </label>
+                  <input
+                    id="basic-salary"
+                    className="add-input mono"
+                    type="number"
+                    value={basicSalary || ""}
+                    onChange={(e) => setBasicSalary(+e.target.value)}
+                  />
+                </div>
+              </section>
+              <aside className="salary-snapshot">
+                <div className="salary-snapshot-head">
+                  <span className="salary-snapshot-icon">
+                    <Calculator size={18} />
+                  </span>
+                  <div>
+                    <h3 className="salary-snapshot-title">
+                      Compensation snapshot
+                    </h3>
+                    <p className="salary-snapshot-sub">
+                      Preview before creating the employee.
+                    </p>
+                  </div>
+                </div>
+                <div className="salary-stat-grid">
+                  <div className="salary-stat primary">
+                    <span>Total Monthly Package</span>
+                    <strong>{formatPKR(totalSalary)}</strong>
+                  </div>
+                  <div className="salary-stat">
+                    <span>Monthly base</span>
+                    <strong>{formatPKR(basicSalary)}</strong>
+                  </div>
+                  <div className="salary-stat">
+                    <span>Effective date</span>
+                    <strong>{salaryEffectiveFrom || doj || "Pending"}</strong>
+                  </div>
+                  <div className="salary-stat">
+                    <span>Currency</span>
+                    <strong>{currency || "PKR"}</strong>
+                  </div>
+                  <div className="salary-stat">
+                    <span>Revision</span>
+                    <strong>{revisionType}</strong>
+                  </div>
+                </div>
+                <div className="revision-context">
+                  <strong>Revision context</strong>
+                  <span>
+                    {revisionReason.trim()
+                      ? revisionReason
+                      : revisionPercent
+                        ? `${revisionPercent}% ${revisionType.toLowerCase()} recorded.`
+                        : "Initial compensation record with optional revision notes."}
+                  </span>
+                </div>
+              </aside>
             </div>
           </div>
         );
@@ -1709,116 +2672,267 @@ export default function AddEmployee() {
           <div
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
-            <div className="form-sec-head">
-              <span className="form-sec-title">Allowances</span>
-              <span
-                className="form-sec-badge"
-                style={{
-                  background: "#f5f3ff",
-                  color: "#7c3aed",
-                  marginLeft: "auto",
-                }}
-              >
+            <div className="personal-intro" style={{ marginBottom: 16 }}>
+              <div>
+                <h2>Allowance builder</h2>
+                <p>
+                  Add optional allowance rows. Each saved row requires a type
+                  and non-negative amount.
+                </p>
+              </div>
+              <span className="personal-step-chip">
+                <PlusCircle size={13} />
                 Step 7 of 8
               </span>
             </div>
-            {allowances.map((row, idx) => (
-              <div key={idx} className="add-form-row-allowance">
-                <div className="add-form-group">
-                  <label className="add-label">Allowance Type</label>
-                  <select
-                    className="add-select"
-                    value={row.allowance_type_id}
-                    onChange={(e) => {
-                      const next = [...allowances];
-                      next[idx] = {
-                        ...row,
-                        allowance_type_id: e.target.value,
-                      };
-                      setAllowances(next);
-                    }}
+            <div className="allowance-workbench">
+              <section className="allowance-panel">
+                <div className="allowance-panel-head">
+                  <div>
+                    <h3 className="allowance-panel-title">
+                      Allowance package
+                    </h3>
+                    <p className="allowance-panel-sub">
+                      Build optional allowances with one unique type per row.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="add-back-btn"
+                    disabled={!allowanceTypes.length}
+                    onClick={() =>
+                      setAllowances([
+                        ...allowances,
+                        {
+                          allowance_type_id: "",
+                          amount: 0,
+                          is_percentage: false,
+                        },
+                      ])
+                    }
                   >
-                    <option value="">Select type</option>
-                    {allowanceTypes.map((t: any) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name || t.id}
-                      </option>
+                    <PlusCircle size={13} /> Add Allowance Row
+                  </button>
+                </div>
+                <div className="allowance-metrics">
+                  <div className="allowance-metric">
+                    <span>Configured allowances</span>
+                    <strong>{selectedAllowanceRows.length}</strong>
+                  </div>
+                  <div className="allowance-metric">
+                    <span>Remaining types</span>
+                    <strong>{remainingAllowanceTypes}</strong>
+                  </div>
+                  <div className="allowance-metric">
+                    <span>Fixed value</span>
+                    <strong>{formatPKR(fixedAllowanceTotal)}</strong>
+                  </div>
+                </div>
+                {!allowances.length && (
+                  <div className="wizard-note" style={{ marginBottom: 12 }}>
+                    No allowance rows yet. Add a row only when the employee has a
+                    confirmed allowance to save.
+                  </div>
+                )}
+                {allowances.map((row, idx) => {
+                  const allowanceName =
+                    allowanceTypes.find(
+                      (type: any) => type.id === row.allowance_type_id,
+                    )?.name || "";
+                  return (
+                    <div key={idx} className="add-form-row-allowance">
+                      <div className="allowance-card-head">
+                        <h4 className="allowance-card-title">
+                          Allowance {idx + 1}
+                        </h4>
+                        <span
+                          className={`allowance-status-pill${
+                            allowanceName ? " selected" : ""
+                          }`}
+                        >
+                          {allowanceName || "Type pending"}
+                        </span>
+                      </div>
+                      <div className="allowance-card-body">
+                        <div className="add-form-group">
+                          <label
+                            className="add-label"
+                            htmlFor={`allowance-type-${idx}`}
+                          >
+                            Allowance Type {idx + 1}
+                          </label>
+                          <select
+                            id={`allowance-type-${idx}`}
+                            className="add-select"
+                            value={row.allowance_type_id}
+                            onChange={(e) => {
+                              const selectedValue = e.target.value;
+                              const isDuplicate = allowances.some(
+                                (other, otherIdx) =>
+                                  otherIdx !== idx &&
+                                  other.allowance_type_id === selectedValue,
+                              );
+                              const next = [...allowances];
+                              next[idx] = {
+                                ...row,
+                                allowance_type_id: selectedValue,
+                              };
+                              setAllowances(next);
+                              setErrors((prev) => {
+                                const nextErrors = { ...prev };
+                                if (selectedValue && isDuplicate) {
+                                  nextErrors[`allowanceType_${idx}`] =
+                                    "Allowance type already selected";
+                                } else {
+                                  delete nextErrors[`allowanceType_${idx}`];
+                                }
+                                return nextErrors;
+                              });
+                            }}
+                          >
+                            <option value="">Select type</option>
+                            {allowanceTypes.map((t: any) => (
+                              <option
+                                key={t.id}
+                                value={t.id}
+                                disabled={allowances.some(
+                                  (other, otherIdx) =>
+                                    otherIdx !== idx &&
+                                    other.allowance_type_id === t.id,
+                                )}
+                              >
+                                {t.name || t.id}
+                              </option>
+                            ))}
+                          </select>
+                          {errors[`allowanceType_${idx}`] && (
+                            <div className="add-err">
+                              {errors[`allowanceType_${idx}`]}
+                            </div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label
+                            className="add-label"
+                            htmlFor={`allowance-amount-${idx}`}
+                          >
+                            Amount {idx + 1}
+                          </label>
+                          <div className="amount-with-prefix">
+                            <span className="amount-prefix">
+                              {row.is_percentage ? "%" : "Rs"}
+                            </span>
+                            <input
+                              id={`allowance-amount-${idx}`}
+                              className="add-input"
+                              type="number"
+                              value={row.amount}
+                              onChange={(e) => {
+                                const next = [...allowances];
+                                next[idx] = { ...row, amount: +e.target.value };
+                                setAllowances(next);
+                              }}
+                            />
+                          </div>
+                          {errors[`allowanceAmount_${idx}`] && (
+                            <div className="add-err">
+                              {errors[`allowanceAmount_${idx}`]}
+                            </div>
+                          )}
+                        </div>
+                        <div className="add-form-group allowance-type-field">
+                          <label className="add-label">Amount Type</label>
+                          <div className="allowance-toggle">
+                            <button
+                              type="button"
+                              className={row.is_percentage ? "" : "active"}
+                              onClick={() => {
+                                const next = [...allowances];
+                                next[idx] = { ...row, is_percentage: false };
+                                setAllowances(next);
+                              }}
+                            >
+                              Rs
+                            </button>
+                            <button
+                              type="button"
+                              className={row.is_percentage ? "active" : ""}
+                              onClick={() => {
+                                const next = [...allowances];
+                                next[idx] = { ...row, is_percentage: true };
+                                setAllowances(next);
+                              }}
+                            >
+                              %
+                            </button>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="allowance-row-action"
+                          aria-label={`Remove allowance row ${idx + 1}`}
+                          title={`Remove allowance row ${idx + 1}`}
+                          onClick={() => {
+                            setAllowances(
+                              allowances.filter((_, rowIdx) => rowIdx !== idx),
+                            );
+                            setErrors((prev) =>
+                              Object.fromEntries(
+                                Object.entries(prev).filter(
+                                  ([key]) => !key.startsWith("allowance"),
+                                ),
+                              ),
+                            );
+                          }}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+              <aside className="allowance-summary">
+                <div className="allowance-summary-head">
+                  <span className="allowance-summary-icon">
+                    <WalletCards size={17} />
+                  </span>
+                  <div>
+                    <h3 className="allowance-summary-title">
+                      Allowance summary
+                    </h3>
+                    <p className="allowance-summary-sub">
+                      Only selected rows are sent in the create payload.
+                    </p>
+                  </div>
+                </div>
+                <div className="allowance-summary-row">
+                  <span>Fixed allowance total</span>
+                  <strong>{formatPKR(fixedAllowanceTotal)}</strong>
+                </div>
+                <div className="allowance-summary-row">
+                  <span>Percentage rows</span>
+                  <strong>{percentageAllowanceCount}</strong>
+                </div>
+                <div className="allowance-summary-row">
+                  <span>Selected types</span>
+                  <strong>{selectedAllowanceRows.length}</strong>
+                </div>
+                {selectedAllowanceNames.length ? (
+                  <div className="allowance-tags">
+                    {selectedAllowanceNames.map((name, idx) => (
+                      <span key={`${name}-${idx}`} className="allowance-tag">
+                        {name}
+                      </span>
                     ))}
-                  </select>
-                  {errors[`allowanceType_${idx}`] && (
-                    <div className="add-err">
-                      {errors[`allowanceType_${idx}`]}
-                    </div>
-                  )}
-                </div>
-                <div className="add-form-group">
-                  <label className="add-label">Amount</label>
-                  <div className="amount-with-prefix">
-                    <span className="amount-prefix">
-                      {row.is_percentage ? "%" : "Rs"}
-                    </span>
-                    <input
-                      className="add-input"
-                      type="number"
-                      value={row.amount}
-                      onChange={(e) => {
-                        const next = [...allowances];
-                        next[idx] = { ...row, amount: +e.target.value };
-                        setAllowances(next);
-                      }}
-                    />
                   </div>
-                  {errors[`allowanceAmount_${idx}`] && (
-                    <div className="add-err">
-                      {errors[`allowanceAmount_${idx}`]}
-                    </div>
-                  )}
-                </div>
-                <div className="add-form-group allowance-type-field">
-                  <label className="add-label">Amount Type</label>
-                  <div className="allowance-toggle">
-                    <button
-                      type="button"
-                      className={row.is_percentage ? "" : "active"}
-                      onClick={() => {
-                        const next = [...allowances];
-                        next[idx] = { ...row, is_percentage: false };
-                        setAllowances(next);
-                      }}
-                    >
-                      Rs
-                    </button>
-                    <button
-                      type="button"
-                      className={row.is_percentage ? "active" : ""}
-                      onClick={() => {
-                        const next = [...allowances];
-                        next[idx] = { ...row, is_percentage: true };
-                        setAllowances(next);
-                      }}
-                    >
-                      %
-                    </button>
+                ) : (
+                  <div className="allowance-empty-mini">
+                    No selected allowance types yet.
                   </div>
-                </div>
-              </div>
-            ))}
-            <button
-              type="button"
-              className="add-back-btn"
-              onClick={() =>
-                setAllowances([
-                  ...allowances,
-                  {
-                    allowance_type_id: allowanceTypes[0]?.id || "",
-                    amount: 0,
-                    is_percentage: false,
-                  },
-                ])
-              }
-            >
-              + Add Allowance Row
-            </button>
+                )}
+              </aside>
+            </div>
           </div>
         );
 
@@ -1827,16 +2941,16 @@ export default function AddEmployee() {
           <div
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
-            <div className="form-sec-head">
-              <span className="form-sec-title">User Creation</span>
-              <span
-                className="form-sec-badge"
-                style={{
-                  background: "#f5f3ff",
-                  color: "#7c3aed",
-                  marginLeft: "auto",
-                }}
-              >
+            <div className="personal-intro" style={{ marginBottom: 16 }}>
+              <div>
+                <h2>Account access</h2>
+                <p>
+                  Create the required user account record. Role is nullable;
+                  email is required by the backend schema.
+                </p>
+              </div>
+              <span className="personal-step-chip">
+                <WalletCards size={13} />
                 Step 8 of 8
               </span>
             </div>
@@ -1858,8 +2972,11 @@ export default function AddEmployee() {
               <div>
                 <div className="add-form-row">
                   <div className="add-form-group" style={{ marginBottom: 14 }}>
-                    <label className="add-label">Employee Email</label>
+                    <label className="add-label" htmlFor="employee-email-a">
+                      Employee Email <span>*</span>
+                    </label>
                     <input
+                      id="employee-email-a"
                       className="add-input"
                       type="email"
                       value={empEmail}
@@ -1871,8 +2988,11 @@ export default function AddEmployee() {
                     )}
                   </div>
                   <div className="add-form-group">
-                    <label className="add-label">Temporary Password</label>
+                    <label className="add-label" htmlFor="temporary-password">
+                      Temporary Password
+                    </label>
                     <input
+                      id="temporary-password"
                       className="add-input"
                       type="password"
                       value={tempPassword}
@@ -1884,8 +3004,11 @@ export default function AddEmployee() {
             ) : (
               <div>
                 <div className="add-form-group" style={{ marginBottom: 10 }}>
-                  <label className="add-label">Employee Email</label>
+                  <label className="add-label" htmlFor="employee-email-b">
+                    Employee Email <span>*</span>
+                  </label>
                   <input
+                    id="employee-email-b"
                     className="add-input"
                     type="email"
                     value={empEmail}
@@ -1902,8 +3025,11 @@ export default function AddEmployee() {
             )}
 
             <div className="add-form-group" style={{ marginTop: 14 }}>
-              <label className="add-label">Role</label>
+              <label className="add-label" htmlFor="role">
+                Role
+              </label>
               <select
+                id="role"
                 className="add-select"
                 value={roleId}
                 onChange={(e) => setRoleId(e.target.value)}
@@ -1917,85 +3043,6 @@ export default function AddEmployee() {
               </select>
             </div>
 
-            {/* Attachments Section */}
-            <div
-              style={{
-                marginTop: 24,
-                paddingTop: 20,
-                borderTop: "1px solid #f1f5f9",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#1e1b4b",
-                  marginBottom: 16,
-                }}
-              >
-                Required Attachments
-              </div>
-              <input
-                type="file"
-                id="file-upload"
-                style={{ display: "none" }}
-                onChange={(e) =>
-                  alert("File Selected: " + e.target.files?.[0].name)
-                }
-              />
-              {[
-                {
-                  label: "CNIC Copy",
-                  status: "uploaded",
-                  file: "cnic_scan.pdf",
-                },
-                {
-                  label: "Profile Photo",
-                  status: "uploaded",
-                  file: "photo.jpg",
-                },
-                { label: "Employment Contract", status: "missing" },
-              ].map((att, i) => (
-                <div key={i} className="att-row">
-                  <FileText size={16} color="#9ca3af" />
-                  <span
-                    style={{
-                      flex: 1,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "#1e1b4b",
-                    }}
-                  >
-                    {att.label}
-                  </span>
-                  {att.status === "uploaded" ? (
-                    <>
-                      <span className="att-pill-green">
-                        Uploaded — {att.file}
-                      </span>
-                      <button
-                        className="att-btn"
-                        onClick={() => window.open("#", "_blank")}
-                      >
-                        View
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="att-pill-amber">Missing</span>
-                      <button
-                        className="att-btn"
-                        onClick={() =>
-                          document.getElementById("file-upload")?.click()
-                        }
-                      >
-                        <Upload size={11} /> Upload
-                      </button>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
 
             {fullName && (
               <div className="summary-box">

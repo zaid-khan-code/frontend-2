@@ -1,9 +1,11 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import AddEmployee from "./AddEmployee";
+
+const createEmployeeMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../context/DataContext", () => ({
   useData: () => ({}),
@@ -14,7 +16,7 @@ vi.mock("../context/ToastContext", () => ({
 }));
 
 vi.mock("../hooks/useEmployees", () => ({
-  useEmployees: () => ({ create: vi.fn() }),
+  useEmployees: () => ({ create: createEmployeeMock }),
 }));
 
 vi.mock("../hooks/useConfig", () => ({
@@ -29,7 +31,12 @@ vi.mock("../hooks/useConfig", () => ({
   useShifts: () => ({
     data: [{ id: "shift-1", name: "Morning", start_time: "09:00", end_time: "18:00" }],
   }),
-  useAllowanceTypes: () => ({ data: [] }),
+  useAllowanceTypes: () => ({
+    data: [
+      { id: "allowance-1", name: "Meal Allowance" },
+      { id: "allowance-2", name: "Fuel Allowance" },
+    ],
+  }),
   useRoles: () => ({ data: [] }),
 }));
 
@@ -48,6 +55,10 @@ function renderAddEmployee() {
 }
 
 describe("AddEmployee", () => {
+  beforeEach(() => {
+    createEmployeeMock.mockReset();
+  });
+
   it("renders a guided personal information step", () => {
     renderAddEmployee();
 
@@ -57,5 +68,220 @@ describe("AddEmployee", () => {
     expect(screen.getByText("Profile readiness")).toBeTruthy();
     expect(screen.getByLabelText(/employee id/i)).toBeTruthy();
     expect(screen.getByLabelText(/date of birth/i)).toBeTruthy();
+  });
+
+  it("renders guided job and emergency contact steps after personal info", async () => {
+    renderAddEmployee();
+
+    fireEvent.change(screen.getByLabelText(/employee id/i), {
+      target: { value: "001" },
+    });
+    fireEvent.change(screen.getByLabelText(/full name/i), {
+      target: { value: "Ayesha Khan" },
+    });
+    fireEvent.change(screen.getByLabelText(/father name/i), {
+      target: { value: "Imran Khan" },
+    });
+    fireEvent.change(screen.getByLabelText(/cnic/i), {
+      target: { value: "4210112345671" },
+    });
+    fireEvent.change(screen.getByLabelText(/date of birth/i), {
+      target: { value: "1996-02-10" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+    expect(screen.getByText("Workforce placement")).toBeTruthy();
+    });
+    expect(screen.getByText("Role and schedule")).toBeTruthy();
+    expect(screen.getByText("Location and timeline")).toBeTruthy();
+    expect(screen.getByLabelText(/department/i)).toBeTruthy();
+    const departmentSelect = screen.getByLabelText(/department/i);
+    expect(departmentSelect).toHaveProperty("value", "");
+    expect(
+      departmentSelect.querySelector('option[value=""]')?.textContent,
+    ).toBe("Please Select");
+
+    fireEvent.change(screen.getByLabelText(/department/i), {
+      target: { value: "dept-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/designation/i), {
+      target: { value: "desig-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/employment type/i), {
+      target: { value: "type-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/job status/i), {
+      target: { value: "status-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/shift/i), {
+      target: { value: "shift-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/work location/i), {
+      target: { value: "loc-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/work mode/i), {
+      target: { value: "mode-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/date of joining/i), {
+      target: { value: "2026-05-23" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Contact safety net")).toBeTruthy();
+    });
+    expect(screen.getAllByText("Primary emergency contact").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Backup contact").length).toBeGreaterThan(0);
+    expect(screen.getByText("Address and reachability")).toBeTruthy();
+    expect(screen.getByLabelText(/primary phone/i)).toBeTruthy();
+    expect(screen.getAllByLabelText("Country Code")[0]).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
+  it("renders bank, medical, salary, allowances, and account steps", async () => {
+    renderAddEmployee();
+
+    fireEvent.change(screen.getByLabelText(/employee id/i), {
+      target: { value: "002" },
+    });
+    fireEvent.change(screen.getByLabelText(/full name/i), {
+      target: { value: "Bilal Ahmed" },
+    });
+    fireEvent.change(screen.getByLabelText(/father name/i), {
+      target: { value: "Saeed Ahmed" },
+    });
+    fireEvent.change(screen.getByLabelText(/cnic/i), {
+      target: { value: "4210112345672" },
+    });
+    fireEvent.change(screen.getByLabelText(/date of birth/i), {
+      target: { value: "1994-06-12" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Workforce placement")).toBeTruthy();
+    });
+    fireEvent.change(screen.getByLabelText(/department/i), {
+      target: { value: "dept-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/designation/i), {
+      target: { value: "desig-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/employment type/i), {
+      target: { value: "type-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/job status/i), {
+      target: { value: "status-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/shift/i), {
+      target: { value: "shift-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/work location/i), {
+      target: { value: "loc-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/work mode/i), {
+      target: { value: "mode-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/date of joining/i), {
+      target: { value: "2026-05-23" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Contact safety net")).toBeTruthy();
+    });
+    fireEvent.change(screen.getByLabelText(/primary phone/i), {
+      target: { value: "3001234567" },
+    });
+    fireEvent.change(screen.getAllByLabelText(/contact name/i)[0], {
+      target: { value: "Sara Ahmed" },
+    });
+    fireEvent.change(screen.getAllByLabelText(/^contact phone/i)[0], {
+      target: { value: "3007654321" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Bank account profile")).toBeTruthy();
+    });
+    fireEvent.change(screen.getByLabelText(/bank name/i), {
+      target: { value: "HBL" },
+    });
+    fireEvent.change(screen.getByLabelText(/account title/i), {
+      target: { value: "Bilal Ahmed" },
+    });
+    fireEvent.change(screen.getByLabelText(/iban/i), {
+      target: { value: "PK36SCBL0000001123456702" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Medical profile")).toBeTruthy();
+    });
+    expect(screen.getByLabelText(/height/i)).toBeTruthy();
+    expect(screen.getByLabelText(/weight/i)).toBeTruthy();
+    expect(screen.getByLabelText(/disability type/i).getAttribute("maxlength"))
+      .toBe("100");
+    expect(screen.getByLabelText(/fitness status/i).getAttribute("maxlength"))
+      .toBe("30");
+    expect(screen.getByLabelText(/last medical exam date/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Salary plan")).toBeTruthy();
+    });
+    expect(screen.getByText("Compensation snapshot")).toBeTruthy();
+    expect(screen.getByText("Monthly base")).toBeTruthy();
+    expect(screen.getByText("Revision context")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/basic salary/i), {
+      target: { value: "75000" },
+    });
+    expect(screen.getAllByText(/PKR 75,000/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Allowance builder")).toBeTruthy();
+    });
+    expect(screen.getByText("Allowance package")).toBeTruthy();
+    expect(screen.getByText("Configured allowances")).toBeTruthy();
+    expect(screen.getByText("Remaining types")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /add allowance row/i }));
+    expect(screen.getByText("Allowance 1")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/allowance type 1/i), {
+      target: { value: "allowance-1" },
+    });
+    fireEvent.change(screen.getByLabelText(/amount 1/i), {
+      target: { value: "5000" },
+    });
+    expect(screen.getAllByText("Meal Allowance").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/PKR 5,000/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /add allowance row/i }));
+    expect(
+      screen
+        .getByLabelText(/allowance type 2/i)
+        .querySelector('option[value="allowance-1"]'),
+    ).toHaveProperty("disabled", true);
+    fireEvent.change(screen.getByLabelText(/allowance type 2/i), {
+      target: { value: "allowance-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    expect(screen.getByText("Allowance type already selected")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /remove allowance row 2/i }));
+    expect(screen.queryByLabelText(/allowance type 2/i)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Account access")).toBeTruthy();
+    });
+    expect(screen.getByLabelText(/employee email/i)).toBeTruthy();
+    expect(screen.queryByText("Required Attachments")).toBeNull();
+    expect(screen.queryByText("CNIC Copy")).toBeNull();
+    expect(screen.queryByText("Profile Photo")).toBeNull();
+    expect(screen.queryByText("Employment Contract")).toBeNull();
   });
 });
