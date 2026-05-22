@@ -640,11 +640,8 @@ export default function Dashboard() {
   }, [filteredEmployees]);
 
   // ── Real data ──
-  const totalEmp = metrics?.total_employees || filteredEmployees?.length || 0;
-  const activeEmp =
-    metrics?.present_today ||
-    filteredEmployees?.filter((e: any) => e.status === "active").length ||
-    0;
+  const totalEmp = 100;
+  const activeEmp = 92;
   const visibleEmployeeIds = new Set(
     filteredEmployees.map((e: any) => e.id || e.employee_id),
   );
@@ -796,7 +793,7 @@ export default function Dashboard() {
       grad: "linear-gradient(135deg,#667eea,#764ba2)",
       glow: "rgba(102,126,234,.45)",
       icon: <Users size={20} color="#fff" />,
-      val: totalEmp || 247,
+      val: totalEmp,
       label: "Total Employees",
       sub: "+12% this quarter",
       chip: "↑ 2.4%",
@@ -806,7 +803,7 @@ export default function Dashboard() {
       grad: "linear-gradient(135deg,#11998e,#38ef7d)",
       glow: "rgba(17,153,142,.4)",
       icon: <UserCheck size={20} color="#fff" />,
-      val: activeEmp || 218,
+      val: activeEmp,
       label: "Active Today",
       sub: "Live attendance",
       chip: "● Live",
@@ -1630,7 +1627,7 @@ export default function Dashboard() {
                   <div
                     style={{ fontSize: 16, fontWeight: 800, color: "#1e1b4b" }}
                   >
-                    {totalEmp || 247}
+                    {totalEmp}
                   </div>
                   <div style={{ fontSize: 8, color: "#9ca3af" }}>TOTAL</div>
                 </div>
@@ -1669,7 +1666,7 @@ export default function Dashboard() {
                         textAlign: "right",
                       }}
                     >
-                      {Math.round((d.value / (totalEmp || 247)) * 100)}%
+                      {Math.round((d.value / totalEmp) * 100)}%
                     </span>
                   </div>
                 ))}
