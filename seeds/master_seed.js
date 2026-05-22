@@ -2,9 +2,9 @@
  * ESSPL ERP — master_seed.js
  *
  * Covers FK-safe seeding for Electronic Safety & Security Pvt. Ltd (ESSPL),
- * operational window 1990-01-01 .. 2026-05-12.
+ * operational window 2020-01-01 .. 2026-05-12.
  *
- * Employee IDs match backend generator: EMP001 … EMP520 (see employees.service.js).
+ * Employee IDs match backend generator: EMP001 … EMP100 (see employees.service.js).
  *
  * Usage:
  *   node seeds/master_seed.js
@@ -14,7 +14,7 @@
  *   PORT — default 3001 (used only when SEED_USE_API=1)
  *   SEED_USE_API=1 — optional smoke test: POST /api/auth/login then GET /api/config/departments
  *
- * Primary seed path is PostgreSQL pool (reliable for ~45k+ attendance rows).
+ * Primary seed path is PostgreSQL pool.
  */
 
 import { Pool } from 'pg';
@@ -276,10 +276,21 @@ async function seedViaPool(client) {
 
   // ── Designations ──────────────────────────────────────────────────────────
   const designationTitles = [
-    'CEO',
-    'COO',
-    'CFO',
-    'CTO',
+    'Chief Executive Officer',
+    'Chief Financial Officer',
+    'Chief Operating Officer',
+    'Chief Technology Officer',
+    'Chief Marketing Officer',
+    'Chief Information Officer',
+    'Chief Human Resources Officer',
+    'Chief Legal Officer',
+    'Chief Data Officer',
+    'Chief Information Security Officer',
+    'Chief Compliance Officer',
+    'Chief Revenue Officer',
+    'Chief Accounting Officer',
+    'Chief Product Officer',
+    'Chief Strategy Officer',
     'General Manager',
     'Deputy General Manager',
     'HR Manager',
@@ -712,7 +723,7 @@ async function main() {
     console.error('DATABASE_URL is required (.env)');
     process.exit(1);
   }
-  console.log('Starting ESSPL master_seed — 1990 to 2026-05-12');
+  console.log('Starting ESSPL master_seed — 2020 to 2026-05-12');
   const client = await pool.connect();
   try {
     await truncateAll(client);

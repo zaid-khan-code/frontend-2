@@ -1,15 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../services/apiClient';
 
+function extractList(payload: any): any[] {
+  const data = payload?.data ?? payload;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.records)) return data.records;
+  if (Array.isArray(data?.rows)) return data.rows;
+  if (Array.isArray(data?.balances)) return data.balances;
+  return [];
+}
+
 export function useLeaves(params?: any) {
   const queryClient = useQueryClient();
+  const cleanParams = Object.fromEntries(
+    Object.entries(params || {}).filter(([, value]) => value !== undefined && value !== null && value !== "")
+  );
 
   const query = useQuery({
-    queryKey: ['leave-requests', params],
+    queryKey: ['leave-requests', cleanParams],
     queryFn: async () => {
-      const { data } = await apiClient.get('/leave-requests', { params });
+      const { data } = await apiClient.get('/leave-requests', { params: cleanParams });
       return data;
     },
+    enabled: !params || Object.keys(cleanParams).length === Object.keys(params).length,
   });
 
   const createMutation = useMutation({
@@ -53,7 +68,7 @@ export function useLeaves(params?: any) {
   });
 
   return {
-    data: query.data?.data || [],
+    data: extractList(query.data),
     pagination: query.data?.pagination,
     isLoading: query.isLoading,
     isError: query.isError,
@@ -62,4 +77,14 @@ export function useLeaves(params?: any) {
     reject: rejectMutation.mutateAsync,
     earlyReturn: earlyReturnMutation.mutateAsync,
   };
+}
+
+export function useMyLeaveBalances() {
+  return useQuery({
+    queryKey: ['leave-requests', 'balances', 'mine'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/leave-requests/balances/mine');
+      return extractList(data);
+    },
+  });
 }

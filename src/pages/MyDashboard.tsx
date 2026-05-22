@@ -6,12 +6,11 @@ import { formatPKR } from "../services/api";
 import { useEmployeeSelfMetrics } from "../hooks/useDashboard";
 import { useLeaves } from "../hooks/useLeaves";
 import { useAttendance } from "../hooks/useAttendance";
-import { usePenalties } from "../hooks/usePenalties";
+import { useMyPenalties } from "../hooks/usePenalties";
 import {
   Calendar,
   CalendarDays,
   Clock,
-  Wallet,
   FileText,
   Plus,
   User,
@@ -29,15 +28,17 @@ export default function MyDashboard() {
   const [time, setTime] = useState(new Date());
   const { globalDays, employees = [] } = useData();
   const { data: metrics } = useEmployeeSelfMetrics();
+  const todayParam = `${time.getFullYear()}-${String(time.getMonth() + 1).padStart(2, "0")}-${String(time.getDate()).padStart(2, "0")}`;
 
   // Real data hooks
-  const { data: myLeavesData } = useLeaves({ employee_id: user?.employeeId });
+  const { data: myLeavesData, create: createLeave } = useLeaves(
+    user?.employeeId ? { employee_id: user.employeeId } : undefined,
+  );
   const { data: myAttendanceData, acknowledge: acknowledgeAttendance } = useAttendance({
+    date: todayParam,
     employee_id: user?.employeeId,
   });
-  const { data: myPenaltiesData } = usePenalties({
-    employee_id: user?.employeeId,
-  });
+  const { data: myPenaltiesData } = useMyPenalties();
 
   const leaveRequests = Array.isArray(myLeavesData) ? myLeavesData : [];
   const attendanceData = Array.isArray(myAttendanceData)
@@ -46,7 +47,7 @@ export default function MyDashboard() {
   const penaltiesData = Array.isArray(myPenaltiesData) ? myPenaltiesData : [];
 
   const [leaveModal, setLeaveModal] = useState(false);
-  const [leaveType, setLeaveType] = useState("Annual Leave");
+  const [leaveType, setLeaveType] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [reason, setReason] = useState("");
@@ -75,9 +76,10 @@ export default function MyDashboard() {
   const balances = useMemo(() => {
     if (metrics?.leave_balances) {
       return metrics.leave_balances.map((b: any) => ({
-        type: b.name,
+        id: b.leave_type_id || b.leaveTypeId || b.type_id || b.id || "",
+        type: b.name || b.leave_type_name || b.type || "Leave",
         remaining: b.remaining,
-        total: b.balance,
+        total: b.balance || b.total || b.allowed || b.remaining,
         color:
           b.name === "Annual"
             ? "var(--p)"
@@ -97,23 +99,47 @@ export default function MyDashboard() {
     return Math.max(0, diff + 1);
   };
 
-  const selectedBalance = balances.find((b) =>
-    leaveType.toLowerCase().includes(b.type.toLowerCase()),
-  );
+  const selectedBalance =
+    balances.find((b) => b.id === leaveType) || balances[0];
+  const selectedLeaveTypeId = leaveType || selectedBalance?.id || "";
   const daysRequested = calcDays();
   const overBalance =
     selectedBalance && daysRequested > selectedBalance.remaining;
 
-  const handleLeaveSubmit = () => {
+  const handleLeaveSubmit = async () => {
+    if (!user?.employeeId) {
+      showToast("Your employee profile is not linked yet.", "error");
+      return;
+    }
+    if (!selectedLeaveTypeId) {
+      showToast("No leave type is assigned to your profile yet.", "error");
+      return;
+    }
     if (!fromDate || !toDate || !reason) {
       showToast("Please fill all fields", "error");
       return;
     }
-    showToast("Leave request submitted");
-    setLeaveModal(false);
-    setFromDate("");
-    setToDate("");
-    setReason("");
+    if (overBalance) {
+      showToast("Requested days exceed your available balance.", "error");
+      return;
+    }
+    try {
+      await createLeave({
+        employee_id: user.employeeId,
+        leave_type_id: selectedLeaveTypeId,
+        start_date: fromDate,
+        end_date: toDate,
+        reason,
+      });
+      showToast("Leave request submitted");
+      setLeaveModal(false);
+      setFromDate("");
+      setToDate("");
+      setReason("");
+      setLeaveType("");
+    } catch {
+      showToast("Could not submit leave request.", "error");
+    }
   };
 
   const formatDateOnly = (value?: string) => {
@@ -153,7 +179,7 @@ export default function MyDashboard() {
     const rowEmployeeId = a.employee_id || a.empId || a.employeeId;
     return !rowEmployeeId || rowEmployeeId === currentEmployeeId;
   });
-  const todayKey = time.toISOString().slice(0, 10);
+  const todayKey = todayParam;
   const todayAttendance = employeeAttendance.find((a: any) => {
     const rawDate = String(a.date || a.attendance_date || a.created_at || "");
     return rawDate.slice(0, 10) === todayKey;
@@ -266,14 +292,9 @@ export default function MyDashboard() {
   const totalWaived = employeePenalties
     .filter((p: any) => ["waived"].includes(penaltyStatus(p)))
     .reduce((sum: number, p: any) => sum + penaltyAmount(p), 0);
-
-  // Upcoming leaves
-  const myPendingLeaves = leaveRequests.filter(
-    (l: any) =>
-      l.empId === (user?.employeeId || "EMP001") &&
-      l.status === "Approved" &&
-      new Date(l.from) > new Date(),
-  );
+  const activePenaltyCount = employeePenalties.filter((p: any) =>
+    ["approved", "acknowledged", "applied"].includes(penaltyStatus(p)),
+  ).length;
 
   // Calendar events
   const calendarEvents = useMemo(() => {
@@ -672,19 +693,11 @@ export default function MyDashboard() {
         </div>
         <div className="kpi-item k4">
           <div className="kpi-ico k4">
-            <Wallet size={17} />
+            <AlertTriangle size={17} />
           </div>
           <div>
-            <div className="kpi-val" style={{ fontSize: 16 }}>
-              {metrics?.last_payslip?.net_salary
-                ? formatPKR(Number(metrics.last_payslip.net_salary))
-                : "-"}
-            </div>
-            <div className="kpi-lbl">
-              {metrics?.last_payslip?.month
-                ? `Last Payslip · ${metrics.last_payslip.month}`
-                : "Last Payslip"}
-            </div>
+            <div className="kpi-val">{activePenaltyCount}</div>
+            <div className="kpi-lbl">Active Penalties</div>
           </div>
         </div>
       </div>
@@ -1049,7 +1062,7 @@ export default function MyDashboard() {
                 title={evts
                   .map((e) =>
                     e.type === "birthday"
-                      ? `🎂 ${e.label}'s Birthday`
+                      ? `${e.label}'s birthday`
                       : e.label,
                   )
                   .join("\n")}
@@ -1396,7 +1409,7 @@ export default function MyDashboard() {
             </button>
             <button
               className="btn btn-primary"
-              disabled={!fromDate || !toDate || !reason || !!overBalance}
+              disabled={!fromDate || !toDate || !reason || !!overBalance || !balances.length}
               onClick={handleLeaveSubmit}
             >
               Submit Request
@@ -1415,7 +1428,7 @@ export default function MyDashboard() {
           >
             LEAVE BALANCE
           </div>
-          {balances.map((b, i) => (
+          {balances.length ? balances.map((b, i) => (
             <div
               key={i}
               style={{
@@ -1433,18 +1446,25 @@ export default function MyDashboard() {
                 {b.remaining} days remaining
               </span>
             </div>
-          ))}
+          )) : (
+            <div style={{ color: "var(--t3)", fontSize: 12 }}>
+              No leave balances are assigned to your profile.
+            </div>
+          )}
         </div>
         <div className="form-group">
           <label className="form-label">Leave Type</label>
           <select
             className="input select-input"
-            value={leaveType}
+            value={selectedLeaveTypeId}
             onChange={(e) => setLeaveType(e.target.value)}
+            disabled={!balances.length}
           >
-            <option>Annual Leave (7 remaining)</option>
-            <option>Casual Leave (10 remaining)</option>
-            <option>Medical Leave (8 remaining)</option>
+            {balances.map((b) => (
+              <option key={b.id || b.type} value={b.id}>
+                {b.type} ({b.remaining} remaining)
+              </option>
+            ))}
           </select>
         </div>
         <div className="form-row">
@@ -1477,7 +1497,7 @@ export default function MyDashboard() {
           />
           {overBalance && (
             <div style={{ color: "var(--red)", fontSize: 11, marginTop: 4 }}>
-              ⚠ You only have {selectedBalance?.remaining} days remaining in
+              You only have {selectedBalance?.remaining} days remaining in
               this leave type
             </div>
           )}

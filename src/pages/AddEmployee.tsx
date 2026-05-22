@@ -445,6 +445,73 @@ export default function AddEmployee() {
     return Object.keys(e).length === 0;
   };
 
+  const validateBeforeSubmit = (): boolean => {
+    const e: Record<string, string> = {};
+    const normalizedEmployeeId = formatEmployeeId(employeeIdInput);
+
+    if (!normalizedEmployeeId.trim() || normalizedEmployeeId === "EMP") {
+      e.employeeIdInput = "Required";
+    } else if (!/^EMP\d{3}$/.test(normalizedEmployeeId)) {
+      e.employeeIdInput = "Use EMP000 format";
+    } else if (Number(normalizedEmployeeId.slice(3)) < 1) {
+      e.employeeIdInput = "Use 001-999";
+    }
+    if (!fullName.trim()) e.fullName = "Required";
+    if (!fatherName.trim()) e.fatherName = "Required";
+    if (!cnic.trim()) e.cnic = "Required";
+    if (!dob.trim()) e.dob = "Required";
+    if (!contact1.trim()) e.contact1 = "Required";
+    if (!emg1Relation.trim()) e.emg1Relation = "Required";
+    if (!emg1Name.trim()) e.emg1Name = "Required";
+    if (!emg1Phone.trim()) e.emg1Phone = "Required";
+    if (!empEmail || !empEmail.trim()) {
+      e.empEmail = "Required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(empEmail)) {
+      e.empEmail = "Invalid email";
+    }
+    if (!bankName || !bankName.trim()) e.bankName = "Required";
+    if (!bankAccountTitle || bankAccountTitle.trim().length < 2)
+      e.bankAccountTitle = "Required";
+    if (!bankIban || bankIban.trim().length < 10) e.bankIban = "Required";
+    allowances.forEach((row, idx) => {
+      if (!row.allowance_type_id) e[`allowanceType_${idx}`] = "Required";
+      if (Number.isNaN(row.amount) || row.amount === null)
+        e[`allowanceAmount_${idx}`] = "Required";
+      else if (row.amount < 0) e[`allowanceAmount_${idx}`] = "Must be 0 or more";
+    });
+
+    setErrors(e);
+    if (Object.keys(e).length > 0) {
+      const firstError = Object.keys(e)[0];
+      const stepByField: Record<string, number> = {
+        employeeIdInput: 0,
+        fullName: 0,
+        fatherName: 0,
+        cnic: 0,
+        dob: 0,
+        contact1: 2,
+        emg1Relation: 2,
+        emg1Name: 2,
+        emg1Phone: 2,
+        bankName: 3,
+        bankAccountTitle: 3,
+        bankIban: 3,
+        empEmail: 7,
+      };
+      const targetStep =
+        stepByField[firstError] ??
+        (firstError.startsWith("allowance") ? 6 : step);
+      if (targetStep !== step) setStep(targetStep);
+      showToast("Please complete the highlighted required fields.", "error");
+      return false;
+    }
+
+    if (employeeIdInput !== normalizedEmployeeId) {
+      setEmployeeIdInput(normalizedEmployeeId);
+    }
+    return true;
+  };
+
   const [allowances, setAllowances] = useState<
     { allowance_type_id: string; amount: number; is_percentage: boolean }[]
   >([]);
@@ -531,14 +598,31 @@ export default function AddEmployee() {
   };
 
   const handleSave = async () => {
-    if (!validate()) return;
+    if (!validateBeforeSubmit()) return;
+    const normalizedEmployeeId = formatEmployeeId(employeeIdInput).trim();
     setSaving(true);
     try {
       const result = await addEmployee({
+        employee_id: normalizedEmployeeId,
+        name: fullName.trim(),
+        father_name: fatherName.trim(),
+        cnic,
+        date_of_birth: dob || undefined,
+        department_id: dept,
+        designation_id: desig,
+        employment_type_id: empType,
+        job_status_id: jobStat,
+        work_mode_id: wMode,
+        work_location_id: wLoc,
+        shift_id: shift,
+        date_of_joining: doj,
+        email: empEmail || username,
+        phone: empPhone || contact1,
+        role_id: roleId || undefined,
         personalInfo: {
-          employee_id: employeeIdInput || undefined,
-          name: fullName,
-          father_name: fatherName,
+          employee_id: normalizedEmployeeId,
+          name: fullName.trim(),
+          father_name: fatherName.trim(),
           cnic,
           date_of_birth: dob || undefined,
         },

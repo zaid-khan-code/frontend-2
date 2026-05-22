@@ -35,7 +35,8 @@ import {
 } from "recharts";
 import { useEmployee, useEmployees } from "../hooks/useEmployees";
 import { useRbac } from "../hooks/useRbac";
-import ComingSoonOverlay from "../components/ComingSoonOverlay";
+import { useAttendance } from "../hooks/useAttendance";
+import { useLeaves } from "../hooks/useLeaves";
 
 // ── Activity log and doc mock data logic identical to original...
 const deptColors: Record<string, string> = {
@@ -123,8 +124,6 @@ export default function EmployeeDetail() {
   const { showToast } = useToastContext();
   const {
     employees,
-    attendanceData,
-    leaveRequests,
     payrollData,
     promotions,
     penalties,
@@ -174,7 +173,6 @@ export default function EmployeeDetail() {
   const [editWorkMode, setEditWorkMode] = useState("");
   const [editWorkLocation, setEditWorkLocation] = useState("");
   const [editShift, setEditShift] = useState("");
-  const [editReportingManager, setEditReportingManager] = useState("");
   const [editDateOfJoining, setEditDateOfJoining] = useState("");
   const [editDateOfExit, setEditDateOfExit] = useState("");
   const [editCommissionEligible, setEditCommissionEligible] = useState(false);
@@ -231,9 +229,9 @@ export default function EmployeeDetail() {
       workLocation:
         rawEmp.jobInfo?.work_location_name || rawEmp.work_location_name || "",
       shift: rawEmp.jobInfo?.shift_name || rawEmp.shift_name || "",
-      reportingManager: rawEmp.jobInfo?.manager_emp_id || "",
       dateOfJoining:
         rawEmp.jobInfo?.date_of_joining || rawEmp.date_of_joining || "",
+      email: rawEmp.accountInfo?.email || rawEmp.email || rawEmp.user?.email || "",
       contact1:
         rawEmp.accountInfo?.phone ||
         rawEmp.phone ||
@@ -288,11 +286,21 @@ export default function EmployeeDetail() {
     setEditWorkMode(emp.workMode);
     setEditWorkLocation(emp.workLocation);
     setEditShift(emp.shift);
-    setEditReportingManager(emp.reportingManager);
     setEditDateOfJoining(emp.dateOfJoining);
     setEditDateOfExit(emp.dateOfExit || "");
     setEditCommissionEligible(emp.commissionEligible);
   }, [emp]);
+
+  const tabs = ["Profile", "Attendance", "Leave", "Settings"];
+  const employeeQueryId = emp?.id || id;
+  const {
+    data: employeeAttendanceRows = [],
+    isLoading: isEmployeeAttendanceLoading,
+  } = useAttendance(employeeQueryId ? { employee_id: employeeQueryId } : undefined);
+  const {
+    data: employeeLeaveRows = [],
+    isLoading: isEmployeeLeaveLoading,
+  } = useLeaves(employeeQueryId ? { employee_id: employeeQueryId } : undefined);
 
   if (isLoading)
     return <div style={{ padding: 50, textAlign: "center" }}>Loading...</div>;
@@ -311,8 +319,6 @@ export default function EmployeeDetail() {
       </div>
     );
   }
-
-  const tabs = ["Profile", "Attendance", "Leave", "Settings"];
 
   const handleSavePersonal = async () => {
     if (!emp) return;
@@ -369,7 +375,6 @@ export default function EmployeeDetail() {
             work_mode: editWorkMode,
             work_location: editWorkLocation,
             shift: editShift,
-            reporting_manager: editReportingManager,
             date_of_joining: editDateOfJoining,
             date_of_exit: editDateOfExit || undefined,
             commission_eligible: editCommissionEligible,
@@ -404,8 +409,35 @@ export default function EmployeeDetail() {
   const empPayroll = payrollData.filter((p: any) => p.empId === emp.id);
   const empPromos = promotions.filter((p: any) => p.empId === emp.id);
   const empPenalties = penalties.filter((p: any) => p.empId === emp.id);
-  const empLeaves = leaveRequests.filter((l: any) => l.empId === emp.id);
-  const empAttendance = attendanceData.filter((a: any) => a.empId === emp.id);
+  const empLeaves = Array.isArray(employeeLeaveRows) ? employeeLeaveRows : [];
+  const empAttendance = Array.isArray(employeeAttendanceRows)
+    ? employeeAttendanceRows
+    : [];
+  const normalizeStatus = (value?: string) => {
+    const status = String(value || "").toLowerCase();
+    if (status === "present") return "Present";
+    if (status === "late") return "Late";
+    if (status === "absent") return "Absent";
+    if (status === "half_day") return "Half Day";
+    if (status === "on_leave") return "On Leave";
+    return value || "-";
+  };
+  const formatDateOnly = (value?: string) => {
+    if (!value) return "-";
+    const raw = String(value);
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return raw.slice(0, 10);
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  };
+  const formatTimeOnly = (value?: string) => {
+    if (!value) return "-";
+    const match = String(value).match(/(\d{2}):(\d{2})/);
+    return match ? `${match[1]}:${match[2]}` : String(value);
+  };
 
   const savePromo = () => {
     setPromotions((prev) => [
@@ -477,15 +509,27 @@ export default function EmployeeDetail() {
     setPenaltyOtherFine("");
   };
 
-  // Analytics data
-  const attChart = [
-    { month: "Oct", present: 20, absent: 1, late: 2 },
-    { month: "Nov", present: 19, absent: 2, late: 1 },
-    { month: "Dec", present: 18, absent: 3, late: 1 },
-    { month: "Jan", present: 21, absent: 0, late: 1 },
-    { month: "Feb", present: 20, absent: 1, late: 1 },
-    { month: "Mar", present: 18, absent: 1, late: 2 },
-  ];
+  const attChart = Array.from({ length: 6 }, (_, offset) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - offset));
+    const month = date.toLocaleString("en-US", { month: "short" });
+    const monthRows = empAttendance.filter((row: any) => {
+      const rawDate = row.date || row.attendance_date || row.created_at;
+      const rowDate = rawDate ? new Date(rawDate) : null;
+      return (
+        rowDate &&
+        !Number.isNaN(rowDate.getTime()) &&
+        rowDate.getMonth() === date.getMonth() &&
+        rowDate.getFullYear() === date.getFullYear()
+      );
+    });
+    return {
+      month,
+      present: monthRows.filter((row: any) => normalizeStatus(row.status) === "Present").length,
+      absent: monthRows.filter((row: any) => normalizeStatus(row.status) === "Absent").length,
+      late: monthRows.filter((row: any) => normalizeStatus(row.status) === "Late").length,
+    };
+  });
   const salaryProgression = empPromos.map((p: any) => ({
     date: p.date.substring(0, 7),
     salary: p.newSalary,
@@ -520,6 +564,30 @@ export default function EmployeeDetail() {
     </div>
   );
 
+  const SectionHeading = ({ title, action }: { title: string; action?: React.ReactNode }) => (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 14,
+        gap: 12,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 800,
+          color: "var(--t1)",
+          letterSpacing: ".01em",
+        }}
+      >
+        {title}
+      </div>
+      {action}
+    </div>
+  );
+
   return (
     <div>
       {/* Header */}
@@ -551,6 +619,14 @@ export default function EmployeeDetail() {
           <div style={{ fontSize: 12.5, color: "var(--t2)", marginTop: 4 }}>
             {emp.department} · {emp.designation}
           </div>
+          {emp.email && (
+            <div
+              className="mono"
+              style={{ fontSize: 11, color: "var(--t3)", marginTop: 3 }}
+            >
+              {emp.email}
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8, position: "relative" }}>
           {canEdit && (
@@ -663,6 +739,7 @@ export default function EmployeeDetail() {
       {tab === "profile" && (
         <>
           <div className="card">
+            <SectionHeading title="Personal & Contact Information" />
             {canEdit && (
               <div
                 style={{
@@ -682,6 +759,7 @@ export default function EmployeeDetail() {
             <InfoGrid
               items={[
                 ["Full Name", emp.name],
+                ["Email", emp.email || "Not provided"],
                 ["Father Name", emp.fatherName],
                 ["Date of Birth", emp.dob],
                 ["CNIC", emp.cnic],
@@ -698,6 +776,7 @@ export default function EmployeeDetail() {
             />
           </div>
           <div className="card" style={{ marginTop: 12 }}>
+            <SectionHeading title="Job Information" />
             {canEdit && (
               <div
                 style={{
@@ -723,7 +802,6 @@ export default function EmployeeDetail() {
                 ["Work Mode", emp.workMode],
                 ["Work Location", emp.workLocation],
                 ["Shift", emp.shift],
-                ["Reporting Manager", emp.reportingManager],
                 ["Date of Joining", emp.dateOfJoining],
                 ["Commission Eligible", emp.commissionEligible ? "Yes" : "No"],
               ]}
@@ -784,6 +862,7 @@ export default function EmployeeDetail() {
             </div>
           </div>
           <div className="card" style={{ marginTop: 12 }}>
+            <SectionHeading title="Medical Information" />
             <InfoGrid
               items={[
                 ["Blood Group", emp.bloodGroup],
@@ -797,26 +876,30 @@ export default function EmployeeDetail() {
       )}
 
       {tab === "attendance" && (
-        <div style={{ position: "relative", minHeight: 320 }}>
+        <div style={{ minHeight: 320 }}>
           <div>
+            <SectionHeading title="Attendance Summary" />
             <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
               {[
                 {
                   label: "Present",
-                  val: empAttendance.filter((a: any) => a.status === "Present")
-                    .length,
+                  val: empAttendance.filter(
+                    (a: any) => normalizeStatus(a.status) === "Present",
+                  ).length,
                   cls: "pill-green",
                 },
                 {
                   label: "Absent",
-                  val: empAttendance.filter((a: any) => a.status === "Absent")
-                    .length,
+                  val: empAttendance.filter(
+                    (a: any) => normalizeStatus(a.status) === "Absent",
+                  ).length,
                   cls: "pill-red",
                 },
                 {
                   label: "Late",
-                  val: empAttendance.filter((a: any) => a.status === "Late")
-                    .length,
+                  val: empAttendance.filter(
+                    (a: any) => normalizeStatus(a.status) === "Late",
+                  ).length,
                   cls: "pill-amber",
                 },
               ].map((s, i) => (
@@ -866,6 +949,7 @@ export default function EmployeeDetail() {
               </ResponsiveContainer>
             </div>
             <div className="card">
+              <SectionHeading title="Attendance Records" />
               <table>
                 <thead>
                   <tr>
@@ -878,74 +962,63 @@ export default function EmployeeDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {empAttendance.map((a: any, i: number) => (
-                    <tr key={i}>
-                      <td className="mono">{a.date}</td>
-                      <td>{a.day}</td>
-                      <td className="mono">{a.checkIn}</td>
-                      <td className="mono">{a.checkOut}</td>
+                  {isEmployeeAttendanceLoading ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: "center", color: "var(--t3)" }}>
+                        Loading attendance...
+                      </td>
+                    </tr>
+                  ) : empAttendance.length ? (
+                    empAttendance.map((a: any, i: number) => {
+                      const status = normalizeStatus(a.status);
+                      return (
+                    <tr key={a.id || i}>
+                      <td className="mono">
+                        {formatDateOnly(a.date || a.attendance_date || a.created_at)}
+                      </td>
+                      <td>{a.day || "-"}</td>
+                      <td className="mono">{formatTimeOnly(a.checkIn || a.check_in)}</td>
+                      <td className="mono">{formatTimeOnly(a.checkOut || a.check_out)}</td>
                       <td>
-                        <span className={`pill ${getStatusColor(a.status)}`}>
-                          {a.status}
+                        <span className={`pill ${getStatusColor(status)}`}>
+                          {status}
                         </span>
                       </td>
                       <td className="mono">{a.lateBy || "-"}</td>
                     </tr>
-                  ))}
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: "center", color: "var(--t3)" }}>
+                        No attendance records found.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
-          <ComingSoonOverlay />
         </div>
       )}
 
       {tab === "leave" && (
-        <div style={{ position: "relative", minHeight: 320 }}>
+        <div style={{ minHeight: 320 }}>
           <div>
-            <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+            <SectionHeading title="Leave Summary" />
+            <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
               {[
-                { type: "Annual", used: 5, total: 12, color: "var(--p)" },
-                { type: "Casual", used: 2, total: 12, color: "var(--green)" },
-                { type: "Medical", used: 0, total: 8, color: "var(--teal)" },
-              ].map((b, i) => (
-                <div
-                  key={i}
-                  className="card"
-                  style={{ flex: 1, textAlign: "center" }}
-                >
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--t3)",
-                      marginBottom: 4,
-                    }}
-                  >
-                    {b.type}
-                  </div>
-                  <div
-                    className="mono"
-                    style={{ fontSize: 18, fontWeight: 800, color: b.color }}
-                  >
-                    {b.total - b.used}
-                    <span style={{ fontSize: 12, color: "var(--t3)" }}>
-                      {" "}
-                      / {b.total}
-                    </span>
-                  </div>
-                  <div className="progress-bar" style={{ marginTop: 6 }}>
-                    <div
-                      className="progress-fill"
-                      style={{
-                        width: `${((b.total - b.used) / b.total) * 100}%`,
-                        background: b.color,
-                      }}
-                    />
-                  </div>
-                </div>
+                { label: "Pending", value: empLeaves.filter((l: any) => String(l.status || "").toLowerCase() === "pending").length, cls: "pill-amber" },
+                { label: "Approved", value: empLeaves.filter((l: any) => String(l.status || "").toLowerCase() === "approved").length, cls: "pill-green" },
+                { label: "Rejected", value: empLeaves.filter((l: any) => String(l.status || "").toLowerCase() === "rejected").length, cls: "pill-red" },
+              ].map((item) => (
+                <span key={item.label} className={`pill ${item.cls}`}>
+                  {item.label}: {item.value}
+                </span>
               ))}
             </div>
             <div className="card">
+              <SectionHeading title="Leave Requests" />
               <table>
                 <thead>
                   <tr>
@@ -958,34 +1031,48 @@ export default function EmployeeDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {empLeaves.map((l: any, i: number) => (
-                    <tr key={i}>
-                      <td>{l.leaveType}</td>
-                      <td className="mono">{l.from}</td>
-                      <td className="mono">{l.to}</td>
-                      <td className="mono">{l.days}</td>
-                      <td>{l.reason}</td>
+                  {isEmployeeLeaveLoading ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: "center", color: "var(--t3)" }}>
+                        Loading leave requests...
+                      </td>
+                    </tr>
+                  ) : empLeaves.length ? (
+                    empLeaves.map((l: any, i: number) => {
+                      const status = l.status || "-";
+                      return (
+                    <tr key={l.id || i}>
+                      <td>{l.leave_type?.name || l.leave_type_name || l.leaveType || l.type || "-"}</td>
+                      <td className="mono">{formatDateOnly(l.from || l.start_date || l.date_from)}</td>
+                      <td className="mono">{formatDateOnly(l.to || l.end_date || l.date_to)}</td>
+                      <td className="mono">{l.days || l.total_days || l.duration || "-"}</td>
+                      <td>{l.reason || l.notes || "-"}</td>
                       <td>
-                        <span className={`pill ${getStatusColor(l.status)}`}>
-                          {l.status}
+                        <span className={`pill ${getStatusColor(status)}`}>
+                          {status}
                         </span>
                       </td>
                     </tr>
-                  ))}
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: "center", color: "var(--t3)" }}>
+                        No leave requests found.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
-          <ComingSoonOverlay />
         </div>
       )}
 
       {tab === "settings" && (
-        <div style={{ position: "relative", minHeight: 280 }}>
+        <div style={{ minHeight: 280 }}>
           <div className="card">
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>
-              Account Settings
-            </div>
+            <SectionHeading title="Account Settings" />
             {canResendCredentials ? (
               <button
                 className="btn btn-primary"
@@ -1000,7 +1087,6 @@ export default function EmployeeDetail() {
               </p>
             )}
           </div>
-          <ComingSoonOverlay />
         </div>
       )}
 
@@ -1727,14 +1813,6 @@ export default function EmployeeDetail() {
               className="input"
               value={editShift}
               onChange={(e) => setEditShift(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Manager</label>
-            <input
-              className="input"
-              value={editReportingManager}
-              onChange={(e) => setEditReportingManager(e.target.value)}
             />
           </div>
         </div>

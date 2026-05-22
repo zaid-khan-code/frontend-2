@@ -27,12 +27,18 @@ export default function Directory() {
   const { showToast } = useToastContext();
   const { activeRole } = useAuth();
   const queryClient = useQueryClient();
+  const isEmployeeView = activeRole === 'employee';
   
   const { data: directoryData = [], isLoading } = useQuery({
     queryKey: ['directory'],
     queryFn: async () => {
       const res = await apiClient.get('/directory');
-      return res.data?.data || [];
+      const payload = res.data?.data ?? res.data;
+      if (Array.isArray(payload)) return payload;
+      if (Array.isArray(payload?.items)) return payload.items;
+      if (Array.isArray(payload?.records)) return payload.records;
+      if (Array.isArray(payload?.rows)) return payload.rows;
+      return [];
     }
   });
 
@@ -138,12 +144,18 @@ export default function Directory() {
     <div>
       <div className="pg-head">
         <div>
-          <div className="pg-greet">Directory Management</div>
-          <div className="pg-sub">Comprehensive organization directory with full CRUD operations</div>
+          <div className="pg-greet">{isEmployeeView ? 'Company Directory' : 'Directory Management'}</div>
+          <div className="pg-sub">
+            {isEmployeeView
+              ? 'Office contacts and department extensions'
+              : 'Comprehensive organization directory with full CRUD operations'}
+          </div>
         </div>
-        <button className="btn btn-primary" onClick={openCreateModal}>
-          <Plus size={13} /> Add Entry
-        </button>
+        {!isEmployeeView && (
+          <button className="btn btn-primary" onClick={openCreateModal}>
+            <Plus size={13} /> Add Entry
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -176,7 +188,11 @@ export default function Directory() {
 
       {/* Directory Table */}
       <div className="card">
-        {filteredData.length === 0 ? (
+        {isLoading ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--t3)' }}>
+            Loading directory...
+          </div>
+        ) : filteredData.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--t3)' }}>
             <Building size={32} style={{ margin: '0 auto 8px', opacity: .4 }} />
             <div style={{ fontSize: 13 }}>No directory entries found</div>
@@ -191,7 +207,7 @@ export default function Directory() {
                 <th>Email</th>
                 <th>Manager/Department</th>
                 <th>Location</th>
-                <th>Actions</th>
+                {!isEmployeeView && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -229,25 +245,27 @@ export default function Directory() {
                       </div>
                     )}
                   </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button
-                        className="ico-btn"
-                        title="Edit"
-                        onClick={() => openEditModal(entry)}
-                      >
-                        <Edit size={13} />
-                      </button>
-                      <button
-                        className="ico-btn"
-                        title="Delete"
-                        onClick={() => handleDelete(entry.id)}
-                        style={{ color: 'var(--red)' }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </td>
+                  {!isEmployeeView && (
+                    <td>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button
+                          className="ico-btn"
+                          title="Edit"
+                          onClick={() => openEditModal(entry)}
+                        >
+                          <Edit size={13} />
+                        </button>
+                        <button
+                          className="ico-btn"
+                          title="Delete"
+                          onClick={() => handleDelete(entry.id)}
+                          style={{ color: 'var(--red)' }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

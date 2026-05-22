@@ -22,12 +22,10 @@ export default function EmployeeSidebar() {
   const links = [
     { to: "/my-dashboard", icon: LayoutDashboard, label: "My Dashboard" },
     { to: "/my-attendance", icon: CalendarCheck, label: "My Attendance" },
-    { to: "/my-payslips", icon: Wallet, label: "My Payslips" },
     { to: "/my-leave", icon: CalendarDays, label: "Apply for Leave" },
-    { to: "/my-leave-wallet", icon: CalendarDays, label: "Leave Wallet" },
     { to: "/my-penalties", icon: AlertTriangle, label: "My Penalties" },
     { to: "/my-directory", icon: Users, label: "Directory" },
-    { to: "/my-widgets", icon: LayoutDashboard, label: "My Widgets" },
+    { to: "/my-payslips", icon: Wallet, label: "My Payslips" },
     { to: "/my-profile", icon: User, label: "My Profile" },
   ];
 

@@ -334,7 +334,11 @@ const App = () => (
                 />
                 <Route
                   path="/my-leave-wallet"
-                  element={<LeaveWalletHistory />}
+                  element={
+                    <FeaturePlaceholder>
+                      <LeaveWalletHistory />
+                    </FeaturePlaceholder>
+                  }
                 />
                 <Route path="/my-directory" element={<Directory />} />
               </Route>

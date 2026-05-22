@@ -5,39 +5,40 @@ import {
   Clock,
   Filter,
   Search,
-  ChevronDown,
+  CheckCircle2,
 } from "lucide-react";
 import { formatPKR } from "../services/api";
-import { usePenalties } from "../hooks/usePenalties";
-
-const penaltyRules = [
-  { type: "Late Arrival", rule: "15-30 mins late", amount: 200 },
-  { type: "Late Arrival", rule: "30-60 mins late", amount: 500 },
-  { type: "Late Arrival", rule: "> 60 mins late", amount: 1000 },
-  { type: "Early Leave", rule: "Without approval", amount: 1000 },
-  { type: "Absent", rule: "Unmarked absence", amount: 2500 },
-];
+import { useMyPenalties } from "../hooks/usePenalties";
+import { useToastContext } from "../context/ToastContext";
 
 export default function MyPenalties() {
   const [filter, setFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const { showToast } = useToastContext();
 
-  const { data: serverPenalties = [], isLoading } = usePenalties({ limit: 100 }); // Assuming get /penalties/mine somehow, but usePenalties doesn't distinguish mine. Let's fix usePenalties to call /mine.
+  const { data: serverPenalties = [], isLoading, acknowledge } = useMyPenalties();
 
   const penaltiesData = useMemo(() => {
-    return serverPenalties.map((p: any) => ({
+    return (Array.isArray(serverPenalties) ? serverPenalties : []).map((p: any) => ({
       id: p.id || 'N/A',
-      date: p.created_at ? p.created_at.split('T')[0] : '',
+      rawDate: p.penalty_date || p.date || p.created_at || '',
+      date: (p.penalty_date || p.date || p.created_at || '').split('T')[0],
       type: p.penalty_rule?.name || p.type || 'Manual Penalty',
-      reason: p.notes || 'No reason provided',
-      amount: p.amount ?? 0, // Fallback to 0 if undefined/null
+      reason: p.reason || p.notes || 'No reason provided',
+      amount: Number(p.amount ?? p.final_amount ?? p.penalty_amount ?? p.deduction_amount ?? 0),
       status: p.status || 'pending',
-      appliedBy: p.actioned_by || p.applied_by || 'System',
-      month: p.created_at ? new Date(p.created_at).toLocaleString('default', { month: 'long', year: 'numeric' }) : '',
+      acked: Boolean(p.employee_ack || p.ack || p.acknowledged || p.is_acknowledged),
+      appliedBy: p.actioned_by_name || p.actioned_by || p.applied_by_name || p.applied_by || 'HR',
+      month: (p.penalty_date || p.date || p.created_at) ? new Date(p.penalty_date || p.date || p.created_at).toLocaleString('default', { month: 'long', year: 'numeric' }) : '',
       waivedReason: p.status === 'rejected' ? p.notes : undefined,
     }));
   }, [serverPenalties]);
+
+  const typeOptions = useMemo(
+    () => Array.from(new Set(penaltiesData.map((p: any) => p.type).filter(Boolean))),
+    [penaltiesData],
+  );
 
   const filtered = penaltiesData.filter((p: any) => {
     if (filter !== "all" && p.status.toLowerCase() !== filter) return false;
@@ -58,6 +59,15 @@ export default function MyPenalties() {
   const thisMonthTotal = penaltiesData
     .filter((p: any) => (p.status === "approved" || p.status === "acknowledged") && p.month === currentMonthName)
     .reduce((sum: number, p: any) => sum + p.amount, 0);
+
+  const handleAcknowledge = async (id: string) => {
+    try {
+      await acknowledge(id);
+      showToast("Penalty acknowledged.");
+    } catch {
+      showToast("Could not acknowledge penalty.", "error");
+    }
+  };
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -112,7 +122,7 @@ export default function MyPenalties() {
             {formatPKR(thisMonthTotal)}
           </div>
           <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 4 }}>
-            March 2026
+            {currentMonthName}
           </div>
         </div>
         <div
@@ -178,66 +188,9 @@ export default function MyPenalties() {
             {penaltiesData.length}
           </div>
           <div style={{ fontSize: 11, color: "var(--t3)", marginTop: 4 }}>
-            {penaltiesData.filter((p) => p.status === "Applied").length}{" "}
-            applied, {penaltiesData.filter((p) => p.status === "Waived").length}{" "}
-            waived
+            {penaltiesData.filter((p) => p.status === "approved").length} approved,{" "}
+            {penaltiesData.filter((p) => p.status === "rejected").length} waived
           </div>
-        </div>
-      </div>
-
-      {/* Penalty Rules Card */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="ch">
-          <div className="ct">
-            <div
-              className="ct-ico"
-              style={{ background: "#fff3e0", color: "#e65100" }}
-            >
-              <AlertTriangle size={13} />
-            </div>
-            Penalty Rules
-          </div>
-        </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(5, 1fr)",
-            gap: 12,
-          }}
-        >
-          {penaltyRules.map((rule, i) => (
-            <div
-              key={i}
-              style={{
-                padding: "10px 12px",
-                background: "#f8fafc",
-                borderRadius: 8,
-                borderLeft: `3px solid ${getTypeColor(rule.type)}`,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: getTypeColor(rule.type),
-                  marginBottom: 4,
-                }}
-              >
-                {rule.type}
-              </div>
-              <div
-                style={{ fontSize: 10, color: "var(--t3)", marginBottom: 6 }}
-              >
-                {rule.rule}
-              </div>
-              <div
-                className="mono"
-                style={{ fontSize: 13, fontWeight: 700, color: "#c62828" }}
-              >
-                Rs. {rule.amount.toLocaleString()}
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -282,14 +235,18 @@ export default function MyPenalties() {
               onChange={(e) => setTypeFilter(e.target.value)}
             >
               <option value="all">All Types</option>
-              <option value="Late Arrival">Late Arrival</option>
-              <option value="Early Leave">Early Leave</option>
-              <option value="Absent">Absent</option>
-              <option value="Policy Violation">Policy Violation</option>
+              {typeOptions.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
             </select>
           </div>
         </div>
 
+        {isLoading ? (
+          <div style={{ textAlign: "center", padding: "40px 0", color: "var(--t3)" }}>
+            Loading penalties...
+          </div>
+        ) : (
         <table>
           <thead>
             <tr>
@@ -300,6 +257,7 @@ export default function MyPenalties() {
               <th>Amount</th>
               <th>Applied By</th>
               <th>Status</th>
+              <th>ACK</th>
             </tr>
           </thead>
           <tbody>
@@ -362,12 +320,24 @@ export default function MyPenalties() {
                     {(p.status === "approved" || p.status === "acknowledged") ? "Deducted" : p.status === "rejected" ? "Waived" : p.status.toUpperCase()}
                   </span>
                 </td>
+                <td>
+                  {(p.status === "approved" || p.status === "acknowledged") && !p.acked ? (
+                    <button className="btn btn-sm btn-primary" onClick={() => handleAcknowledge(p.id)}>
+                      <CheckCircle2 size={12} /> ACK
+                    </button>
+                  ) : (
+                    <span className={`pill ${p.acked ? "pill-green" : "pill-steel"}`}>
+                      {p.acked ? "Acknowledged" : "-"}
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+        )}
 
-        {filtered.length === 0 && (
+        {!isLoading && filtered.length === 0 && (
           <div
             style={{
               textAlign: "center",
