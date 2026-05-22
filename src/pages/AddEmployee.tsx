@@ -11,6 +11,12 @@ import {
   ChevronLeft,
   ChevronRight,
   UserPlus,
+  BadgeCheck,
+  CalendarDays,
+  Fingerprint,
+  IdCard,
+  ShieldCheck,
+  UserRound,
 } from "lucide-react";
 import DecisionBanner from "../components/common/DecisionBanner";
 import { useToastContext } from "../context/ToastContext";
@@ -89,6 +95,40 @@ const S = `
   .form-sec-title{font-size:13px;font-weight:700;color:#1e1b4b;}
   .form-sec-badge{padding:2px 9px;border-radius:20px;font-size:9px;font-weight:700;}
 
+  .personal-shell{display:grid;grid-template-columns:minmax(230px,280px) 1fr;gap:18px;align-items:stretch;}
+  .personal-aside{border:1px solid #e5e7eb;border-radius:16px;padding:18px;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);box-shadow:0 12px 28px rgba(30,27,75,.06);display:flex;flex-direction:column;gap:14px;}
+  .personal-kicker{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .personal-kicker span:first-child{font-size:10px;font-weight:800;color:#6366f1;text-transform:uppercase;letter-spacing:.08em;}
+  .personal-icon-badge{width:30px;height:30px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:#eef2ff;color:#6366f1;}
+  .personal-avatar{width:78px;height:78px;border-radius:24px;background:linear-gradient(135deg,#1e1b4b,#6366f1 58%,#14b8a6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:25px;font-weight:800;box-shadow:0 14px 24px rgba(99,102,241,.28);}
+  .personal-name{margin:0;font-size:18px;line-height:1.2;color:#1e1b4b;font-weight:800;word-break:break-word;}
+  .personal-muted{margin:3px 0 0;font-size:11px;color:#6b7280;line-height:1.45;}
+  .personal-id-pill{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:10px;font-weight:800;border:1px solid #ccfbf1;}
+  .personal-progress-card{border-radius:14px;padding:12px;background:#111827;color:#fff;}
+  .personal-progress-top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:9px;}
+  .personal-progress-title{font-size:11px;font-weight:800;}
+  .personal-progress-count{font-size:20px;font-weight:800;color:#a7f3d0;}
+  .personal-meter{height:6px;background:rgba(255,255,255,.14);border-radius:999px;overflow:hidden;}
+  .personal-meter span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#14b8a6,#a7f3d0);transition:width .25s ease;}
+  .personal-checklist{display:grid;gap:8px;margin-top:2px;}
+  .personal-check{display:flex;align-items:center;gap:8px;font-size:11px;color:#4b5563;}
+  .personal-check svg{flex:0 0 auto;}
+  .personal-check.done{color:#047857;font-weight:700;}
+  .personal-main{min-width:0;display:flex;flex-direction:column;gap:14px;}
+  .personal-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:14px 16px;border:1px solid #e0e7ff;border-radius:16px;background:linear-gradient(135deg,#f8f9ff,#ffffff 55%,#f0fdfa);}
+  .personal-intro h2{margin:0;color:#1e1b4b;font-size:18px;line-height:1.2;}
+  .personal-intro p{margin:5px 0 0;color:#6b7280;font-size:12px;line-height:1.5;max-width:620px;}
+  .personal-step-chip{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:6px 10px;border-radius:999px;background:#eef2ff;color:#4f46e5;font-size:10px;font-weight:800;}
+  .personal-panels{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .personal-panel{border:1px solid #edf0f7;border-radius:16px;background:#fff;padding:15px;box-shadow:0 10px 24px rgba(15,23,42,.04);}
+  .personal-panel-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .personal-panel-icon{width:34px;height:34px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#f5f3ff;color:#6366f1;}
+  .personal-panel-title{margin:0;color:#1e1b4b;font-size:13px;font-weight:800;}
+  .personal-panel-sub{margin:2px 0 0;color:#9ca3af;font-size:10.5px;line-height:1.35;}
+  .personal-fields{display:grid;gap:13px;}
+  .personal-field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .add-hint{margin-top:5px;font-size:10px;line-height:1.35;color:#9ca3af;}
+
   /* Salary table */
   .sal-table{width:100%;border-collapse:collapse;border-radius:12px;overflow:hidden;border:1px solid #f1f5f9;}
   .sal-table thead tr{background:linear-gradient(135deg,#f8f9ff,#f3f4f6);}
@@ -147,6 +187,18 @@ const S = `
 
   /* Step footer info */
   .step-info{font-size:12px;color:#9ca3af;font-weight:500;}
+
+  @media(max-width:1040px){
+    .personal-shell{grid-template-columns:1fr;}
+    .personal-aside{display:grid;grid-template-columns:auto 1fr;align-items:center;}
+    .personal-progress-card,.personal-checklist{grid-column:1 / -1;}
+  }
+  @media(max-width:760px){
+    .add-pg{padding:16px;}
+    .personal-intro{flex-direction:column;}
+    .personal-panels,.personal-field-row{grid-template-columns:1fr;}
+    .personal-aside{display:flex;}
+  }
 `;
 
 const STEPS = [
@@ -720,6 +772,28 @@ export default function AddEmployee() {
 
   const STEP_CONTENT = [0, 4, 1, 2, 3, 6, 7, 5] as const;
 
+  const employeeInitials =
+    fullName
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "NE";
+  const hasValidEmployeeId =
+    /^EMP\d{3}$/.test(employeeIdInput) && Number(employeeIdInput.slice(3)) > 0;
+  const personalChecklist = [
+    { label: "Employee ID", done: hasValidEmployeeId },
+    { label: "Full name", done: Boolean(fullName.trim()) },
+    { label: "Father name", done: Boolean(fatherName.trim()) },
+    { label: "CNIC", done: cnic.replace(/\D/g, "").length === 13 },
+    { label: "Date of birth", done: Boolean(dob.trim()) },
+  ];
+  const personalReadyCount = personalChecklist.filter((item) => item.done).length;
+  const personalReadyPercent = Math.round(
+    (personalReadyCount / personalChecklist.length) * 100,
+  );
+
   const renderStep = () => {
     switch (STEP_CONTENT[step]) {
       case 0:
@@ -727,105 +801,219 @@ export default function AddEmployee() {
           <div
             className={direction === "right" ? "step-slide-r" : "step-slide-l"}
           >
-            <div className="form-sec-head">
-              <span className="form-sec-title">Employee Information</span>
-              <span
-                className="form-sec-badge"
-                style={{
-                  background: "#eff6ff",
-                  color: "#6366f1",
-                  marginLeft: "auto",
-                }}
-              >
-                Step 1 of 8
-              </span>
-            </div>
-            <div className="add-form-row-3">
-              <div className="add-form-group">
-                <label className="add-label">Employee ID</label>
-                <div style={{ position: "relative" }}>
-                  <input
-                    className={`add-input mono${errors.employeeIdInput ? " error" : ""}`}
-                    placeholder="Enter ID"
-                    value={employeeIdInput}
-                    onChange={(e) =>
-                      setEmployeeIdInput(formatEmployeeId(e.target.value))
-                    }
-                  />
-                  {errors.employeeIdInput && (
-                    <div className="add-err">{errors.employeeIdInput}</div>
-                  )}
+            <div className="personal-shell">
+              <aside className="personal-aside" aria-label="Identity snapshot">
+                <div className="personal-kicker">
+                  <span>Identity snapshot</span>
+                  <span className="personal-icon-badge">
+                    <UserRound size={16} />
+                  </span>
                 </div>
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">
-                  Full Name <span>*</span>
-                </label>
-                <input
-                  className={`add-input${errors.fullName ? " error" : ""}`}
-                  placeholder="Enter full name"
-                  value={fullName}
-                  onChange={(e) =>
-                    handleTextChange(e.target.value, setFullName)
-                  }
-                />
-                {errors.fullName && (
-                  <div className="add-err">{errors.fullName}</div>
-                )}
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">
-                  Father Name <span>*</span>
-                </label>
-                <input
-                  className={`add-input${errors.fatherName ? " error" : ""}`}
-                  value={fatherName}
-                  onChange={(e) =>
-                    handleTextChange(e.target.value, setFatherName)
-                  }
-                />
-                {errors.fatherName && (
-                  <div className="add-err">{errors.fatherName}</div>
-                )}
-              </div>
-            </div>
-            <div className="add-form-row-3">
-              <div className="add-form-group">
-                <label className="add-label">
-                  CNIC <span>*</span>
-                </label>
-                <input
-                  className={`add-input mono${errors.cnic ? " error" : ""}`}
-                  placeholder="00000-0000000-0"
-                  value={cnic}
-                  onChange={(e) => setCnic(formatCnic(e.target.value))}
-                />
-                {errors.cnic && <div className="add-err">{errors.cnic}</div>}
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">
-                  Date of Birth <span>*</span>
-                </label>
-                <input
-                  className={`add-input${errors.dob ? " error" : ""}`}
-                  type="date"
-                  value={dob}
-                  onChange={(e) => setDob(e.target.value)}
-                />
-                {errors.dob && <div className="add-err">{errors.dob}</div>}
-              </div>
-              <div className="add-form-group">
-                <label className="add-label">Gender</label>
-                <select
-                  className="add-select"
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
+                <div className="personal-avatar">{employeeInitials}</div>
+                <div>
+                  <h2 className="personal-name">
+                    {fullName.trim() || "New employee"}
+                  </h2>
+                  <p className="personal-muted">
+                    {fatherName.trim()
+                      ? `Father name: ${fatherName.trim()}`
+                      : "Capture clean identity details before job setup."}
+                  </p>
+                </div>
+                <span className="personal-id-pill">
+                  <BadgeCheck size={13} />
+                  {hasValidEmployeeId ? employeeIdInput : "ID pending"}
+                </span>
+
+                <div className="personal-progress-card">
+                  <div className="personal-progress-top">
+                    <span className="personal-progress-title">
+                      Profile readiness
+                    </span>
+                    <span className="personal-progress-count">
+                      {personalReadyCount}/{personalChecklist.length}
+                    </span>
+                  </div>
+                  <div className="personal-meter" aria-hidden="true">
+                    <span style={{ width: `${personalReadyPercent}%` }} />
+                  </div>
+                </div>
+
+                <div className="personal-checklist">
+                  {personalChecklist.map((item) => (
+                    <div
+                      key={item.label}
+                      className={`personal-check${item.done ? " done" : ""}`}
+                    >
+                      <Check size={14} />
+                      <span>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </aside>
+
+              <section className="personal-main">
+                <div className="personal-intro">
+                  <div>
+                    <h2>Personal Info</h2>
+                    <p>
+                      Start with the verified identity fields used across HR,
+                      payroll, attendance, and account creation.
+                    </p>
+                  </div>
+                  <span className="personal-step-chip">
+                    <ShieldCheck size={13} />
+                    Step 1 of 8
+                  </span>
+                </div>
+
+                <div className="personal-panels">
+                  <div className="personal-panel">
+                    <div className="personal-panel-head">
+                      <span className="personal-panel-icon">
+                        <IdCard size={17} />
+                      </span>
+                      <div>
+                        <h3 className="personal-panel-title">Core identity</h3>
+                        <p className="personal-panel-sub">
+                          Names and employee code used in records.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="personal-fields">
+                      <div className="add-form-group">
+                        <label className="add-label" htmlFor="employee-id">
+                          Employee ID <span>*</span>
+                        </label>
+                        <input
+                          id="employee-id"
+                          className={`add-input mono${errors.employeeIdInput ? " error" : ""}`}
+                          placeholder="EMP001"
+                          value={employeeIdInput}
+                          onChange={(e) =>
+                            setEmployeeIdInput(formatEmployeeId(e.target.value))
+                          }
+                        />
+                        <div className="add-hint">
+                          Type numbers or the full code. It will normalize to
+                          EMP001 format.
+                        </div>
+                        {errors.employeeIdInput && (
+                          <div className="add-err">
+                            {errors.employeeIdInput}
+                          </div>
+                        )}
+                      </div>
+                      <div className="add-form-group">
+                        <label className="add-label" htmlFor="full-name">
+                          Full Name <span>*</span>
+                        </label>
+                        <input
+                          id="full-name"
+                          className={`add-input${errors.fullName ? " error" : ""}`}
+                          placeholder="Enter full legal name"
+                          value={fullName}
+                          onChange={(e) =>
+                            handleTextChange(e.target.value, setFullName)
+                          }
+                        />
+                        {errors.fullName && (
+                          <div className="add-err">{errors.fullName}</div>
+                        )}
+                      </div>
+                      <div className="add-form-group">
+                        <label className="add-label" htmlFor="father-name">
+                          Father Name <span>*</span>
+                        </label>
+                        <input
+                          id="father-name"
+                          className={`add-input${errors.fatherName ? " error" : ""}`}
+                          placeholder="Enter father name"
+                          value={fatherName}
+                          onChange={(e) =>
+                            handleTextChange(e.target.value, setFatherName)
+                          }
+                        />
+                        {errors.fatherName && (
+                          <div className="add-err">{errors.fatherName}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="personal-panel">
+                    <div className="personal-panel-head">
+                      <span className="personal-panel-icon">
+                        <Fingerprint size={17} />
+                      </span>
+                      <div>
+                        <h3 className="personal-panel-title">
+                          Legal verification
+                        </h3>
+                        <p className="personal-panel-sub">
+                          Government identity and demographic basics.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="personal-fields">
+                      <div className="add-form-group">
+                        <label className="add-label" htmlFor="cnic">
+                          CNIC <span>*</span>
+                        </label>
+                        <input
+                          id="cnic"
+                          className={`add-input mono${errors.cnic ? " error" : ""}`}
+                          placeholder="00000-0000000-0"
+                          value={cnic}
+                          onChange={(e) => setCnic(formatCnic(e.target.value))}
+                        />
+                        <div className="add-hint">
+                          Enter 13 digits. Separators are added automatically.
+                        </div>
+                        {errors.cnic && (
+                          <div className="add-err">{errors.cnic}</div>
+                        )}
+                      </div>
+                      <div className="personal-field-row">
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="date-of-birth">
+                            Date of Birth <span>*</span>
+                          </label>
+                          <input
+                            id="date-of-birth"
+                            className={`add-input${errors.dob ? " error" : ""}`}
+                            type="date"
+                            value={dob}
+                            onChange={(e) => setDob(e.target.value)}
+                          />
+                          {errors.dob && (
+                            <div className="add-err">{errors.dob}</div>
+                          )}
+                        </div>
+                        <div className="add-form-group">
+                          <label className="add-label" htmlFor="gender">
+                            Gender
+                          </label>
+                          <select
+                            id="gender"
+                            className="add-select"
+                            value={gender}
+                            onChange={(e) => setGender(e.target.value)}
+                          >
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="personal-id-pill">
+                        <CalendarDays size={13} />
+                        {dob ? "Birth date captured" : "Birth date required"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         );

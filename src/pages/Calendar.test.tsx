@@ -10,6 +10,10 @@ vi.mock("../context/ToastContext", () => ({
   useToastContext: () => ({ showToast: vi.fn() }),
 }));
 
+vi.mock("../context/DataContext", () => ({
+  useData: () => ({ employees: [] }),
+}));
+
 vi.mock("../services/apiClient", () => ({
   apiClient: {
     get: vi.fn(),
