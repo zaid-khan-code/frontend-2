@@ -6,6 +6,7 @@ import { formatPKR } from "../services/api";
 import { useEmployeeSelfMetrics } from "../hooks/useDashboard";
 import { useLeaves } from "../hooks/useLeaves";
 import { useAttendance } from "../hooks/useAttendance";
+import { usePenalties } from "../hooks/usePenalties";
 import {
   Calendar,
   CalendarDays,
@@ -36,11 +37,15 @@ export default function MyDashboard() {
   const { data: myAttendanceData } = useAttendance({
     employee_id: user?.employeeId,
   });
+  const { data: myPenaltiesData } = usePenalties({
+    employee_id: user?.employeeId,
+  });
 
   const leaveRequests = Array.isArray(myLeavesData) ? myLeavesData : [];
   const attendanceData = Array.isArray(myAttendanceData)
     ? myAttendanceData
     : [];
+  const penaltiesData = Array.isArray(myPenaltiesData) ? myPenaltiesData : [];
 
   const [leaveModal, setLeaveModal] = useState(false);
   const [leaveType, setLeaveType] = useState("Annual Leave");
@@ -85,11 +90,7 @@ export default function MyDashboard() {
               : "var(--teal)",
       }));
     }
-    return [
-      { type: "Annual", remaining: 7, total: 12, color: "var(--p)" },
-      { type: "Casual", remaining: 10, total: 12, color: "var(--green)" },
-      { type: "Medical", remaining: 8, total: 8, color: "var(--teal)" },
-    ];
+    return [];
   }, [metrics]);
 
   const calcDays = () => {
@@ -135,25 +136,6 @@ export default function MyDashboard() {
       showToast("Please fill all fields", "error");
       return;
     }
-    setLeaveRequests((prev) => [
-      {
-        id: "LR" + String(prev.length + 1).padStart(3, "0"),
-        empId: user?.employeeId || "EMP001",
-        empName: user?.name || user?.username || "Employee",
-        leaveType: leaveType
-          .replace(" Leave", "")
-          .replace(" (7 remaining)", "")
-          .replace(" (10 remaining)", "")
-          .replace(" (8 remaining)", ""),
-        from: fromDate,
-        to: toDate,
-        days: daysRequested,
-        reason,
-        appliedOn: new Date().toISOString().split("T")[0],
-        status: "Pending",
-      },
-      ...prev,
-    ]);
     showToast("Leave request submitted");
     setLeaveModal(false);
     setFromDate("");
@@ -161,11 +143,109 @@ export default function MyDashboard() {
     setReason("");
   };
 
-  // Team members
-  const teamMembers = [
-    { name: "Sara Khan", dept: "Marketing", initials: "SK" },
-    { name: "Usman Malik", dept: "HR", initials: "UM" },
-  ];
+  const formatDateOnly = (value?: string) => {
+    if (!value) return "-";
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const [, year, month, day] = match;
+      return new Intl.DateTimeFormat("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }).format(new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))));
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  };
+
+  const getInitials = (name?: string) =>
+    String(name || "Employee")
+      .trim()
+      .split(/\s+/)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+
+  const currentEmployeeId = user?.employeeId;
+  const currentMonth = time.getMonth();
+  const currentYear = time.getFullYear();
+
+  const employeeAttendance = attendanceData.filter((a: any) => {
+    const rowEmployeeId = a.employee_id || a.empId || a.employeeId;
+    return !rowEmployeeId || rowEmployeeId === currentEmployeeId;
+  });
+  const monthlyAttendance = employeeAttendance.filter((a: any) => {
+    const rawDate = a.date || a.attendance_date || a.created_at;
+    if (!rawDate) return false;
+    const date = new Date(rawDate);
+    return (
+      !Number.isNaN(date.getTime()) &&
+      date.getMonth() === currentMonth &&
+      date.getFullYear() === currentYear
+    );
+  });
+  const presentThisMonth = monthlyAttendance.filter((a: any) =>
+    ["present", "late"].includes(String(a.status || "").toLowerCase()),
+  ).length;
+  const workingDaysThisMonth =
+    metrics?.working_days_this_month ||
+    metrics?.workingDaysThisMonth ||
+    monthlyAttendance.length;
+  const attendancePercent = workingDaysThisMonth
+    ? Math.min(100, Math.round((presentThisMonth / workingDaysThisMonth) * 100))
+    : 0;
+  const pendingLeaveCount = leaveRequests.filter(
+    (l: any) => String(l.status || "").toLowerCase() === "pending",
+  ).length;
+
+  const teamMembers = Array.isArray(metrics?.team_members)
+    ? metrics.team_members.map((member: any) => ({
+        name: member.name || member.employee_name || "Team Member",
+        dept: member.department_name || member.department || "Team",
+        initials: getInitials(member.name || member.employee_name),
+      }))
+    : [];
+
+  const employeePenalties = penaltiesData.filter((p: any) => {
+    const rowEmployeeId = p.employee_id || p.empId || p.employeeId;
+    return !rowEmployeeId || rowEmployeeId === currentEmployeeId;
+  });
+  const recentPenalties = [...employeePenalties]
+    .sort((a: any, b: any) => {
+      const da = new Date(a.date || a.penalty_date || a.created_at || 0).getTime();
+      const db = new Date(b.date || b.penalty_date || b.created_at || 0).getTime();
+      return db - da;
+    })
+    .slice(0, 3);
+  const penaltyAmount = (p: any) =>
+    Number(p.amount || p.final_amount || p.deduction_amount || p.penalty_amount || 0);
+  const penaltyStatus = (p: any) => String(p.status || "").toLowerCase();
+  const penaltyThisMonth = employeePenalties.filter((p: any) => {
+    const rawDate = p.date || p.penalty_date || p.created_at;
+    if (!rawDate) return false;
+    const date = new Date(rawDate);
+    return (
+      !Number.isNaN(date.getTime()) &&
+      date.getMonth() === currentMonth &&
+      date.getFullYear() === currentYear
+    );
+  });
+  const penaltyThisMonthTotal = penaltyThisMonth.reduce(
+    (sum: number, p: any) => sum + penaltyAmount(p),
+    0,
+  );
+  const totalDeducted = employeePenalties
+    .filter((p: any) => !["waived", "cancelled", "rejected"].includes(penaltyStatus(p)))
+    .reduce((sum: number, p: any) => sum + penaltyAmount(p), 0);
+  const totalWaived = employeePenalties
+    .filter((p: any) => ["waived"].includes(penaltyStatus(p)))
+    .reduce((sum: number, p: any) => sum + penaltyAmount(p), 0);
 
   // Upcoming leaves
   const myPendingLeaves = leaveRequests.filter(
@@ -460,13 +540,17 @@ export default function MyDashboard() {
           </div>
           <div>
             <div className="kpi-val">
-              18<span style={{ fontSize: 13, color: "var(--t3)" }}> / 22</span>
+              {presentThisMonth}
+              <span style={{ fontSize: 13, color: "var(--t3)" }}>
+                {" "}
+                / {workingDaysThisMonth || 0}
+              </span>
             </div>
             <div className="kpi-lbl">Attendance This Month</div>
             <div className="progress-bar" style={{ width: 80, marginTop: 4 }}>
               <div
                 className="progress-fill"
-                style={{ width: "82%", background: "var(--p)" }}
+                style={{ width: `${attendancePercent}%`, background: "var(--p)" }}
               />
             </div>
           </div>
@@ -485,43 +569,49 @@ export default function MyDashboard() {
           >
             Leave Balance
           </div>
-          {balances.map((b, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                width: "100%",
-              }}
-            >
-              <span style={{ fontSize: 10.5, color: "var(--t2)", width: 50 }}>
-                {b.type}
-              </span>
-              <div className="progress-bar" style={{ flex: 1, height: 4 }}>
-                <div
-                  className="progress-fill"
-                  style={{
-                    width: `${(b.remaining / b.total) * 100}%`,
-                    background: b.color,
-                  }}
-                />
-              </div>
-              <span
-                className="mono"
-                style={{ fontSize: 10, color: "var(--t2)", width: 40 }}
+          {balances.length ? (
+            balances.map((b: any, i: number) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  width: "100%",
+                }}
               >
-                {b.remaining}/{b.total}
-              </span>
+                <span style={{ fontSize: 10.5, color: "var(--t2)", width: 50 }}>
+                  {b.type}
+                </span>
+                <div className="progress-bar" style={{ flex: 1, height: 4 }}>
+                  <div
+                    className="progress-fill"
+                    style={{
+                      width: `${b.total ? (b.remaining / b.total) * 100 : 0}%`,
+                      background: b.color,
+                    }}
+                  />
+                </div>
+                <span
+                  className="mono"
+                  style={{ fontSize: 10, color: "var(--t2)", width: 40 }}
+                >
+                  {b.remaining}/{b.total}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div style={{ fontSize: 11, color: "var(--t3)" }}>
+              Leave balances are not assigned yet.
             </div>
-          ))}
+          )}
         </div>
         <div className="kpi-item k3">
           <div className="kpi-ico k3">
             <Clock size={17} />
           </div>
           <div>
-            <div className="kpi-val">1</div>
+            <div className="kpi-val">{pendingLeaveCount}</div>
             <div className="kpi-lbl">Pending Requests</div>
           </div>
         </div>
@@ -531,9 +621,15 @@ export default function MyDashboard() {
           </div>
           <div>
             <div className="kpi-val" style={{ fontSize: 16 }}>
-              {formatPKR(178000)}
+              {metrics?.last_payslip?.net_salary
+                ? formatPKR(Number(metrics.last_payslip.net_salary))
+                : "-"}
             </div>
-            <div className="kpi-lbl">Last Payslip · Mar 2026</div>
+            <div className="kpi-lbl">
+              {metrics?.last_payslip?.month
+                ? `Last Payslip · ${metrics.last_payslip.month}`
+                : "Last Payslip"}
+            </div>
           </div>
         </div>
       </div>
@@ -560,27 +656,33 @@ export default function MyDashboard() {
               </tr>
             </thead>
             <tbody>
-              {attendanceData
-                .filter((a: any) => a.empId === (user?.employeeId || "EMP001"))
-                .slice(0, 7)
-                .map((a: any, i: number) => (
-                  <tr
-                    key={i}
-                    style={i === 0 ? { background: "var(--pl)" } : {}}
-                  >
-                    <td className="mono">{a.date}</td>
-                    <td>{a.day}</td>
-                    <td>
-                      <span
-                        className={`pill ${a.status === "Present" ? "pill-green" : a.status === "Late" ? "pill-amber" : "pill-red"}`}
-                      >
-                        {a.status}
-                      </span>
-                    </td>
-                    <td className="mono">{a.checkIn}</td>
-                    <td className="mono">{a.checkOut}</td>
-                  </tr>
-                ))}
+              {employeeAttendance.slice(0, 7).map((a: any, i: number) => (
+                <tr
+                  key={i}
+                  style={i === 0 ? { background: "var(--pl)" } : {}}
+                >
+                  <td className="mono">
+                    {formatDateOnly(a.date || a.attendance_date || a.created_at)}
+                  </td>
+                  <td>{a.day || "-"}</td>
+                  <td>
+                    <span
+                      className={`pill ${a.status === "Present" ? "pill-green" : a.status === "Late" ? "pill-amber" : "pill-red"}`}
+                    >
+                      {a.status || "-"}
+                    </span>
+                  </td>
+                  <td className="mono">{a.checkIn || a.check_in || "-"}</td>
+                  <td className="mono">{a.checkOut || a.check_out || "-"}</td>
+                </tr>
+              ))}
+              {!employeeAttendance.length && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", color: "var(--t3)" }}>
+                    No attendance records yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -610,24 +712,32 @@ export default function MyDashboard() {
               </tr>
             </thead>
             <tbody>
-              {leaveRequests
-                .filter((l: any) => l.empId === (user?.employeeId || "EMP001"))
-                .slice(0, 5)
-                .map((l: any, i: number) => (
-                  <tr key={i}>
-                    <td>{l.leaveType}</td>
-                    <td className="mono">{l.from}</td>
-                    <td className="mono">{l.to}</td>
-                    <td className="mono">{l.days}</td>
-                    <td>
-                      <span
-                        className={`pill ${l.status === "Approved" ? "pill-green" : l.status === "Pending" ? "pill-amber" : "pill-red"}`}
-                      >
-                        {l.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+              {leaveRequests.slice(0, 5).map((l: any, i: number) => (
+                <tr key={i}>
+                  <td>{l.leaveType || l.leave_type || l.type || "-"}</td>
+                  <td className="mono">
+                    {formatDateOnly(l.from || l.from_date || l.start_date)}
+                  </td>
+                  <td className="mono">
+                    {formatDateOnly(l.to || l.to_date || l.end_date)}
+                  </td>
+                  <td className="mono">{l.days || l.total_days || "-"}</td>
+                  <td>
+                    <span
+                      className={`pill ${l.status === "Approved" ? "pill-green" : l.status === "Pending" ? "pill-amber" : "pill-red"}`}
+                    >
+                      {l.status || "-"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {!leaveRequests.length && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", color: "var(--t3)" }}>
+                    No leave requests yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -644,34 +754,40 @@ export default function MyDashboard() {
               My Team
             </div>
           </div>
-          {teamMembers.map((m, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "8px 0",
-                borderBottom: "1px solid var(--br2)",
-              }}
-            >
+          {teamMembers.length ? (
+            teamMembers.map((m: any, i: number) => (
               <div
-                className="feed-av"
+                key={i}
                 style={{
-                  background: "var(--p)",
-                  width: 28,
-                  height: 28,
-                  fontSize: 9,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "8px 0",
+                  borderBottom: "1px solid var(--br2)",
                 }}
               >
-                {m.initials}
+                <div
+                  className="feed-av"
+                  style={{
+                    background: "var(--p)",
+                    width: 28,
+                    height: 28,
+                    fontSize: 9,
+                  }}
+                >
+                  {m.initials}
+                </div>
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600 }}>{m.name}</div>
+                  <div style={{ fontSize: 10, color: "var(--t3)" }}>{m.dept}</div>
+                </div>
               </div>
-              <div>
-                <div style={{ fontSize: 12.5, fontWeight: 600 }}>{m.name}</div>
-                <div style={{ fontSize: 10, color: "var(--t3)" }}>{m.dept}</div>
-              </div>
+            ))
+          ) : (
+            <div style={{ fontSize: 12, color: "var(--t3)", padding: "8px 0" }}>
+              Team members will appear here after assignment.
             </div>
-          ))}
+          )}
         </div>
         <div className="card">
           <div className="ch">
@@ -685,22 +801,8 @@ export default function MyDashboard() {
               Upcoming Birthdays
             </div>
           </div>
-          {[
-            {
-              name: "Ahmed Ali",
-              date: "Mar 15",
-              fullDate: new Date(2026, 2, 15),
-              days: 0,
-              initials: "AA",
-            },
-            {
-              name: "Sara Khan",
-              date: "Mar 28",
-              fullDate: new Date(2026, 2, 28),
-              days: 9,
-              initials: "SK",
-            },
-          ].map((b, i) => (
+          {upcomingBirthdays.length ? (
+            upcomingBirthdays.slice(0, 3).map((b, i) => (
             <div
               key={i}
               style={{
@@ -717,7 +819,7 @@ export default function MyDashboard() {
                   height: 36,
                   borderRadius: "50%",
                   background:
-                    b.days === 0
+                    b.daysUntil === 0
                       ? "linear-gradient(135deg, #e91e63, #f48fb1)"
                       : "var(--p)",
                   color: "white",
@@ -729,7 +831,7 @@ export default function MyDashboard() {
                   flexShrink: 0,
                 }}
               >
-                {b.days === 0 ? "🎂" : b.initials}
+                {b.daysUntil === 0 ? "BD" : b.initials}
               </div>
               <div style={{ flex: 1 }}>
                 <div
@@ -741,7 +843,7 @@ export default function MyDashboard() {
                   className="mono"
                   style={{ fontSize: 10, color: "var(--t3)" }}
                 >
-                  {b.fullDate.toLocaleDateString("en-PK", {
+                  {b.date.toLocaleDateString("en-PK", {
                     weekday: "short",
                     day: "numeric",
                     month: "short",
@@ -752,28 +854,33 @@ export default function MyDashboard() {
                 className={`pill`}
                 style={{
                   background:
-                    b.days === 0
+                    b.daysUntil === 0
                       ? "#e91e63"
-                      : b.days === 1
+                      : b.daysUntil === 1
                         ? "#ff9800"
-                        : b.days <= 7
+                        : b.daysUntil <= 7
                           ? "#4caf50"
                           : "#e3f2fd",
-                  color: b.days <= 7 ? "white" : "#1565c0",
+                  color: b.daysUntil <= 7 ? "white" : "#1565c0",
                   fontWeight: 600,
                   fontSize: 10,
                 }}
               >
-                {b.days === 0
-                  ? "🎉 Today!"
-                  : b.days === 1
+                {b.daysUntil === 0
+                  ? "Today"
+                  : b.daysUntil === 1
                     ? "Tomorrow"
-                    : `${b.days} days`}
+                    : `${b.daysUntil} days`}
               </span>
             </div>
-          ))}
+            ))
+          ) : (
+            <div style={{ padding: "12px 0", color: "var(--t3)", fontSize: 12 }}>
+              No upcoming birthdays.
+            </div>
+          )}
           {/* Birthday reminder for today */}
-          {[
+          {false && [
             {
               name: user?.name || user?.username || "Me",
               date: "Mar 15",
@@ -1069,10 +1176,10 @@ export default function MyDashboard() {
                 marginTop: 4,
               }}
             >
-              Rs. 800
+              {formatPKR(penaltyThisMonthTotal)}
             </div>
             <div style={{ fontSize: 10, color: "var(--t3)", marginTop: 2 }}>
-              2 penalties
+              {penaltyThisMonth.length} penalties
             </div>
           </div>
           <div
@@ -1101,7 +1208,7 @@ export default function MyDashboard() {
                 marginTop: 4,
               }}
             >
-              Rs. 3,500
+              {formatPKR(totalDeducted)}
             </div>
             <div style={{ fontSize: 10, color: "var(--t3)", marginTop: 2 }}>
               All time
@@ -1133,7 +1240,7 @@ export default function MyDashboard() {
                 marginTop: 4,
               }}
             >
-              Rs. 1,500
+              {formatPKR(totalWaived)}
             </div>
             <div style={{ fontSize: 10, color: "var(--t3)", marginTop: 2 }}>
               All time
@@ -1150,75 +1257,79 @@ export default function MyDashboard() {
         >
           Recent Penalties
         </div>
-        {[
-          {
-            date: "2026-03-24",
-            type: "Late Arrival",
-            amount: 500,
-            status: "Applied",
-          },
-          {
-            date: "2026-03-18",
-            type: "Late Arrival",
-            amount: 300,
-            status: "Applied",
-          },
-        ].map((p, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "8px 0",
-              borderBottom: i < 1 ? "1px solid var(--br2)" : "none",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  background: "#ffebee",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <AlertTriangle size={14} style={{ color: "#c62828" }} />
-              </div>
-              <div>
+        {recentPenalties.length ? (
+          recentPenalties.map((p: any, i: number) => (
+            <div
+              key={p.id || i}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "8px 0",
+                borderBottom:
+                  i < recentPenalties.length - 1 ? "1px solid var(--br2)" : "none",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div
                   style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: p.type === "Late Arrival" ? "#e65100" : "#c62828",
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    background: "#ffebee",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  {p.type}
+                  <AlertTriangle size={14} style={{ color: "#c62828" }} />
                 </div>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#c62828",
+                    }}
+                  >
+                    {p.type || p.penalty_type || p.rule_name || "Penalty"}
+                  </div>
+                  <div
+                    className="mono"
+                    style={{ fontSize: 10, color: "var(--t3)" }}
+                  >
+                    {formatDateOnly(p.date || p.penalty_date || p.created_at)}
+                  </div>
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
                 <div
                   className="mono"
-                  style={{ fontSize: 10, color: "var(--t3)" }}
+                  style={{ fontSize: 12, fontWeight: 600, color: "#c62828" }}
                 >
-                  {p.date}
+                  {formatPKR(penaltyAmount(p))}
                 </div>
+                <span className="pill pill-red" style={{ fontSize: 9 }}>
+                  {p.status || "Deducted"}
+                </span>
               </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div
-                className="mono"
-                style={{ fontSize: 12, fontWeight: 600, color: "#c62828" }}
-              >
-                Rs. {p.amount.toLocaleString()}
-              </div>
-              <span className="pill pill-red" style={{ fontSize: 9 }}>
-                Deducted
-              </span>
-            </div>
+          ))
+        ) : (
+          <div
+            style={{
+              padding: "14px 12px",
+              borderRadius: 8,
+              background: "rgba(16,185,129,.08)",
+              color: "var(--green)",
+              fontSize: 12,
+              fontWeight: 650,
+              textAlign: "center",
+            }}
+          >
+            No penalties recorded.
           </div>
-        ))}
+        )}
         <Link
           to="/my-penalties"
           style={{

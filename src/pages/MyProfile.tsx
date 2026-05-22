@@ -2,7 +2,16 @@ import React from "react";
 import { useAuth } from "../context/AuthContext";
 import { useEmployee } from "../hooks/useEmployees";
 import { useEmployeeSelfMetrics } from "../hooks/useDashboard";
-import { Loader2 } from "lucide-react";
+import {
+  BadgeDollarSign,
+  BriefcaseBusiness,
+  HeartPulse,
+  Landmark,
+  Loader2,
+  Phone,
+  UserRound,
+  WalletCards,
+} from "lucide-react";
 
 function getSelfProfile(payload: any) {
   if (!payload || typeof payload !== "object") return payload;
@@ -38,14 +47,11 @@ function isEmployeeProfile(payload: any) {
 }
 
 const rootFields = [
-  "id",
   "employee_id",
   "name",
   "father_name",
   "cnic",
   "date_of_birth",
-  "created_at",
-  "updated_at",
 ];
 
 const jobFields = [
@@ -60,14 +66,7 @@ const jobFields = [
   "date_of_exit",
   "probation_end_date",
   "contract_end_date",
-  "department_name",
   "department_code",
-  "designation_title",
-  "employment_type_name",
-  "job_status_name",
-  "work_mode_name",
-  "work_location_name",
-  "shift_name",
   "shift_start_time",
   "shift_end_time",
   "late_after_minutes",
@@ -83,17 +82,11 @@ const salaryFields = [
 ];
 
 const allowanceFields = [
-  "id",
-  "employee_id",
   "allowance_type_id",
   "amount",
   "is_percentage",
   "is_current",
   "is_active",
-  "created_by",
-  "created_at",
-  "updated_at",
-  "field_name",
 ];
 
 const emergencyFields = [
@@ -144,13 +137,59 @@ const medicalFields = [
   "next_medical_exam_date",
 ];
 
-function formatValue(value: any) {
+const readableFieldMap: Record<string, { label: string; sourceKey: string }> = {
+  department_id: { label: "Department", sourceKey: "department_name" },
+  designation_id: { label: "Designation", sourceKey: "designation_title" },
+  employment_type_id: { label: "Employment Type", sourceKey: "employment_type_name" },
+  job_status_id: { label: "Job Status", sourceKey: "job_status_name" },
+  work_mode_id: { label: "Work Mode", sourceKey: "work_mode_name" },
+  work_location_id: { label: "Work Location", sourceKey: "work_location_name" },
+  shift_id: { label: "Shift", sourceKey: "shift_name" },
+  allowance_type_id: { label: "Allowance Type", sourceKey: "field_name" },
+};
+
+function isDateField(field: string) {
+  return (
+    field.endsWith("_at") ||
+    field.endsWith("_date") ||
+    field === "date_of_birth" ||
+    field === "date_of_joining" ||
+    field === "date_of_exit" ||
+    field === "effective_from"
+  );
+}
+
+function formatDateOnly(value: any) {
+  if (!value) return "null";
+  if (typeof value === "string") {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const [, year, month, day] = match;
+      return new Intl.DateTimeFormat("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }).format(new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))));
+    }
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).split("T")[0] || String(value);
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatValue(value: any, field?: string) {
   if (value === null || value === undefined) return "null";
   if (typeof value === "boolean") return value ? "true" : "false";
+  if (field && isDateField(field)) return formatDateOnly(value);
   return String(value);
 }
 
 function labelFromKey(key: string) {
+  if (readableFieldMap[key]) return readableFieldMap[key].label;
   return key
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
@@ -162,7 +201,34 @@ function valueTone(value: any) {
   return "value";
 }
 
-function FieldGrid({ source, fields }: { source: any; fields: string[] }) {
+function isQuietField(field: string) {
+  return (
+    field === "id" ||
+    field.endsWith("_id") ||
+    field === "created_by" ||
+    field.endsWith("_at") ||
+    field.endsWith("_date") ||
+    field === "date_of_joining" ||
+    field === "date_of_exit" ||
+    field === "effective_from"
+  );
+}
+
+function FieldGrid({
+  source,
+  fields,
+  accent = "var(--p)",
+}: {
+  source: any;
+  fields: string[];
+  accent?: string;
+}) {
+  const visibleFields = fields.filter((field) => {
+    const readable = readableFieldMap[field];
+    const raw = readable ? source?.[readable.sourceKey] : source?.[field];
+    return raw !== null && raw !== undefined && raw !== "";
+  });
+
   return (
     <div
       style={{
@@ -171,30 +237,36 @@ function FieldGrid({ source, fields }: { source: any; fields: string[] }) {
         gap: 10,
       }}
     >
-      {fields.map((field) => {
-        const raw = source?.[field];
+      {visibleFields.map((field) => {
+        const readable = readableFieldMap[field];
+        const raw = readable ? source?.[readable.sourceKey] : source?.[field];
         const tone = valueTone(raw);
-        const value = formatValue(raw);
+        const value = formatValue(raw, field);
+        const quiet = isQuietField(field) && !readable;
         return (
           <div
             key={field}
             style={{
-              minHeight: 66,
-              padding: "10px 12px",
+              minHeight: quiet ? 58 : 72,
+              padding: quiet ? "9px 10px" : "12px 13px",
               borderRadius: 8,
               background:
                 tone === "empty"
                   ? "rgba(148,163,184,.08)"
-                  : "rgba(255,255,255,.68)",
-              border: "1px solid var(--br2)",
-              boxShadow: "0 8px 20px rgba(15,23,42,.035)",
+                  : quiet
+                    ? "rgba(248,250,252,.72)"
+                    : "linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.72))",
+              border: quiet
+                ? "1px dashed rgba(148,163,184,.32)"
+                : "1px solid var(--br2)",
+              boxShadow: quiet ? "none" : "0 10px 24px rgba(15,23,42,.045)",
             }}
           >
             <div
               style={{
                 fontSize: 10,
                 fontWeight: 800,
-                color: "var(--t3)",
+                color: quiet ? "rgba(71,85,105,.62)" : accent,
                 marginBottom: 7,
                 textTransform: "uppercase",
               }}
@@ -207,7 +279,9 @@ function FieldGrid({ source, fields }: { source: any; fields: string[] }) {
                 display:
                   tone === "empty" || tone === "yes" || tone === "no"
                     ? "inline-flex"
-                    : "block",
+                    : quiet
+                      ? "inline"
+                      : "block",
                 alignItems: "center",
                 minHeight: 18,
                 padding:
@@ -230,9 +304,12 @@ function FieldGrid({ source, fields }: { source: any; fields: string[] }) {
                       ? "var(--green)"
                       : tone === "no"
                         ? "var(--red)"
-                        : "var(--t1)",
-                fontSize: 12,
-                fontWeight: tone === "value" ? 650 : 800,
+                        : quiet
+                          ? "rgba(51,65,85,.72)"
+                          : "var(--t1)",
+                fontSize: quiet ? 11 : 13,
+                fontFamily: quiet ? "'IBM Plex Mono', monospace" : "inherit",
+                fontWeight: tone === "value" ? (quiet ? 600 : 750) : 800,
                 overflowWrap: "anywhere",
                 lineHeight: 1.35,
               }}
@@ -246,6 +323,59 @@ function FieldGrid({ source, fields }: { source: any; fields: string[] }) {
   );
 }
 
+const sectionMeta: Record<
+  string,
+  {
+    label: string;
+    accent: string;
+    tint: string;
+    Icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  }
+> = {
+  employee: {
+    label: "Employee",
+    accent: "var(--p)",
+    tint: "rgba(37,99,235,.1)",
+    Icon: UserRound,
+  },
+  job: {
+    label: "Job",
+    accent: "var(--teal)",
+    tint: "rgba(13,148,136,.1)",
+    Icon: BriefcaseBusiness,
+  },
+  salaryInfo: {
+    label: "Salary Info",
+    accent: "var(--green)",
+    tint: "rgba(15,118,110,.1)",
+    Icon: BadgeDollarSign,
+  },
+  allowances: {
+    label: "Allowances",
+    accent: "#b45309",
+    tint: "rgba(245,158,11,.14)",
+    Icon: WalletCards,
+  },
+  emergencyContacts: {
+    label: "Emergency Contacts",
+    accent: "#db2777",
+    tint: "rgba(236,72,153,.12)",
+    Icon: Phone,
+  },
+  bankInfo: {
+    label: "Bank Info",
+    accent: "#7c3aed",
+    tint: "rgba(124,58,237,.11)",
+    Icon: Landmark,
+  },
+  medicalInfo: {
+    label: "Medical Info",
+    accent: "#0891b2",
+    tint: "rgba(8,145,178,.11)",
+    Icon: HeartPulse,
+  },
+};
+
 function DataSection({
   title,
   children,
@@ -253,6 +383,9 @@ function DataSection({
   title: string;
   children: React.ReactNode;
 }) {
+  const meta = sectionMeta[title] || sectionMeta.employee;
+  const Icon = meta.Icon;
+
   return (
     <div
       className="card"
@@ -271,19 +404,35 @@ function DataSection({
           padding: "13px 16px",
           borderBottom: "1px solid var(--br2)",
           background:
-            "linear-gradient(90deg, rgba(59,130,246,.08), rgba(20,184,166,.06), rgba(236,72,153,.07))",
+            `linear-gradient(90deg, ${meta.tint}, rgba(255,255,255,.64))`,
         }}
       >
         <div
           style={{
-          fontSize: 12,
-          fontWeight: 800,
-            color: "var(--t1)",
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            fontSize: 12,
+            fontWeight: 850,
+            color: meta.accent,
             textTransform: "uppercase",
             letterSpacing: 0,
           }}
         >
-          {title}
+          <span
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              display: "inline-grid",
+              placeItems: "center",
+              background: meta.tint,
+              color: meta.accent,
+            }}
+          >
+            <Icon size={15} strokeWidth={2.4} />
+          </span>
+          {meta.label}
         </div>
       </div>
       <div
@@ -321,7 +470,7 @@ function ProfileHero({ employee }: { employee: any }) {
         padding: 18,
         borderRadius: 8,
         background:
-          "linear-gradient(135deg, rgba(239,246,255,.96), rgba(240,253,250,.9) 48%, rgba(253,242,248,.88))",
+          "linear-gradient(135deg, rgba(37,99,235,.12), rgba(13,148,136,.1) 48%, rgba(236,72,153,.12))",
         border: "1px solid rgba(147,197,253,.55)",
       }}
     >
@@ -377,14 +526,15 @@ function ProfileHero({ employee }: { employee: any }) {
                   alignItems: "center",
                   gap: 6,
                   padding: "5px 9px",
-                  borderRadius: 999,
-                  background: "rgba(255,255,255,.72)",
-                  border: "1px solid var(--br2)",
-                  color: "var(--t2)",
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}
-              >
+                borderRadius: 999,
+                background: "rgba(255,255,255,.72)",
+                border: "1px solid var(--br2)",
+                color: "var(--t2)",
+                fontSize: 11,
+                fontFamily: "inherit",
+                fontWeight: 700,
+              }}
+            >
                 <span style={{ color: "var(--t3)", fontWeight: 800 }}>
                   {label}
                 </span>
@@ -450,15 +600,15 @@ export default function MyProfile() {
       <ProfileHero employee={emp} />
 
       <DataSection title="employee">
-        <FieldGrid source={emp} fields={rootFields} />
+        <FieldGrid source={emp} fields={rootFields} accent={sectionMeta.employee.accent} />
       </DataSection>
 
       <DataSection title="job">
-        <FieldGrid source={emp} fields={jobFields} />
+        <FieldGrid source={emp} fields={jobFields} accent={sectionMeta.job.accent} />
       </DataSection>
 
       <DataSection title="salaryInfo">
-        <FieldGrid source={emp.salaryInfo} fields={salaryFields} />
+        <FieldGrid source={emp.salaryInfo} fields={salaryFields} accent={sectionMeta.salaryInfo.accent} />
       </DataSection>
 
       <DataSection title="allowances">
@@ -470,21 +620,32 @@ export default function MyProfile() {
                 style={{
                   padding: 12,
                   borderRadius: 8,
-                  background: "rgba(248,250,252,.72)",
-                  border: "1px solid var(--br2)",
+                  background:
+                    "linear-gradient(135deg, rgba(255,251,235,.8), rgba(255,255,255,.86))",
+                  border: "1px solid rgba(245,158,11,.24)",
                 }}
               >
                 <div
                   style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "5px 9px",
+                    borderRadius: 999,
+                    background: "rgba(245,158,11,.13)",
                     fontSize: 12,
                     fontWeight: 850,
-                    color: "var(--t1)",
+                    color: "#b45309",
                     marginBottom: 10,
                   }}
                 >
                   {formatValue(allowance?.field_name)}
                 </div>
-                <FieldGrid source={allowance} fields={allowanceFields} />
+                <FieldGrid
+                  source={allowance}
+                  fields={allowanceFields}
+                  accent={sectionMeta.allowances.accent}
+                />
               </div>
             ))}
           </div>
@@ -507,15 +668,23 @@ export default function MyProfile() {
       </DataSection>
 
       <DataSection title="emergencyContacts">
-        <FieldGrid source={emp.emergencyContacts} fields={emergencyFields} />
+        <FieldGrid
+          source={emp.emergencyContacts}
+          fields={emergencyFields}
+          accent={sectionMeta.emergencyContacts.accent}
+        />
       </DataSection>
 
       <DataSection title="bankInfo">
-        <FieldGrid source={emp.bankInfo} fields={bankFields} />
+        <FieldGrid source={emp.bankInfo} fields={bankFields} accent={sectionMeta.bankInfo.accent} />
       </DataSection>
 
       <DataSection title="medicalInfo">
-        <FieldGrid source={emp.medicalInfo} fields={medicalFields} />
+        <FieldGrid
+          source={emp.medicalInfo}
+          fields={medicalFields}
+          accent={sectionMeta.medicalInfo.accent}
+        />
       </DataSection>
     </div>
   );
