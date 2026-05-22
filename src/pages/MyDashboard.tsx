@@ -20,13 +20,13 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Modal from "../components/common/Modal";
-import ComingSoonOverlay from "../components/ComingSoonOverlay";
 import { useToastContext } from "../context/ToastContext";
+import { useCalendarEvents } from "../hooks/useCalendarEvents";
 
 export default function MyDashboard() {
   const { user } = useAuth();
   const [time, setTime] = useState(new Date());
-  const { globalDays, employees = [] } = useData();
+  const { employees = [] } = useData();
   const { data: metrics } = useEmployeeSelfMetrics();
   const todayParam = `${time.getFullYear()}-${String(time.getMonth() + 1).padStart(2, "0")}-${String(time.getDate()).padStart(2, "0")}`;
 
@@ -39,6 +39,7 @@ export default function MyDashboard() {
     employee_id: user?.employeeId,
   });
   const { data: myPenaltiesData } = useMyPenalties();
+  const { data: calendarApiEvents = [] } = useCalendarEvents();
 
   const leaveRequests = Array.isArray(myLeavesData) ? myLeavesData : [];
   const attendanceData = Array.isArray(myAttendanceData)
@@ -316,9 +317,8 @@ export default function MyDashboard() {
         });
       }
     });
-    // Global days (holidays, emergencies)
-    globalDays.forEach((gd: any) => {
-      if (!gd.is_active) return;
+    // Backend calendar events (holidays, HR events)
+    calendarApiEvents.forEach((gd: any) => {
       const gdDate = new Date(gd.date);
       if (gdDate.getMonth() === calMonth && gdDate.getFullYear() === calYear) {
         const day = gdDate.getDate();
@@ -356,7 +356,7 @@ export default function MyDashboard() {
         }
       });
     return events;
-  }, [employees, globalDays, leaveRequests, calMonth, calYear]);
+  }, [employees, calendarApiEvents, leaveRequests, calMonth, calYear]);
 
   // Upcoming birthdays (next 30 days)
   const upcomingBirthdays = useMemo(() => {
@@ -402,11 +402,11 @@ export default function MyDashboard() {
   const upcomingHolidays = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return globalDays
+    return calendarApiEvents
       .filter((day: any) => {
         const type = String(day.type || "").toLowerCase();
         const date = new Date(day.date);
-        return day.is_active !== false && type === "holiday" && date >= today;
+        return type === "holiday" && date >= today;
       })
       .map((day: any) => {
         const date = new Date(day.date);
@@ -421,7 +421,7 @@ export default function MyDashboard() {
       })
       .sort((a: any, b: any) => a.daysUntil - b.daysUntil)
       .slice(0, 3);
-  }, [globalDays]);
+  }, [calendarApiEvents]);
 
   const monthNames = [
     "January",
@@ -856,7 +856,6 @@ export default function MyDashboard() {
               Team members will appear here after assignment.
             </div>
           )}
-          <ComingSoonOverlay />
         </div>
         <div className="card">
           <div className="ch">
@@ -1171,7 +1170,6 @@ export default function MyDashboard() {
             Leave
           </span>
         </div>
-        <ComingSoonOverlay />
       </div>
 
       {/* My Penalties Summary */}

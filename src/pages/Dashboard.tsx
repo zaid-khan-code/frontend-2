@@ -38,9 +38,7 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-
-// ✅ Import Calendar Component
-import Calendar from "./Calendar";
+import { useCalendarEvents } from "../hooks/useCalendarEvents";
 
 // ─── Static fallback chart data ───────────────────────────────────────────────
 const DEPT_DATA = [
@@ -277,14 +275,14 @@ function MiniCalendar({
   const eventDates = new Set<number>();
   events.forEach((ev: any) => {
     if (!ev || !ev.date) return;
-    const d = new Date(`${ev.date}T00:00:00`);
+    const d = new Date(ev.date);
     if (d.getMonth() === viewMonth && d.getFullYear() === viewYear)
       eventDates.add(d.getDate());
   });
 
   const monthEvents = events.filter((ev: any) => {
     if (!ev || !ev.date) return false;
-    const d = new Date(`${ev.date}T00:00:00`);
+    const d = new Date(ev.date);
     return d.getMonth() === viewMonth && d.getFullYear() === viewYear;
   });
 
@@ -579,8 +577,9 @@ function MiniCalendar({
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Dashboard() {
   const { user, activeRole } = useAuth();
-  const { leaveRequests, employees, globalDays } = useData();
+  const { leaveRequests, employees } = useData();
   const { data: metrics } = useDashboardMetrics("6m");
+  const { data: calendarApiEvents = [] } = useCalendarEvents();
   const navigate = useNavigate();
 
   // Role-based redirect check
@@ -780,16 +779,16 @@ export default function Dashboard() {
   ];
   const unread = notifs.filter((n) => !n.read).length;
 
-  // Merge calendar/globalDays into announcements so additions in Calendar appear here
+  // Merge backend calendar events into announcements so the dashboard reflects HR calendar data.
   const combinedAnnouncements = useMemo(() => {
-    const fromDays = (globalDays || []).map((g: any) => ({
+    const fromDays = calendarApiEvents.map((g: any) => ({
       title: g.title || g.type,
       date: g.date,
-      text: g.banner_message || "",
+      text: g.visibility ? `Visible to ${g.visibility}` : "",
       id: g.id,
     }));
     return [...ANNOUNCEMENTS, ...fromDays];
-  }, [globalDays]);
+  }, [calendarApiEvents]);
 
   // ── Hero cards ──
   const hCards = [
@@ -2156,7 +2155,7 @@ export default function Dashboard() {
                   ? filteredEmployees
                   : employees
               }
-              events={(globalDays || []).map((g: any) => ({
+              events={calendarApiEvents.map((g: any) => ({
                 date: g.date,
                 title: g.title || g.type,
                 type: g.type,

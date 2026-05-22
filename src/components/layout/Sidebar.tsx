@@ -93,7 +93,6 @@ export default function Sidebar() {
       to: "/calendar",
       icon: CalendarRange,
       label: "Calendar Events",
-      comingSoon: true,
     },
     { to: "/accounts", icon: ShieldCheck, label: "HR Accounts" },
     { to: "/audit-log", icon: ScrollText, label: "Audit Log" },
@@ -113,6 +112,7 @@ export default function Sidebar() {
     { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
     { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty Ledger" },
     { to: "/announcements", icon: Zap, label: "Announcements" },
+    { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
   ];
 
   // Department HR - Department level access
@@ -125,6 +125,7 @@ export default function Sidebar() {
     { to: "/payroll", icon: DollarSign, label: "Payroll" },
     { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
     { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty Ledger" },
+    { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
   ];
 
   // Select menu based on role
