@@ -22,11 +22,23 @@ export function useAttendance(params?: any) {
     },
   });
 
+  const acknowledgeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await apiClient.patch(`/attendance/${id}/ack`);
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['employee_self_metrics'] });
+    },
+  });
+
   return {
     data: query.data?.data || [],
     pagination: query.data?.pagination,
     isLoading: query.isLoading,
     isError: query.isError,
     mark: markMutation.mutateAsync,
+    acknowledge: acknowledgeMutation.mutateAsync,
   };
 }

@@ -46,6 +46,7 @@ import AnnouncementsFeed from "./pages/AnnouncementsFeed";
 import Directory from "./pages/Directory";
 import EmployeeWidgets from "./pages/EmployeeWidgets";
 import Calendar from "./pages/Calendar";
+import FeaturePlaceholder from "./components/FeaturePlaceholder";
 
 // Employee Specific Pages
 import MyDashboard from "./pages/MyDashboard";
@@ -312,11 +313,25 @@ const App = () => (
               <Route element={<EmployeeLayout />}>
                 <Route path="/my-dashboard" element={<MyDashboard />} />
                 <Route path="/my-attendance" element={<MyAttendance />} />
-                <Route path="/my-payslips" element={<MyPayslips />} />
+                <Route
+                  path="/my-payslips"
+                  element={
+                    <FeaturePlaceholder>
+                      <MyPayslips />
+                    </FeaturePlaceholder>
+                  }
+                />
                 <Route path="/my-leave" element={<MyLeave />} />
                 <Route path="/my-penalties" element={<MyPenalties />} />
                 <Route path="/my-profile" element={<MyProfile />} />
-                <Route path="/my-widgets" element={<EmployeeWidgets />} />
+                <Route
+                  path="/my-widgets"
+                  element={
+                    <FeaturePlaceholder>
+                      <EmployeeWidgets />
+                    </FeaturePlaceholder>
+                  }
+                />
                 <Route
                   path="/my-leave-wallet"
                   element={<LeaveWalletHistory />}

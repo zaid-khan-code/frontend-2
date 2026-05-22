@@ -14,16 +14,14 @@ import {
   Wallet,
   FileText,
   Plus,
-  Cake,
   User,
   Lock,
-  Play,
-  Square,
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
 } from "lucide-react";
 import Modal from "../components/common/Modal";
+import ComingSoonOverlay from "../components/ComingSoonOverlay";
 import { useToastContext } from "../context/ToastContext";
 
 export default function MyDashboard() {
@@ -34,7 +32,7 @@ export default function MyDashboard() {
 
   // Real data hooks
   const { data: myLeavesData } = useLeaves({ employee_id: user?.employeeId });
-  const { data: myAttendanceData } = useAttendance({
+  const { data: myAttendanceData, acknowledge: acknowledgeAttendance } = useAttendance({
     employee_id: user?.employeeId,
   });
   const { data: myPenaltiesData } = usePenalties({
@@ -52,8 +50,6 @@ export default function MyDashboard() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [reason, setReason] = useState("");
-  const [checkedIn, setCheckedIn] = useState(false);
-  const [checkInTime, setCheckInTime] = useState("");
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const { showToast } = useToastContext();
@@ -108,29 +104,6 @@ export default function MyDashboard() {
   const overBalance =
     selectedBalance && daysRequested > selectedBalance.remaining;
 
-  const handleCheckIn = () => {
-    const now = time.toLocaleTimeString("en-PK", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-    setCheckedIn(true);
-    setCheckInTime(now);
-    localStorage.setItem("ems_checkin_today", now);
-    showToast(`Checked in at ${now}`);
-  };
-
-  const handleCheckOut = () => {
-    const now = time.toLocaleTimeString("en-PK", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-    setCheckedIn(false);
-    localStorage.setItem("ems_checkout_today", now);
-    showToast(`Checked out at ${now}`);
-  };
-
   const handleLeaveSubmit = () => {
     if (!fromDate || !toDate || !reason) {
       showToast("Please fill all fields", "error");
@@ -180,6 +153,53 @@ export default function MyDashboard() {
     const rowEmployeeId = a.employee_id || a.empId || a.employeeId;
     return !rowEmployeeId || rowEmployeeId === currentEmployeeId;
   });
+  const todayKey = time.toISOString().slice(0, 10);
+  const todayAttendance = employeeAttendance.find((a: any) => {
+    const rawDate = String(a.date || a.attendance_date || a.created_at || "");
+    return rawDate.slice(0, 10) === todayKey;
+  });
+  const latestAttendance = todayAttendance || employeeAttendance[0];
+  const attendanceId = latestAttendance?.id || latestAttendance?.attendance_id;
+  const attendanceAcked = Boolean(
+    latestAttendance?.ack ||
+      latestAttendance?.acknowledged ||
+      latestAttendance?.is_acknowledged,
+  );
+  const shiftName =
+    metrics?.shift_name ||
+    metrics?.employee?.shift_name ||
+    metrics?.profile?.shift_name ||
+    "Assigned Shift";
+  const shiftStart =
+    metrics?.shift_start_time ||
+    metrics?.employee?.shift_start_time ||
+    latestAttendance?.shift_start_time ||
+    "-";
+  const shiftEnd =
+    metrics?.shift_end_time ||
+    metrics?.employee?.shift_end_time ||
+    latestAttendance?.shift_end_time ||
+    "-";
+  const departmentName =
+    metrics?.department_name ||
+    metrics?.employee?.department_name ||
+    metrics?.profile?.department_name ||
+    user?.departments?.[0] ||
+    "Unassigned";
+  const formatTimeOnly = (value?: string) => {
+    if (!value) return "-";
+    const text = String(value);
+    const match = text.match(/(\d{2}):(\d{2})/);
+    return match ? `${match[1]}:${match[2]}` : text;
+  };
+  const handleAcknowledgeAttendance = async () => {
+    if (!attendanceId) {
+      showToast("No attendance record is available to acknowledge.", "error");
+      return;
+    }
+    await acknowledgeAttendance(attendanceId);
+    showToast("Attendance acknowledged.");
+  };
   const monthlyAttendance = employeeAttendance.filter((a: any) => {
     const rawDate = a.date || a.attendance_date || a.created_at;
     if (!rawDate) return false;
@@ -358,6 +378,30 @@ export default function MyDashboard() {
     return birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
   }, [employees]);
 
+  const upcomingHolidays = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return globalDays
+      .filter((day: any) => {
+        const type = String(day.type || "").toLowerCase();
+        const date = new Date(day.date);
+        return day.is_active !== false && type === "holiday" && date >= today;
+      })
+      .map((day: any) => {
+        const date = new Date(day.date);
+        const daysUntil = Math.ceil(
+          (date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+        );
+        return {
+          title: day.title || "Holiday",
+          date,
+          daysUntil,
+        };
+      })
+      .sort((a: any, b: any) => a.daysUntil - b.daysUntil)
+      .slice(0, 3);
+  }, [globalDays]);
+
   const monthNames = [
     "January",
     "February",
@@ -394,16 +438,19 @@ export default function MyDashboard() {
         >
           <div>
             <div style={{ fontSize: 18, fontWeight: 800, color: "var(--t1)" }}>
-              Welcome back, {user?.name || user?.username || "Employee"} 👋
+              Welcome back, {user?.name || user?.username || "Employee"}
             </div>
             <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
               {[
                 { label: "Employee ID", value: user?.employeeId || "—" },
                 {
                   label: "Department",
-                  value: user?.departments?.[0] || "Unassigned",
+                  value: departmentName,
                 },
-                { label: "Shift", value: "Morning Shift (09:00-18:00)" },
+                {
+                  label: "Shift",
+                  value: `${shiftName} (${formatTimeOnly(shiftStart)}-${formatTimeOnly(shiftEnd)})`,
+                },
               ].map((item, i) => (
                 <span
                   key={i}
@@ -430,9 +477,9 @@ export default function MyDashboard() {
         </div>
       </div>
 
-      {/* Today's Schedule + Check-in */}
+      {/* Today's Schedule + Attendance ACK */}
       <div className="g2" style={{ marginBottom: 0 }}>
-        <div className="card">
+        <div className="card" style={{ position: "relative", overflow: "hidden" }}>
           <div className="ch">
             <div className="ct">
               <div className="ct-ico blue">
@@ -441,7 +488,7 @@ export default function MyDashboard() {
               Today's Schedule
             </div>
           </div>
-          <div style={{ display: "flex", gap: 20, fontSize: 12.5 }}>
+          <div style={{ display: "flex", gap: 20, fontSize: 12.5, flexWrap: "wrap" }}>
             <div>
               <div
                 style={{ fontSize: 10, color: "var(--t3)", marginBottom: 2 }}
@@ -449,7 +496,7 @@ export default function MyDashboard() {
                 Shift Start
               </div>
               <div className="mono" style={{ fontWeight: 600 }}>
-                09:00
+                {formatTimeOnly(shiftStart)}
               </div>
             </div>
             <div>
@@ -459,38 +506,44 @@ export default function MyDashboard() {
                 Shift End
               </div>
               <div className="mono" style={{ fontWeight: 600 }}>
-                18:00
+                {formatTimeOnly(shiftEnd)}
               </div>
             </div>
             <div>
               <div
                 style={{ fontSize: 10, color: "var(--t3)", marginBottom: 2 }}
               >
-                Break
+                HR Marked
               </div>
               <div className="mono" style={{ fontWeight: 600 }}>
-                13:00 - 14:00
+                {formatTimeOnly(latestAttendance?.checkIn || latestAttendance?.check_in)}
               </div>
             </div>
           </div>
-          <div style={{ marginTop: 12 }}>
-            {!checkedIn ? (
-              <button className="btn btn-primary" onClick={handleCheckIn}>
-                <Play size={13} /> Check In
+          <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span
+              className={`pill ${
+                String(latestAttendance?.status || "").toLowerCase() === "present"
+                  ? "pill-green"
+                  : String(latestAttendance?.status || "").toLowerCase() === "late"
+                    ? "pill-amber"
+                    : "pill-blue"
+              }`}
+            >
+              {latestAttendance?.status
+                ? `Marked ${latestAttendance.status}`
+                : "Not marked yet"}
+            </span>
+            {attendanceId && !attendanceAcked ? (
+              <button className="btn btn-primary" onClick={handleAcknowledgeAttendance}>
+                Acknowledge Attendance
               </button>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span className="pill pill-green">
-                  ✓ Checked in at {checkInTime}
-                </span>
-                <button className="btn btn-danger" onClick={handleCheckOut}>
-                  <Square size={12} /> Check Out
-                </button>
-              </div>
-            )}
+            ) : attendanceId ? (
+              <span className="pill pill-green">Acknowledged</span>
+            ) : null}
           </div>
         </div>
-        <div className="card">
+        <div className="card" style={{ position: "relative", overflow: "hidden" }}>
           <div className="ch">
             <div className="ct">
               <div className="ct-ico green">
@@ -509,18 +562,20 @@ export default function MyDashboard() {
             >
               <Calendar size={13} /> Apply for Leave
             </button>
-            <button
+            <Link
               className="btn btn-ghost"
               style={{ justifyContent: "flex-start" }}
+              to="/my-directory"
             >
-              <Wallet size={13} /> View Payslips
-            </button>
-            <button
+              <User size={13} /> Company Directory
+            </Link>
+            <Link
               className="btn btn-ghost"
               style={{ justifyContent: "flex-start" }}
+              to="/my-profile"
             >
               <User size={13} /> Update Profile
-            </button>
+            </Link>
             <Link
               className="btn btn-ghost"
               style={{ justifyContent: "flex-start" }}
@@ -743,9 +798,9 @@ export default function MyDashboard() {
         </div>
       </div>
 
-      {/* Team + Birthday */}
+      {/* Future Team + Tab 1 Holidays */}
       <div className="g2">
-        <div className="card">
+        <div className="card" style={{ position: "relative", overflow: "hidden" }}>
           <div className="ch">
             <div className="ct">
               <div className="ct-ico teal">
@@ -788,6 +843,7 @@ export default function MyDashboard() {
               Team members will appear here after assignment.
             </div>
           )}
+          <ComingSoonOverlay />
         </div>
         <div className="card">
           <div className="ch">
@@ -796,13 +852,13 @@ export default function MyDashboard() {
                 className="ct-ico"
                 style={{ background: "#fce4ec", color: "#e91e63" }}
               >
-                <Cake size={13} />
+                <CalendarDays size={13} />
               </div>
-              Upcoming Birthdays
+              Upcoming Holidays
             </div>
           </div>
-          {upcomingBirthdays.length ? (
-            upcomingBirthdays.slice(0, 3).map((b, i) => (
+          {upcomingHolidays.length ? (
+            upcomingHolidays.map((b, i) => (
             <div
               key={i}
               style={{
@@ -810,7 +866,8 @@ export default function MyDashboard() {
                 alignItems: "center",
                 gap: 12,
                 padding: "10px 0",
-                borderBottom: i < 1 ? "1px solid var(--br2)" : "none",
+                borderBottom:
+                  i < upcomingHolidays.length - 1 ? "1px solid var(--br2)" : "none",
               }}
             >
               <div
@@ -831,13 +888,13 @@ export default function MyDashboard() {
                   flexShrink: 0,
                 }}
               >
-                {b.daysUntil === 0 ? "BD" : b.initials}
+                {b.daysUntil === 0 ? "Today" : "Off"}
               </div>
               <div style={{ flex: 1 }}>
                 <div
                   style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)" }}
                 >
-                  {b.name}
+                  {b.title}
                 </div>
                 <div
                   className="mono"
@@ -876,46 +933,23 @@ export default function MyDashboard() {
             ))
           ) : (
             <div style={{ padding: "12px 0", color: "var(--t3)", fontSize: 12 }}>
-              No upcoming birthdays.
-            </div>
-          )}
-          {/* Birthday reminder for today */}
-          {false && [
-            {
-              name: user?.name || user?.username || "Me",
-              date: "Mar 15",
-              fullDate: new Date(2026, 2, 15),
-              days: 0,
-              initials: (user?.name || user?.username || "Me")
-                .slice(0, 2)
-                .toUpperCase(),
-            },
-          ].filter((b) => b.days === 0).length > 0 && (
-            <div
-              style={{
-                marginTop: 8,
-                padding: "8px 10px",
-                background: "linear-gradient(135deg, #fce4ec, #f8bbd9)",
-                borderRadius: 8,
-                textAlign: "center",
-              }}
-            >
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#c2185b" }}>
-                🎂 It's your birthday! Have a great day!
-              </div>
+              No upcoming holidays.
             </div>
           )}
         </div>
       </div>
 
-      {/* Calendar - Birthdays, Holidays & Leave */}
-      <div className="card" style={{ marginBottom: 12 }}>
+      {/* Full calendar is future scope beyond SRS Tab 1 employee dashboard widgets. */}
+      <div
+        className="card"
+        style={{ marginBottom: 12, position: "relative", overflow: "hidden" }}
+      >
         <div className="ch">
           <div className="ct">
             <div className="ct-ico blue">
               <CalendarDays size={13} />
             </div>
-            Calendar — Birthdays, Holidays & Leave
+            Full Calendar
           </div>
         </div>
         <div
@@ -1049,7 +1083,7 @@ export default function MyDashboard() {
                       gap: 2,
                     }}
                   >
-                    {e.type === "birthday" && <Cake size={8} />}
+                    {e.type === "birthday" && <CalendarDays size={8} />}
                     {e.type === "birthday"
                       ? e.label.split(" ")[0]
                       : e.label.length > 8
@@ -1124,6 +1158,7 @@ export default function MyDashboard() {
             Leave
           </span>
         </div>
+        <ComingSoonOverlay />
       </div>
 
       {/* My Penalties Summary */}
