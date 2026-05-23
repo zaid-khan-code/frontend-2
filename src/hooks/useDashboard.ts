@@ -11,13 +11,14 @@ export function useDashboardMetrics(range?: string) {
   });
 }
 
-export function useEmployeeSelfMetrics() {
+export function useEmployeeSelfMetrics(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['employee_self_metrics'],
     queryFn: async () => {
       const { data } = await apiClient.get('/dashboard/me');
       return data.data;
     },
+    enabled: options?.enabled ?? true,
   });
 }
 

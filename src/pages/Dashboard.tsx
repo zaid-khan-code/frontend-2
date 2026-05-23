@@ -4,6 +4,7 @@ import { useData } from "../context/DataContext";
 import { getVisibleEmployees } from "../utils/utils";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useDashboardMetrics } from "../hooks/useDashboard";
+import ComingSoonOverlay from "../components/ComingSoonOverlay";
 import {
   Users,
   UserCheck,
@@ -209,6 +210,7 @@ const WCard = ({
       borderRadius: 16,
       padding: "18px 20px",
       boxShadow: "0 1px 10px rgba(0,0,0,.07)",
+      position: "relative",
       ...style,
       cursor: onClick ? "pointer" : "default",
     }}
@@ -1951,6 +1953,7 @@ export default function Dashboard() {
           </WCard>
 
           <WCard>
+            <ComingSoonOverlay />
             <SHead
               icon={<Award size={14} color="#f59e0b" />}
               title="Top Performers"

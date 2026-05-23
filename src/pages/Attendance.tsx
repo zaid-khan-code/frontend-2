@@ -1,877 +1,1029 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useAttendance } from '../hooks/useAttendance';
-import { BRANCHES, EMP_DATA } from './attendanceTypes';
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  AttendanceRow,
+  AttendanceStatus,
+  useAcknowledgeAttendance,
+  useApproveAttendanceUnlock,
+  useAttendanceReport,
+  useAttendanceSheet,
+  useRequestAttendanceUnlock,
+  useSaveAttendanceSheet,
+  useSubmitAttendanceSheet,
+} from "../hooks/useAttendance";
+import {
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  AlertTriangle,
+  FileCheck2,
+  Loader2,
+  LockKeyhole,
+  MapPin,
+  RefreshCw,
+  Search,
+  Send,
+  ShieldCheck,
+  TimerReset,
+  UserRoundCheck,
+  XCircle,
+} from "lucide-react";
+import {
+  useDepartments,
+  useShifts,
+  useWorkLocations,
+} from "../hooks/useConfig";
+import { useEmployeeSelfMetrics } from "../hooks/useDashboard";
+import { useEmployee } from "../hooks/useEmployees";
+import { useToastContext } from "../context/ToastContext";
+import { useAuthStore } from "../store/useAuthStore";
+import { normalizeRole } from "../utils/rbac";
 
-type ShiftType = 'Morning' | 'Evening' | 'Night';
-type EmployeeStatus = 'Present' | 'Late' | 'Absent' | 'On Leave';
-
-interface Employee {
-  name: string;
-  code: string;
-  dept: string;
-  mgr: string;
-  shift: ShiftType;
-  ci: string;
-  co: string;
-  status: EmployeeStatus;
-  notes: string;
-  lates: number;
-  state?: 'draft' | 'saved' | 'submitted' | 'acknowledged' | 'unlock_requested';
-}
-
-const GRADS = [
-  'linear-gradient(135deg,#6366f1,#8b5cf6)',
-  'linear-gradient(135deg,#ec4899,#db2777)',
-  'linear-gradient(135deg,#f97316,#f59e0b)',
-  'linear-gradient(135deg,#14b8a6,#06b6d4)',
-  'linear-gradient(135deg,#10b981,#34d399)',
-  'linear-gradient(135deg,#3b82f6,#6366f1)',
-];
-
-const ng = (name: string) => GRADS[(name.charCodeAt(0) || 0) % GRADS.length];
-const ini = (name: string) => name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
-const t12 = (time: string) => {
-  if (!time || time === '--') return '--';
-  const [hours, minutes] = time.split(':');
-  const hr = parseInt(hours, 10);
-  return `${hr % 12 || 12}:${minutes} ${hr >= 12 ? 'PM' : 'AM'}`;
+type EditableAttendanceRow = AttendanceRow & {
+  check_in?: string | null;
+  check_out?: string | null;
+  notes?: string | null;
+  ack?: boolean;
 };
 
-const EMPS: Employee[] = [
-  { name: 'Ahmed Raza', code: 'E-101', dept: 'Sales', mgr: 'Ahmed Khan', shift: 'Morning', ci: '09:04', co: '06:02', status: 'Present', notes: '', lates: 4, state: 'submitted' },
-  { name: 'Sana Iqbal', code: 'E-102', dept: 'Accounts', mgr: 'Sara Malik', shift: 'Morning', ci: '09:18', co: '06:10', status: 'Late', notes: 'Traffic on Shahrah', lates: 3, state: 'submitted' },
-  { name: 'Bilal Khan', code: 'E-103', dept: 'IT', mgr: 'Usman Tariq', shift: 'Evening', ci: '02:00', co: '10:05', status: 'Present', notes: 'Covering for Hamza', lates: 0, state: 'saved' },
-  { name: 'Hira Saleem', code: 'E-104', dept: 'HR', mgr: 'Sara Malik', shift: 'Morning', ci: '--', co: '--', status: 'On Leave', notes: 'CL approved', lates: 0, state: 'acknowledged' },
-  { name: 'Usman Tariq', code: 'E-105', dept: 'Warehouse', mgr: 'Ahmed Khan', shift: 'Night', ci: '10:11', co: '06:01', status: 'Present', notes: 'Shift swap', lates: 2, state: 'submitted' },
-  { name: 'Mariam Yousuf', code: 'E-106', dept: 'Marketing', mgr: 'Nadia Sheikh', shift: 'Morning', ci: '--', co: '--', status: 'Absent', notes: 'No leave application', lates: 0, state: 'draft' },
-  { name: 'Faraz Ali', code: 'E-107', dept: 'Sales', mgr: 'Ahmed Khan', shift: 'Morning', ci: '09:02', co: '06:00', status: 'Present', notes: 'DHA visit', lates: 0, state: 'submitted' },
-  { name: 'Zoya Hashmi', code: 'E-108', dept: 'Accounts', mgr: 'Sara Malik', shift: 'Evening', ci: '02:25', co: '10:10', status: 'Late', notes: 'Bank work', lates: 4, state: 'submitted' },
-  { name: 'Kamran Sheikh', code: 'E-109', dept: 'IT', mgr: 'Usman Tariq', shift: 'Morning', ci: '09:00', co: '06:00', status: 'Present', notes: '', lates: 1, state: 'submitted' },
-  { name: 'Rabia Noor', code: 'E-110', dept: 'HR', mgr: 'Sara Malik', shift: 'Morning', ci: '09:05', co: '06:00', status: 'Present', notes: '', lates: 0, state: 'submitted' },
-  { name: 'Hassan Malik', code: 'E-111', dept: 'Operations', mgr: 'Nadia Sheikh', shift: 'Morning', ci: '08:55', co: '05:58', status: 'Present', notes: '', lates: 0, state: 'acknowledged' },
-  { name: 'Ayesha Siddiq', code: 'E-112', dept: 'Engineering', mgr: 'Ahmed Khan', shift: 'Evening', ci: '02:10', co: '10:00', status: 'Late', notes: '', lates: 2, state: 'submitted' },
+const STATUSES: AttendanceStatus[] = [
+  "present",
+  "absent",
+  "late",
+  "half_day",
+  "on_leave",
 ];
 
-const HR_DEPT = 'IT';
-const DEPARTMENTS = ['All Departments', 'Sales', 'Accounts', 'IT', 'HR', 'Warehouse', 'Marketing', 'Operations', 'Engineering'];
-const MANAGERS = ['All Managers', 'Ahmed Khan', 'Sara Malik', 'Usman Tariq', 'Nadia Sheikh'];
-const STATUS_OPTIONS = ['All Status', 'Present', 'Late', 'Absent', 'On Leave'];
-const MODAL_STATUS: EmployeeStatus[] = ['Present', 'Late', 'Absent', 'On Leave'];
+const statusLabel: Record<string, string> = {
+  present: "Present",
+  absent: "Absent",
+  late: "Late",
+  half_day: "Half Day",
+  on_leave: "On Leave",
+};
 
-const Attendance = () => {
-  const { activeRole, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>('sa');
-  const [deptFilter, setDeptFilter] = useState<string>('All Departments');
-  const [mgrFilter, setMgrFilter] = useState<string>('All Managers');
-  const [statusFilter, setStatusFilter] = useState<string>('All Status');
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [saStatFilter, setSaStatFilter] = useState<string>('All');
-  const [hrStatFilter, setHrStatFilter] = useState<string>('All');
-  const [hrSearchTerm, setHrSearchTerm] = useState<string>('');
-  const [selectedEmployeeCode, setSelectedEmployeeCode] = useState<string>('');
-  const [modalStatus, setModalStatus] = useState<EmployeeStatus>('Present');
-  const [modalNotes, setModalNotes] = useState<string>('');
-  const [saveLabel, setSaveLabel] = useState<string>('Save Entry');
-  const today = new Date();
-  
-  const { data: serverAttendance, mark, isLoading } = useAttendance({ date: today.toISOString().slice(0, 10) });
+const S = `
+.att-page{padding:22px 28px;background:#f0f2f8;min-height:100vh;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:#111827;}
+.att-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+.att-head-card{position:relative;overflow:hidden;background:linear-gradient(135deg,#312e81,#6366f1 48%,#06b6d4);border-radius:20px;padding:20px 22px;color:#fff;box-shadow:0 18px 40px rgba(49,46,129,.2);}
+.att-head-card:after{content:"";position:absolute;right:-38px;top:-52px;width:170px;height:170px;border-radius:999px;background:rgba(255,255,255,.14);}
+.att-head-card .att-kicker,.att-head-card .att-title,.att-head-card .att-sub{color:#fff;position:relative;z-index:1;}
+.att-kicker{margin:0 0 4px;color:#8b5cf6;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;}
+.att-title{margin:0;color:#1e1b4b;font-size:28px;line-height:1.1;font-weight:850;}
+.att-sub{margin:6px 0 0;color:#6b7280;font-size:12px;max-width:620px;}
+.att-card{background:#fff;border:1px solid #edf0f7;border-radius:16px;padding:16px;box-shadow:0 10px 24px rgba(15,23,42,.05);}
+.att-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) auto;gap:12px;align-items:end;margin-bottom:14px;}
+.att-filters{display:grid;grid-template-columns:minmax(240px,1.4fr) minmax(170px,.8fr) minmax(170px,.8fr);gap:10px;margin-bottom:14px;}
+.att-filter-field{position:relative;}
+.att-filter-field svg{position:absolute;left:11px;bottom:11px;width:15px;height:15px;color:#94a3b8;pointer-events:none;}
+.att-filter-field .att-input{padding-left:34px;}
+.att-field label{display:block;color:#6b7280;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+.att-input,.att-select,.att-textarea{width:100%;border:1px solid #e5e7eb;border-radius:11px;background:#fff;color:#111827;font-size:12px;padding:10px 11px;outline:none;transition:border-color .15s,box-shadow .15s,background .15s;}
+.att-input:focus,.att-select:focus,.att-textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);}
+.att-input:disabled,.att-select:disabled,.att-textarea:disabled{background:#f8fafc;color:#94a3b8;cursor:not-allowed;}
+.att-locked-field{min-height:38px;width:100%;border:1px solid #dbeafe;border-radius:11px;background:linear-gradient(135deg,#eff6ff,#ecfeff);color:#1e40af;font-size:12px;font-weight:850;padding:10px 11px;display:flex;align-items:center;gap:8px;}
+.att-locked-field svg{width:15px;height:15px;flex:0 0 auto;}
+.att-locked-field.warn{border-color:#fed7aa;background:#fff7ed;color:#c2410c;}
+.att-textarea{min-height:76px;resize:vertical;}
+.att-btn{height:38px;border:none;border-radius:11px;padding:0 14px;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:opacity .15s,transform .15s,box-shadow .15s;white-space:nowrap;}
+.att-btn svg{width:15px;height:15px;flex:0 0 auto;}
+.att-btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(15,23,42,.08);}
+.att-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.att-spin{animation:att-spin .8s linear infinite;}
+@keyframes att-spin{to{transform:rotate(360deg)}}
+.att-btn.primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;box-shadow:0 8px 18px rgba(99,102,241,.22);}
+.att-btn.secondary{background:#ecfeff;color:#0e7490;border:1px solid #bae6fd;}
+.att-btn.warning{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;}
+.att-btn.danger{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;}
+.att-btn.ghost{background:#fff;color:#374151;border:1px solid #e5e7eb;}
+.att-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.att-status-card{display:flex;align-items:flex-start;gap:12px;border:1px solid #e0e7ff;background:linear-gradient(135deg,#eef2ff,#ecfeff);color:#334155;border-radius:16px;padding:13px 14px;font-size:12px;line-height:1.45;margin-bottom:14px;}
+.att-status-icon{width:34px;height:34px;border-radius:12px;background:#fff;color:#4f46e5;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(79,70,229,.12);flex:0 0 auto;}
+.att-status-card strong{display:block;color:#1e1b4b;font-size:13px;margin-bottom:2px;}
+.att-status-card p{margin:0;color:#64748b;}
+.att-banner{border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8;border-radius:14px;padding:12px 14px;font-size:12px;line-height:1.45;margin-bottom:14px;}
+.att-banner.warn{border-color:#fed7aa;background:#fff7ed;color:#c2410c;}
+.att-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.att-stat{position:relative;overflow:hidden;border:1px solid #edf0f7;border-radius:16px;padding:13px;background:#fff;}
+.att-stat:before{content:"";position:absolute;right:-18px;top:-28px;width:74px;height:74px;border-radius:999px;background:var(--stat-bg,#eef2ff);}
+.att-stat-icon{position:relative;width:32px;height:32px;border-radius:12px;background:var(--stat-bg,#eef2ff);color:var(--stat-color,#4f46e5);display:flex;align-items:center;justify-content:center;margin-bottom:8px;}
+.att-stat-icon svg{width:17px;height:17px;}
+.att-stat span{display:block;color:#9ca3af;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;}
+.att-stat strong{display:block;margin-top:4px;color:#1e1b4b;font-size:22px;}
+.att-stat.present{--stat-bg:#dcfce7;--stat-color:#15803d}
+.att-stat.late{--stat-bg:#ffedd5;--stat-color:#c2410c}
+.att-stat.absent{--stat-bg:#fee2e2;--stat-color:#dc2626}
+.att-stat.leave{--stat-bg:#ede9fe;--stat-color:#7c3aed}
+.att-stat.total{--stat-bg:#dbeafe;--stat-color:#2563eb}
+.att-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start;}
+.att-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}
+.att-section-title{display:flex;align-items:center;gap:8px;color:#1e1b4b;font-size:14px;font-weight:850;}
+.att-section-title svg{width:17px;height:17px;color:#6366f1;}
+.att-live{display:inline-flex;align-items:center;gap:6px;color:#64748b;font-size:11px;font-weight:750;}
+.att-live-dot{width:8px;height:8px;border-radius:999px;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12);}
+.att-table-wrap{overflow:auto;border:1px solid #eef2f7;border-radius:14px;}
+.att-table{width:100%;border-collapse:collapse;min-width:980px;background:#fff;}
+.att-table thead tr{background:#f8fafc;}
+.att-table th{padding:11px 12px;text-align:left;color:#64748b;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #eef2f7;}
+.att-table td{padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#374151;font-size:12px;vertical-align:middle;}
+.att-person{display:flex;align-items:center;gap:10px;}
+.att-avatar{width:34px;height:34px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex:0 0 auto;}
+.att-name{font-weight:850;color:#1e1b4b;}
+.att-muted{color:#94a3b8;font-size:11px;margin-top:2px;}
+.att-pill{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:850;border:1px solid #e5e7eb;background:#f8fafc;color:#475569;white-space:nowrap;}
+.att-pill.present{background:#ecfdf5;border-color:#bbf7d0;color:#047857;}
+.att-pill.late{background:#fff7ed;border-color:#fed7aa;color:#c2410c;}
+.att-pill.absent{background:#fef2f2;border-color:#fecaca;color:#b91c1c;}
+.att-pill.half_day{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;}
+.att-pill.on_leave{background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9;}
+.att-side{display:grid;gap:14px;}
+.att-side h3{margin:0 0 6px;color:#1e1b4b;font-size:14px;font-weight:850;display:flex;align-items:center;gap:8px;}
+.att-side h3 svg{width:16px;height:16px;color:#6366f1;}
+.att-side p{margin:0;color:#6b7280;font-size:11px;line-height:1.45;}
+.att-report-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:12px;}
+.att-report-row:last-child{border-bottom:none;}
+.att-empty{padding:32px;text-align:center;color:#64748b;font-size:13px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:14px;}
+@media(max-width:980px){.att-toolbar,.att-grid,.att-stats,.att-filters{grid-template-columns:1fr}.att-actions{width:100%}.att-btn{flex:1}.att-page{padding:16px}}
+`;
 
-  const [attendanceRows, setAttendanceRows] = useState<Employee[]>(EMPS.map((emp) => ({ ...emp, state: emp.state || 'draft' })));
+function todayKey() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
-  useEffect(() => {
-    if (serverAttendance && serverAttendance.length > 0) {
-      const mapped = serverAttendance.map((a: any) => ({
-        name: a.employee?.name || a.employee_id,
-        code: a.employee_id,
-        dept: a.employee?.department || 'Unknown',
-        mgr: a.employee?.reporting_manager || 'Unknown',
-        shift: a.employee?.shift || 'Morning',
-        ci: a.check_in || '--',
-        co: a.check_out || '--',
-        status: a.status || 'Absent',
-        notes: a.notes || '',
-        lates: 0,
-        state: 'saved',
-      }));
-      setAttendanceRows(mapped);
-    }
-  }, [serverAttendance]);
+function initials(name?: string) {
+  return String(name || "NA")
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
-  const [modalDate, setModalDate] = useState<string>(today.toISOString().slice(0, 10));
-  const [modalIn, setModalIn] = useState<string>('09:00');
-  const [modalOut, setModalOut] = useState<string>('18:00');
+function toTimeInput(value?: string | null) {
+  if (!value) return "";
+  return String(value).slice(0, 5);
+}
 
-  useEffect(() => {
-    // Treat Head HR as SuperAdmin for the attendance view so they see the same master layout
-    if (activeRole === 'super_admin' || activeRole === 'head_hr') {
-      setActiveTab('sa');
-    } else if (activeRole === 'hr' || activeRole === 'branch_hr' || activeRole === 'dept_hr') {
-      setActiveTab('hr');
-    } else {
-      setActiveTab('emp');
-    }
-  }, [activeRole]);
+function toApiTime(value?: string | null) {
+  if (!value) return null;
+  const short = String(value).slice(0, 5);
+  return short.length === 5 ? `${short}:00` : value;
+}
 
-  // If Department HR, pre-filter to their department and keep selection locked
-  useEffect(() => {
-    if (activeRole === 'department_hr' || activeRole === 'dept_hr') {
-      const dept = (user?.departments && user.departments[0]) || 'All Departments';
-      setDeptFilter(dept);
-    }
-    if (activeRole === 'branch_hr' && user?.branch) {
-      setDeptFilter('All Departments');
-    }
-  }, [activeRole, user]);
+function errorMessage(error: any) {
+  return (
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.message ||
+    error?.message ||
+    "Attendance action failed."
+  );
+}
 
-  const isSuperAdmin = activeRole === 'super_admin' || activeRole === 'head_hr';
-  const isHR = activeRole === 'hr' || activeRole === 'branch_hr' || activeRole === 'dept_hr';
-  const isEmployee = activeRole === 'employee';
+function normalizeWorkLocation(raw: any) {
+  const id =
+    raw?.id ??
+    raw?.work_location_id ??
+    raw?.location_id ??
+    raw?.code ??
+    raw?.uuid ??
+    "";
+  const name =
+    raw?.name ??
+    raw?.title ??
+    raw?.location_name ??
+    raw?.work_location_name ??
+    raw?.branch_name ??
+    id;
 
-  const allowedTabs = useMemo(() => {
-    if (isSuperAdmin) {
-      return [
-        { id: 'sa', label: 'SuperAdmin', icon: '🛡️' },
-        { id: 'mod', label: 'Add Attendance', icon: '➕' },
-      ];
-    }
-    if (isHR) {
-      return [
-        { id: 'hr', label: 'HR View', icon: '👥' },
-        { id: 'mod', label: 'Add Attendance', icon: '➕' },
-      ];
-    }
-    return [{ id: 'emp', label: 'My Attendance', icon: '👤' }];
-  }, [isSuperAdmin, isHR]);
+  return {
+    id: String(id),
+    name: String(name || id),
+  };
+}
 
-  const selectedEmployee = useMemo(
-    () => attendanceRows.find((emp) => emp.code === selectedEmployeeCode) || null,
-    [attendanceRows, selectedEmployeeCode]
+function normalizeDepartment(raw: any) {
+  const id = raw?.id ?? raw?.department_id ?? raw?.code ?? raw?.department_code ?? "";
+  const name =
+    raw?.department_name ??
+    raw?.name ??
+    raw?.title ??
+    raw?.departmentCode ??
+    raw?.department_code ??
+    id;
+
+  return {
+    id: String(id),
+    name: String(name || id),
+  };
+}
+
+function normalizeShift(raw: any) {
+  const id = raw?.id ?? raw?.shift_id ?? raw?.code ?? raw?.name ?? "";
+  const name = raw?.name ?? raw?.shift_name ?? raw?.title ?? id;
+
+  return {
+    id: String(id),
+    name: String(name || id),
+  };
+}
+
+function getUserLocationId(user: any) {
+  return (
+    user?.work_location_id ||
+    user?.location_id ||
+    user?.branch_id ||
+    user?.profile?.work_location_id ||
+    user?.profile?.location_id ||
+    user?.profile?.branch_id ||
+    user?.employee?.work_location_id ||
+    user?.employee?.location_id ||
+    user?.employee?.branch_id ||
+    user?.data?.work_location_id ||
+    user?.data?.location_id ||
+    user?.data?.branch_id ||
+    user?.jobInfo?.work_location_id ||
+    user?.job_info?.work_location_id ||
+    user?.jobInfo?.work_location?.id ||
+    user?.job_info?.work_location?.id ||
+    user?.work_location?.id ||
+    user?.branch?.id ||
+    ""
+  );
+}
+
+function getEmployeeId(user: any) {
+  return (
+    user?.employee_id ||
+    user?.employeeId ||
+    user?.emp_id ||
+    user?.id ||
+    user?.profile?.employee_id ||
+    user?.profile?.employeeId ||
+    user?.employee?.employee_id ||
+    user?.employee?.employeeId ||
+    user?.data?.employee_id ||
+    user?.data?.employeeId ||
+    ""
+  );
+}
+
+function getDepartmentName(row: any) {
+  return (
+    row?.department ||
+    row?.department_name ||
+    row?.departmentName ||
+    row?.department?.name ||
+    row?.jobInfo?.department_name ||
+    row?.job_info?.department_name ||
+    ""
+  );
+}
+
+function getDepartmentId(row: any) {
+  return (
+    row?.department_id ||
+    row?.department?.id ||
+    row?.jobInfo?.department_id ||
+    row?.job_info?.department_id ||
+    ""
+  );
+}
+
+function getShiftName(row: AttendanceRow) {
+  return row.shift?.name || (row as any).shift_name || (row as any).shiftName || "";
+}
+
+function uniqueSorted(values: string[]) {
+  return Array.from(
+    new Set(values.map((value) => String(value || "").trim()).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b));
+}
+
+export default function Attendance() {
+  const { showToast } = useToastContext();
+  const authUser = useAuthStore((state) => state.user);
+  const permissions = useAuthStore((state) => state.permissions);
+  const activeRole = useAuthStore((state) => state.activeRole);
+  const role = normalizeRole(authUser?.role_name || activeRole || authUser?.role);
+  const isSuperAdmin = role === "super_admin";
+  const isEmployee = role === "employee";
+  const canRead =
+    isSuperAdmin || permissions.includes("attendance:read") || isEmployee;
+  const canWrite =
+    !isEmployee && (isSuperAdmin || permissions.includes("attendance:write"));
+  const canSubmit =
+    !isEmployee && (isSuperAdmin || permissions.includes("attendance:submit_ho"));
+  const canUnlock =
+    !isEmployee && (isSuperAdmin || permissions.includes("attendance:unlock"));
+  const authLocationId = String(getUserLocationId(authUser) || "");
+  const shouldResolveHrLocation =
+    !isEmployee && !isSuperAdmin && !authLocationId && canRead;
+  const { data: selfMetrics } = useEmployeeSelfMetrics({
+    enabled: shouldResolveHrLocation,
+  });
+  const profileEmployeeId = String(
+    getEmployeeId(selfMetrics) || authUser?.employee_id || "",
+  );
+  const { data: selfEmployeeProfile } = useEmployee(
+    shouldResolveHrLocation && profileEmployeeId ? profileEmployeeId : undefined,
+  );
+  const userLocationId = String(
+    authLocationId ||
+      getUserLocationId(selfMetrics) ||
+      getUserLocationId(selfEmployeeProfile) ||
+      "",
   );
 
-  const employeeRecord = useMemo(() => {
-    if (isEmployee && user?.employeeId) {
-      return attendanceRows.find((emp) => emp.code === user.employeeId) || attendanceRows[0];
-    }
-    return attendanceRows[0];
-  }, [attendanceRows, isEmployee, user]);
+  const date = useMemo(() => todayKey(), []);
+  const [locationId, setLocationId] = useState("");
+  const [unlockReason, setUnlockReason] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [shiftFilter, setShiftFilter] = useState("");
+  const [localRows, setLocalRows] = useState<EditableAttendanceRow[]>([]);
+  const { data: departmentData = [] } = useDepartments();
+  const { data: shiftData = [] } = useShifts();
+  const { data: workLocationData = [], isLoading: locationsLoading } =
+    useWorkLocations();
+  const departments = useMemo(
+    () =>
+      departmentData
+        .map(normalizeDepartment)
+        .filter((department) => department.id && department.name),
+    [departmentData],
+  );
+  const shifts = useMemo(
+    () => shiftData.map(normalizeShift).filter((shift) => shift.id && shift.name),
+    [shiftData],
+  );
+  const workLocations = useMemo(
+    () =>
+      workLocationData
+        .map(normalizeWorkLocation)
+        .filter((location) => location.id && location.name),
+    [workLocationData],
+  );
+  const reportDate = useMemo(() => new Date(`${date}T00:00:00`), [date]);
+  const reportYear = reportDate.getFullYear();
+  const reportMonth = reportDate.getMonth() + 1;
+  const shouldLockLocation = !isEmployee && !isSuperAdmin && !!userLocationId;
+  const isHrMissingLocation = !isEmployee && !isSuperAdmin && !userLocationId;
+  const effectiveLocationId =
+    isEmployee ? "" : isSuperAdmin ? locationId : locationId || userLocationId;
 
-  // Determine which attendance rows the current user is allowed to see
+  useEffect(() => {
+    if (shouldLockLocation && !locationId) {
+      setLocationId(userLocationId);
+    }
+  }, [locationId, shouldLockLocation, userLocationId]);
+
+  const sheetParams = useMemo(
+    () => ({
+      date,
+      location_id: isEmployee ? undefined : effectiveLocationId || undefined,
+    }),
+    [date, effectiveLocationId, isEmployee],
+  );
+
+  const canLoadSheet =
+    canRead && (isEmployee || isSuperAdmin || Boolean(effectiveLocationId));
+  const sheetQuery = useAttendanceSheet(canLoadSheet ? sheetParams : undefined);
+  const reportQuery = useAttendanceReport(
+    canLoadSheet
+      ? {
+          year: reportYear,
+          month: reportMonth,
+          location_id: isEmployee ? undefined : effectiveLocationId || undefined,
+          employee_id: isEmployee ? authUser?.employee_id : undefined,
+        }
+      : undefined,
+  );
+  const saveSheet = useSaveAttendanceSheet();
+  const submitSheet = useSubmitAttendanceSheet();
+  const requestUnlock = useRequestAttendanceUnlock();
+  const approveUnlock = useApproveAttendanceUnlock();
+  const acknowledgeAttendance = useAcknowledgeAttendance();
+  const isGenerating = sheetQuery.isFetching;
+  const actionBusy =
+    isGenerating ||
+    saveSheet.isPending ||
+    submitSheet.isPending ||
+    requestUnlock.isPending ||
+    approveUnlock.isPending ||
+    acknowledgeAttendance.isPending;
+
+  useEffect(() => {
+    if (sheetQuery.data) {
+      setLocalRows(sheetQuery.data.rows ?? []);
+    }
+  }, [sheetQuery.data?.rows]);
+
+  const sheetLocationId =
+    effectiveLocationId || sheetQuery.data?.location_id || "";
+  const selectedLocationName =
+    workLocations.find((location) => location.id === sheetLocationId)?.name ||
+    (isEmployee ? "your profile" : "selected location");
   const visibleRows = useMemo(() => {
-    if (isSuperAdmin) return attendanceRows; // full company
-    if (activeRole === 'branch_hr') {
-      // branch_hr sees records for their branch (if data has branch field)
-      if (user?.branch) return attendanceRows.filter((emp: any) => emp.branch === user.branch || !emp.branch);
-      return attendanceRows;
-    }
-    if (activeRole === 'department_hr' || activeRole === 'dept_hr') {
-      const depts = user?.departments || [];
-      if (depts.includes('All')) return attendanceRows;
-      return attendanceRows.filter((emp) => depts.includes(emp.dept));
-    }
-    if (isHR) return attendanceRows; // generic HR fallback
-    if (isEmployee && user?.employeeId) return attendanceRows.filter((emp) => emp.code === user.employeeId);
-    return attendanceRows;
-  }, [attendanceRows, activeRole, user, isSuperAdmin, isHR, isEmployee]);
+    const employeeScopedRows =
+      isEmployee && authUser?.employee_id
+        ? localRows.filter((row) => row.employee_id === authUser.employee_id)
+        : localRows;
+    const query = searchTerm.trim().toLowerCase();
 
-  const filteredSA = useMemo(() => {
-    return visibleRows.filter((emp) => {
-      if (deptFilter !== 'All Departments' && emp.dept !== deptFilter) return false;
-      if (mgrFilter !== 'All Managers' && emp.mgr !== mgrFilter) return false;
-      if (statusFilter !== 'All Status' && emp.status !== statusFilter) return false;
-      if (saStatFilter !== 'All' && saStatFilter !== 'Penalties' && emp.status !== saStatFilter) return false;
-      const term = searchTerm.toLowerCase().trim();
-      if (term && ![emp.name, emp.code, emp.dept, emp.mgr].some((value) => value.toLowerCase().includes(term))) {
+    return employeeScopedRows.filter((row) => {
+      const departmentId = String(getDepartmentId(row));
+      const departmentName = getDepartmentName(row);
+      const departmentConfigName =
+        departments.find((department) => department.id === departmentId)?.name ||
+        departmentName;
+      const shiftName = getShiftName(row);
+      const shiftId = row.shift?.id || row.shift_id || "";
+      const searchable = [
+        row.employee_id,
+        row.name,
+        row.designation,
+        departmentConfigName,
+        shiftName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      if (query && !searchable.includes(query)) return false;
+      if (
+        departmentFilter &&
+        departmentId !== departmentFilter &&
+        departmentName !== departmentFilter &&
+        departmentConfigName !== departmentFilter
+      ) {
+        return false;
+      }
+      if (shiftFilter && shiftId !== shiftFilter && shiftName !== shiftFilter) {
         return false;
       }
       return true;
     });
-  }, [visibleRows, deptFilter, mgrFilter, statusFilter, searchTerm, saStatFilter]);
-
-  const hrEmployees = useMemo(() => visibleRows, [visibleRows]);
-
-  const filteredHR = useMemo(() => {
-    return hrEmployees.filter((emp) => {
-      if (hrStatFilter !== 'All' && emp.status !== hrStatFilter) return false;
-      const term = hrSearchTerm.toLowerCase().trim();
-      return !term || emp.name.toLowerCase().includes(term);
-    });
-  }, [hrEmployees, hrStatFilter, hrSearchTerm]);
-
-  const saCounts = useMemo(
-    () => ({
-      present: attendanceRows.filter((emp) => emp.status === 'Present').length,
-      late: attendanceRows.filter((emp) => emp.status === 'Late').length,
-      absent: attendanceRows.filter((emp) => emp.status === 'Absent').length,
-      onLeave: attendanceRows.filter((emp) => emp.status === 'On Leave').length,
-    }),
-    [attendanceRows]
-  );
-
-  const hrCounts = useMemo(
-    () => ({
-      present: hrEmployees.filter((emp) => emp.status === 'Present').length,
-      late: hrEmployees.filter((emp) => emp.status === 'Late').length,
-      absent: hrEmployees.filter((emp) => emp.status === 'Absent').length,
-      onLeave: hrEmployees.filter((emp) => emp.status === 'On Leave').length,
-    }),
-    [hrEmployees]
-  );
-
-  const clearFilters = () => {
-    setDeptFilter('All Departments');
-    setMgrFilter('All Managers');
-    setStatusFilter('All Status');
-    setSearchTerm('');
-    setSaStatFilter('All');
-  };
-
-  const requestUnlockAttendance = (empCode: string) => {
-    setAttendanceRows((prev) =>
-      prev.map((emp) =>
-        emp.code === empCode && emp.state === 'submitted'
-          ? { ...emp, state: 'unlock_requested' }
-          : emp
-      )
-    );
-  };
-
-  const submitAttendance = (empCode: string) => {
-    setAttendanceRows((prev) =>
-      prev.map((emp) =>
-        emp.code === empCode
-          ? { ...emp, state: 'submitted' }
-          : emp
-      )
-    );
-  };
-
-  const unlockAttendance = (empCode: string) => {
-    setAttendanceRows((prev) =>
-      prev.map((emp) =>
-        emp.code === empCode && (emp.state === 'submitted' || emp.state === 'unlock_requested')
-          ? { ...emp, state: 'saved' }
-          : emp
-      )
-    );
-  };
-
-  const acknowledgeAttendance = (empCode: string) => {
-    setAttendanceRows((prev) =>
-      prev.map((emp) =>
-        emp.code === empCode && emp.state === 'submitted'
-          ? { ...emp, state: 'acknowledged' }
-          : emp
-      )
-    );
-  };
-
-  const saveAttendance = async () => {
-    if (selectedEmployee) {
-      try {
-        await mark({
-          employee_id: selectedEmployee.code,
-          date: modalDate,
-          status: modalStatus,
-          check_in: modalIn,
-          check_out: modalOut,
-          notes: modalNotes
-        });
-
-        setAttendanceRows((prev) =>
-          prev.map((emp) =>
-            emp.code === selectedEmployee.code
-              ? {
-                  ...emp,
-                  ci: modalIn,
-                  co: modalOut,
-                  status: modalStatus,
-                  notes: modalNotes,
-                  state: emp.state === 'submitted' ? 'submitted' : 'saved',
-                }
-              : emp
-          )
-        );
-      } catch (error) {
-        console.error("Failed to save attendance:", error);
-      }
+  }, [
+    authUser?.employee_id,
+    departmentFilter,
+    departments,
+    isEmployee,
+    localRows,
+    searchTerm,
+    shiftFilter,
+  ]);
+  const counts = useMemo(() => {
+    const base = {
+      present: 0,
+      late: 0,
+      absent: 0,
+      half_day: 0,
+      on_leave: 0,
+    };
+    for (const row of visibleRows) {
+      const key = String(row.status || "").toLowerCase() as keyof typeof base;
+      if (key in base) base[key] += 1;
     }
+    return base;
+  }, [visibleRows]);
 
-    setSaveLabel('Saved!');
-    setTimeout(() => {
-      setSaveLabel('Save Entry');
-      setActiveTab(isSuperAdmin ? 'sa' : isHR ? 'hr' : 'emp');
-      setSelectedEmployeeCode('');
-      setModalStatus('Present');
-      setModalNotes('');
-      setModalDate(today.toISOString().slice(0, 10));
-      setModalIn('09:00');
-      setModalOut('18:00');
-    }, 1200);
+  const updateRow = (index: number, patch: Partial<EditableAttendanceRow>) => {
+    setLocalRows((rows) =>
+      rows.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, ...patch } : row,
+      ),
+    );
   };
 
-  const pageStyles = `
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body,div,span,td,th,input,select,button,textarea{font-family:'Segoe UI',system-ui,sans-serif;}
-    .page{background:#f0f2f8;padding:16px;min-height:100vh;}
-    .tab-row{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
-    .tab{padding:7px 18px;border-radius:20px;border:1px solid #e5e7eb;background:#fff;color:#6b7280;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
-    .tab.on{background:#6366f1;color:#fff;border-color:#6366f1;}
-    .hidden{display:none!important;}
-    .ph{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
-    .ptitle{font-size:20px;font-weight:700;color:#1e1b4b;}
-    .psub{font-size:11px;color:#9ca3af;margin-top:3px;}
-    .hbtns{display:flex;gap:6px;flex-wrap:wrap;}
-    .btn{height:32px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;color:#374151;font-size:11px;font-weight:600;padding:0 12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s;}
-    .btn:hover{background:#f5f7ff;border-color:#c7d2fe;}
-    .btn.prim{background:#6366f1;color:#fff;border:none;}
-    .btn.prim:hover{background:#4f46e5;}
-    .stats5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px;}
-    .scard{background:#fff;border-radius:14px;border:1.5px solid #e5e7eb;padding:14px 16px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden;}
-    .scard:hover{transform:translateY(-2px);border-color:#a5b4fc;}
-    .scard.on{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15);}
-    .scard-accent{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:14px 0 0 14px;}
-    .scard-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px;}
-    .scard-val{font-size:30px;font-weight:700;color:#1e1b4b;line-height:1;}
-    .scard-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-top:5px;}
-    .scard-sub{font-size:9px;color:#9ca3af;margin-top:2px;}
-    .drow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;}
-    .dcard{background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:12px 14px;display:flex;align-items:center;gap:10px;transition:all .15s;}
-    .dcard:hover{box-shadow:0 2px 12px rgba(99,102,241,.12);border-color:#c7d2fe;}
-    .dicon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
-    .dname{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;}
-    .dval{font-size:17px;font-weight:700;color:#1e1b4b;}
-    .dsub{font-size:9px;color:#9ca3af;margin-top:2px;}
-    .mcard{background:#fff;border-radius:14px;border:1px solid #e5e7eb;overflow:hidden;margin-bottom:4px;}
-    .alertbar{padding:9px 16px;background:#fffbeb;border-bottom:1px solid #fde68a;font-size:11px;color:#92400e;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-    .apill{background:#fef3c7;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;color:#b45309;}
-    .fbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid #f1f5f9;background:#fafbff;}
-    .fitem{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:0 10px;height:30px;font-size:11px;color:#374151;cursor:pointer;}
-    .fitem select,.fitem input{border:none;background:transparent;outline:none;font-size:11px;color:#374151;cursor:pointer;}
-    .fsearch{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:0 10px;height:30px;flex:1;min-width:160px;}
-    .fsearch input{border:none;background:transparent;outline:none;font-size:11px;color:#374151;width:100%;}
-    .clrbtn{height:28px;border-radius:8px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;font-size:10px;font-weight:700;padding:0 10px;cursor:pointer;}
-    .tbl{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;}
-    .tbl th{padding:8px 10px;text-align:left;font-size:9px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;background:#fafbff;border-bottom:1px solid #f1f5f9;white-space:nowrap;}
-    .tbl td{padding:10px 10px;border-bottom:1px solid #f8fafc;color:#374151;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .tbl tr:hover td{background:#f5f7ff;}
-    .tbl tr:last-child td{border-bottom:none;}
-    .av{width:30px;height:30px;border-radius:8px;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;vertical-align:middle;}
-    .chip{font-family:monospace;font-size:9px;background:#f3f4f6;padding:1px 5px;border-radius:4px;color:#6b7280;}
-    .shift{border-radius:6px;padding:2px 8px;font-size:9px;font-weight:700;cursor:pointer;border:1px solid;}
-    .sm{background:#dbeafe;color:#1e40af;border-color:#bfdbfe;}
-    .se{background:#fef3c7;color:#92400e;border-color:#fde68a;}
-    .sn{background:#ede9fe;color:#3730a3;border-color:#c4b5fd;}
-    .stbadge{border-radius:20px;padding:2px 9px;font-size:9px;font-weight:700;cursor:pointer;border:1px solid;}
-    .sp{background:#d1fae5;color:#065f46;border-color:#a7f3d0;}
-    .sl{background:#fef3c7;color:#92400e;border-color:#fde68a;}
-    .sa2{background:#fee2e2;color:#991b1b;border-color:#fecaca;}
-    .so{background:#ede9fe;color:#3730a3;border-color:#c4b5fd;}
-    .db{background:#dbeafe;color:#1e40af;border-color:#bfdbfe;}
-    .gb{background:#d1fae5;color:#065f46;border-color:#a7f3d0;}
-    .pb2{background:#fce7f3;color:#9d174d;border-color:#fbcfe8;}
-    .lbtn{background:none;border:none;color:#6366f1;font-weight:700;cursor:pointer;font-size:11px;}
-    .lnum{background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:5px;font-family:monospace;font-size:10px;}
-    .notecell{font-size:10px;color:#9ca3af;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;}
-    .foot{padding:8px 14px;border-top:1px solid #f1f5f9;font-size:10px;color:#9ca3af;display:flex;justify-content:space-between;background:#fafbff;flex-wrap:wrap;gap:8px;}
-    .hrhead{background:#6366f1;padding:16px 18px;}
-    .hrtitle{font-size:18px;font-weight:700;color:#fff;}
-    .hrsub{font-size:11px;color:rgba(255,255,255,.75);margin-top:3px;}
-    .hrstats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px 16px;border-bottom:1px solid #f1f5f9;}
-    .hrstat{background:#fff;border-radius:12px;border:1.5px solid #e5e7eb;padding:12px 14px;cursor:pointer;transition:all .18s;}
-    .hrstat:hover{transform:translateY(-2px);border-color:#a5b4fc;}
-    .hrstat.on{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15);}
-    .hrstat-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-bottom:7px;}
-    .hrstat-val{font-size:24px;font-weight:700;color:#1e1b4b;}
-    .hrstat-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin-top:2px;}
-    .abar{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #f1f5f9;background:#fafbff;flex-wrap:wrap;}
-    .hrsearch{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:0 12px;height:30px;flex:1;max-width:300px;}
-    .hrsearch input{border:none;background:transparent;outline:none;font-size:11px;color:#374151;width:100%;}
-    .ov{min-height:500px;background:rgba(0,0,0,.42);border-radius:14px;display:flex;align-items:flex-start;justify-content:center;padding:20px 10px;position:fixed;top:0;left:0;right:0;bottom:0;z-index:1000;}
-    .modal{background:#fff;border-radius:16px;width:100%;max-width:410px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.12);}
-    .mhead{background:#6366f1;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;}
-    .mt{font-size:14px;font-weight:700;color:#fff;}
-    .ms{font-size:10px;color:rgba(255,255,255,.7);margin-top:2px;}
-    .mclose{width:24px;height:24px;background:rgba(255,255,255,.2);border:none;border-radius:6px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;}
-    .mbody{padding:14px 16px;}
-    .fg{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
-    .fl{font-size:10px;font-weight:700;color:#6b7280;}
-    .fi{height:32px;border:1px solid #e5e7eb;border-radius:8px;padding:0 10px;font-size:11px;color:#374151;background:#fff;width:100%;outline:none;}
-    .fi:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.12);}
-    .frow{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-    .prev{display:flex;align-items:center;gap:8px;background:#f5f7ff;border:1px solid #c7d2fe;border-radius:9px;padding:9px 11px;margin-bottom:10px;}
-    .stog{padding:4px 12px;border-radius:20px;border:1px solid;font-size:10px;font-weight:700;cursor:pointer;transition:all .15s;}
-    .mfoot{padding:10px 16px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;gap:7px;background:#fafbff;}
-  `;
+  const handleSave = async () => {
+    if (!sheetLocationId) {
+      showToast("Location ID is required before saving attendance.", "error");
+      return;
+    }
+    try {
+      const result = await saveSheet.mutateAsync({
+        date,
+        location_id: sheetLocationId,
+        rows: localRows.map((row) => ({
+          employee_id: row.employee_id,
+          shift_id: row.shift?.id || row.shift_id,
+          check_in: toApiTime(row.check_in),
+          check_out: toApiTime(row.check_out),
+          status: row.status,
+          notes: row.notes || null,
+          ack: !!row.ack,
+        })),
+      });
+      showToast(`Saved ${result.saved_count ?? localRows.length} attendance rows.`);
+    } catch (error) {
+      showToast(errorMessage(error), "error");
+    }
+  };
 
-  const countRow = filteredSA.length;
-  const countHr = filteredHR.length;
-  const displayDate = new Date();
-  const formattedDate = displayDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const handleSubmit = async () => {
+    if (!sheetLocationId) {
+      showToast("Location ID is required before submitting to HO.", "error");
+      return;
+    }
+    try {
+      const result = await submitSheet.mutateAsync({
+        date,
+        location_id: sheetLocationId,
+      });
+      showToast(`Submitted ${result.submitted_count ?? 0} rows to HO.`);
+    } catch (error) {
+      showToast(errorMessage(error), "error");
+    }
+  };
+
+  const handleRequestUnlock = async () => {
+    if (!sheetLocationId || !unlockReason.trim()) {
+      showToast("Location ID and unlock reason are required.", "error");
+      return;
+    }
+    try {
+      await requestUnlock.mutateAsync({
+        date,
+        location_id: sheetLocationId,
+        reason: unlockReason.trim(),
+      });
+      showToast("Unlock request sent.");
+    } catch (error) {
+      showToast(errorMessage(error), "error");
+    }
+  };
+
+  const handleApproveUnlock = async () => {
+    if (!sheetLocationId || !unlockReason.trim()) {
+      showToast("Location ID and approval reason are required.", "error");
+      return;
+    }
+    try {
+      const result = await approveUnlock.mutateAsync({
+        date,
+        location_id: sheetLocationId,
+        unlock_reason: unlockReason.trim(),
+      });
+      showToast(`Unlocked ${result.unlocked_count ?? 0} rows for this location.`);
+    } catch (error) {
+      showToast(errorMessage(error), "error");
+    }
+  };
+
+  const handleAck = async (row: EditableAttendanceRow) => {
+    const id = row.attendance_id || row.id;
+    if (!id) {
+      showToast("No attendance record is available to acknowledge.", "error");
+      return;
+    }
+    try {
+      await acknowledgeAttendance.mutateAsync(id);
+      showToast("Attendance acknowledged.");
+    } catch (error) {
+      showToast(errorMessage(error), "error");
+    }
+  };
 
   return (
-    <div className="page">
-      <style>{pageStyles}</style>
-      <div className="tab-row">
-        {allowedTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={`tab ${activeTab === tab.id ? 'on' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.icon} {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'sa' && isSuperAdmin && (
-        <div id="sa">
-          <div className="ph">
-            <div>
-              <div className="ptitle">📋 Attendance Master</div>
-              <div className="psub" id="sa-sub">
-                Company-wide · <span style={{ color: '#6366f1', fontWeight: 700 }} id="sa-count">{countRow} records</span> · {formattedDate}
-              </div>
-            </div>
-            <div className="hbtns">
-              <button className="btn" type="button">📤 Export</button>
-              <button className="btn" type="button">📥 Import</button>
-              <button className="btn prim" type="button" onClick={() => setActiveTab('mod')}>➕ Add Attendance</button>
-            </div>
+    <div className="att-page">
+      <style>{S}</style>
+      <header className="att-head">
+        <div>
+          <div className="att-head-card">
+            <p className="att-kicker">Attendance workspace</p>
+            <h1 className="att-title">
+              {isEmployee ? "My Attendance" : "Daily Attendance"}
+            </h1>
+            <p className="att-sub">
+              Review today’s roster, mark exceptions, and keep HO submission
+              moving with clear status and guarded actions.
+            </p>
           </div>
+        </div>
+        <div className="att-actions">
+          {canWrite && (
+            <button
+              className="att-btn primary"
+              onClick={handleSave}
+              disabled={actionBusy || !sheetLocationId}
+            >
+              {saveSheet.isPending ? <Loader2 className="att-spin" /> : <FileCheck2 />}
+              Save Sheet
+            </button>
+          )}
+          {canSubmit && (
+            <button
+              className="att-btn secondary"
+              onClick={handleSubmit}
+              disabled={actionBusy || !sheetLocationId}
+            >
+              {submitSheet.isPending ? <Loader2 className="att-spin" /> : <Send />}
+              Submit To HO
+            </button>
+          )}
+        </div>
+      </header>
 
-          <div className="stats5" id="sa-stats">
-            <div className={`scard ${saStatFilter === 'Present' ? 'on' : ''}`} onClick={() => setSaStatFilter(saStatFilter === 'Present' ? 'All' : 'Present')}>
-              <div className="scard-accent" style={{ background: '#10b981' }} />
-              <div className="scard-icon" style={{ background: '#d1fae5', color: '#059669', marginLeft: 6 }}>✅</div>
-              <div className="scard-val" style={{ marginLeft: 6 }}>{saCounts.present}</div>
-              <div className="scard-lbl" style={{ marginLeft: 6 }}>Present Today</div>
-              <div className="scard-sub" style={{ marginLeft: 6 }}>{attendanceRows.length > 0 ? Math.round((saCounts.present / attendanceRows.length) * 100) : 0}% attendance</div>
-            </div>
-            <div className={`scard ${saStatFilter === 'Late' ? 'on' : ''}`} onClick={() => setSaStatFilter(saStatFilter === 'Late' ? 'All' : 'Late')}>
-              <div className="scard-accent" style={{ background: '#f59e0b' }} />
-              <div className="scard-icon" style={{ background: '#fef3c7', color: '#d97706', marginLeft: 6 }}>⏰</div>
-              <div className="scard-val" style={{ marginLeft: 6 }}>{saCounts.late}</div>
-              <div className="scard-lbl" style={{ marginLeft: 6 }}>Late Arrivals</div>
-              <div className="scard-sub" style={{ marginLeft: 6 }}>Flagged check-ins</div>
-            </div>
-            <div className={`scard ${saStatFilter === 'Absent' ? 'on' : ''}`} onClick={() => setSaStatFilter(saStatFilter === 'Absent' ? 'All' : 'Absent')}>
-              <div className="scard-accent" style={{ background: '#ef4444' }} />
-              <div className="scard-icon" style={{ background: '#fee2e2', color: '#dc2626', marginLeft: 6 }}>❌</div>
-              <div className="scard-val" style={{ marginLeft: 6 }}>{saCounts.absent}</div>
-              <div className="scard-lbl" style={{ marginLeft: 6 }}>Absent Today</div>
-              <div className="scard-sub" style={{ marginLeft: 6 }}>Without leave</div>
-            </div>
-            <div className={`scard ${saStatFilter === 'On Leave' ? 'on' : ''}`} onClick={() => setSaStatFilter(saStatFilter === 'On Leave' ? 'All' : 'On Leave')}>
-              <div className="scard-accent" style={{ background: '#8b5cf6' }} />
-              <div className="scard-icon" style={{ background: '#ede9fe', color: '#7c3aed', marginLeft: 6 }}>🏖️</div>
-              <div className="scard-val" style={{ marginLeft: 6 }}>{saCounts.onLeave}</div>
-              <div className="scard-lbl" style={{ marginLeft: 6 }}>On Leave</div>
-              <div className="scard-sub" style={{ marginLeft: 6 }}>Approved leaves</div>
-            </div>
-            <div className={`scard ${saStatFilter === 'Penalties' ? 'on' : ''}`} onClick={() => setSaStatFilter(saStatFilter === 'Penalties' ? 'All' : 'Penalties')}>
-              <div className="scard-accent" style={{ background: '#ec4899' }} />
-              <div className="scard-icon" style={{ background: '#fce7f3', color: '#db2777', marginLeft: 6 }}>⚡</div>
-              <div className="scard-val" style={{ marginLeft: 6 }}>2</div>
-              <div className="scard-lbl" style={{ marginLeft: 6 }}>Auto Penalties</div>
-              <div className="scard-sub" style={{ marginLeft: 6 }}>3 lates = 1 day cut</div>
-            </div>
-          </div>
-
-          <div className="drow">
-            <div className="dcard"><div className="dicon" style={{ background: '#ede9fe', color: '#4338ca' }}>💼</div><div><div className="dname">Sales</div><div className="dval">2 <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 400 }}>staff</span></div><div className="dsub"><span style={{ color: '#059669' }}>✓2</span> · <span style={{ color: '#d97706' }}>⏰0</span> · <span style={{ color: '#dc2626' }}>✗0</span></div></div></div>
-            <div className="dcard"><div className="dicon" style={{ background: '#dbeafe', color: '#1e40af' }}>🖥️</div><div><div className="dname">IT</div><div className="dval">2 <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 400 }}>staff</span></div><div className="dsub"><span style={{ color: '#059669' }}>✓2</span> · <span style={{ color: '#d97706' }}>⏰0</span> · <span style={{ color: '#dc2626' }}>✗0</span></div></div></div>
-            <div className="dcard"><div className="dicon" style={{ background: '#d1fae5', color: '#065f46' }}>💰</div><div><div className="dname">Accounts</div><div className="dval">2 <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 400 }}>staff</span></div><div className="dsub"><span style={{ color: '#059669' }}>✓0</span> · <span style={{ color: '#d97706' }}>⏰2</span> · <span style={{ color: '#dc2626' }}>✗0</span></div></div></div>
-            <div className="dcard"><div className="dicon" style={{ background: '#fef3c7', color: '#92400e' }}>👥</div><div><div className="dname">HR</div><div className="dval">2 <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 400 }}>staff</span></div><div className="dsub"><span style={{ color: '#059669' }}>✓1</span> · <span style={{ color: '#d97706' }}>⏰0</span> · <span style={{ color: '#dc2626' }}>✗0</span></div></div></div>
-          </div>
-
-          <div className="mcard">
-            <div className="alertbar"><span className="apill">⚠️ 3 Lates = 1 Day Cut</span><span>Live: <strong id="al-abs">{saCounts.absent}</strong> Absent · <strong id="al-late">{saCounts.late}</strong> Late flagged today</span></div>
-            <div className="fbar">
-              <div className="fitem">
-                <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
-                  {DEPARTMENTS.map((dept) => <option key={dept}>{dept}</option>)}
-                </select>
-              </div>
-              <div className="fitem">
-                <select value={mgrFilter} onChange={(e) => setMgrFilter(e.target.value)}>
-                  {MANAGERS.map((mgr) => <option key={mgr}>{mgr}</option>)}
-                </select>
-              </div>
-              <div className="fitem">
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  {STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
-                </select>
-              </div>
-              <div className="fitem"><span>📅</span><input type="date" /></div>
-              <div className="fitem"><span>📅</span><input type="date" /></div>
-              <div className="fsearch"><span>🔍</span><input type="text" value={searchTerm} placeholder="Search name, code, dept, manager..." onChange={(e) => setSearchTerm(e.target.value)} /></div>
-              <button className="clrbtn" type="button" onClick={clearFilters}>Clear ✕</button>
-              <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 'auto', whiteSpace: 'nowrap'}}><strong id="f-shown" style={{ color: '#374151' }}>{countRow}</strong> / <strong style={{ color: '#374151' }}>{attendanceRows.length}</strong></span>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="tbl">
-                <thead><tr>
-                  <th style={{ width: 160 }}>Employee</th>
-                  <th style={{ width: 90 }}>Department</th>
-                  <th style={{ width: 90 }}>Manager</th>
-                  <th style={{ width: 80 }}>Shift</th>
-                  <th style={{ width: 80 }}>Check In</th>
-                  <th style={{ width: 80 }}>Check Out</th>
-                  <th style={{ width: 80 }}>Status</th>
-                  <th style={{ width: 80 }}>State</th>
-                  <th style={{ width: 110 }}>Notes</th>
-                  <th style={{ width: 50 }}>Lates</th>
-                  <th style={{ width: 120 }}>Actions</th>
-                </tr></thead>
-                <tbody>
-                  {filteredSA.length === 0 ? (
-                    <tr><td colSpan={11} style={{ textAlign: 'center', padding: 36, color: '#9ca3af', fontSize: 12 }}>No matching records</td></tr>
-                  ) : filteredSA.map((emp) => (
-                    <tr key={emp.code}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                          <div className="av" style={{ background: ng(emp.name) }}>{ini(emp.name)}</div>
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: 11, color: '#1e1b4b' }}>{emp.name}</div>
-                            <span className="chip">{emp.code}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td dangerouslySetInnerHTML={{ __html: deptBadge(emp.dept) }} />
-                      <td><span style={{ fontSize: 10, color: '#6b7280' }}>{emp.mgr}</span></td>
-                      <td dangerouslySetInnerHTML={{ __html: shiftBadge(emp.shift) }} />
-                      <td><span style={{ fontSize: 11, cursor: 'pointer', background: '#f8fafc', padding: '2px 6px', borderRadius: 5 }} title="Click to edit">🕒 {t12(emp.ci)}</span></td>
-                      <td><span style={{ fontSize: 11, cursor: 'pointer', background: '#f8fafc', padding: '2px 6px', borderRadius: 5 }} title="Click to edit">🕒 {t12(emp.co)}</span></td>
-                      <td dangerouslySetInnerHTML={{ __html: statusBadge(emp.status) }} />
-                      <td dangerouslySetInnerHTML={{ __html: stateBadge(emp.state || 'draft') }} />
-                      <td><span className="notecell" title={emp.notes}>{emp.notes || '—'}</span></td>
-                      <td><button className="lbtn" type="button">{emp.lates > 0 ? <span className="lnum">{emp.lates}</span> : <span style={{ color: '#9ca3af', fontFamily: 'monospace' }}>0</span>}</button></td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {(emp.state === 'draft' || emp.state === 'saved') && <button className="btn btn-sm btn-primary" onClick={() => submitAttendance(emp.code)}>Submit</button>}
-                          {emp.state === 'submitted' && <>
-                            <button className="btn btn-sm btn-secondary" onClick={() => unlockAttendance(emp.code)}>Unlock</button>
-                            <button className="btn btn-sm btn-ghost" onClick={() => requestUnlockAttendance(emp.code)}>Request Unlock</button>
-                          </>}
-                          {emp.state === 'unlock_requested' && <button className="btn btn-sm btn-primary" onClick={() => unlockAttendance(emp.code)}>Approve Unlock</button>}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="foot"><span id="sa-foot">Showing {countRow} of {attendanceRows.length} employees · Click any field to edit inline</span><span id="sa-time">Updated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
-          </div>
+      {!canRead && (
+        <div className="att-banner warn">
+          You do not have attendance:read permission for this module.
         </div>
       )}
 
-      {activeTab === 'hr' && isHR && (
-        <div id="hr">
-          <div className="mcard" style={{ borderRadius: 14 }}>
-            <div className="hrhead">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-                <div>
-                    <div className="hrtitle">Daily Attendance</div>
-                    <div className="hrsub">{formattedDate} <span style={{ background: 'rgba(255,255,255,.2)', padding: '1px 9px', borderRadius: 20, fontSize: 10 }}>{(user?.departments && user.departments[0]) || 'Department' } Department</span></div>
+      <section className="att-card">
+        <div className="att-toolbar">
+          {!isEmployee && isSuperAdmin && (
+            <div className="att-field">
+              <label htmlFor="attendance-location">Work Location</label>
+              <select
+                id="attendance-location"
+                className="att-select"
+                value={locationId}
+                onChange={(event) => setLocationId(event.target.value)}
+                disabled={locationsLoading || shouldLockLocation || actionBusy}
+              >
+                <option value="">
+                  {locationsLoading
+                    ? "Loading work locations..."
+                    : "Select work location"}
+                </option>
+                {workLocations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {!isEmployee && !isSuperAdmin && (
+            <div className="att-field">
+              <label>Work Location</label>
+              <div
+                className={`att-locked-field${isHrMissingLocation ? " warn" : ""}`}
+              >
+                {isHrMissingLocation ? <AlertTriangle /> : <MapPin />}
+                {isHrMissingLocation
+                  ? "No work location assigned"
+                  : selectedLocationName}
+              </div>
+            </div>
+          )}
+          <div className="att-actions">
+            <button
+              className="att-btn ghost"
+              type="button"
+              aria-label="Generate Daily Sheet"
+              onClick={() => sheetQuery.refetch()}
+              disabled={!canLoadSheet || isGenerating}
+            >
+              {isGenerating ? <Loader2 className="att-spin" /> : <RefreshCw />}
+              {isGenerating ? "Generating..." : "Generate Daily Sheet"}
+            </button>
+          </div>
+        </div>
+
+        <div className="att-status-card">
+          <span className="att-status-icon">
+            {isEmployee ? (
+              <UserRoundCheck />
+            ) : isHrMissingLocation ? (
+              <AlertTriangle />
+            ) : shouldLockLocation ? (
+              <MapPin />
+            ) : (
+              <ShieldCheck />
+            )}
+          </span>
+          <div>
+            <strong>
+              {isEmployee
+                ? "Showing your attendance only"
+                : isHrMissingLocation
+                  ? "No work location assigned"
+                : shouldLockLocation
+                  ? `Locked to ${selectedLocationName}`
+                  : sheetLocationId
+                    ? `Viewing ${selectedLocationName}`
+                    : "Choose a work location to load the sheet"}
+            </strong>
+            <p>
+              {isEmployee
+                ? "Your row is protected for self-service review and acknowledgement."
+                : isHrMissingLocation
+                  ? "Attendance is restricted to your assigned HR location. Ask an administrator to update your profile."
+                : shouldLockLocation
+                  ? "This view follows your assigned HR location and refreshes automatically."
+                : sheetLocationId
+                    ? "The sheet refreshes automatically when the location changes."
+                    : "Selecting a location loads attendance automatically; use Generate only when you want to refresh."}
+            </p>
+          </div>
+        </div>
+
+        <div className="att-stats">
+          <div className="att-stat total">
+            <div className="att-stat-icon"><CalendarDays /></div>
+            <span>Total rows</span>
+            <strong>{visibleRows.length}</strong>
+          </div>
+          <div className="att-stat present">
+            <div className="att-stat-icon"><CheckCircle2 /></div>
+            <span>Present</span>
+            <strong>{counts.present}</strong>
+          </div>
+          <div className="att-stat late">
+            <div className="att-stat-icon"><Clock3 /></div>
+            <span>Late</span>
+            <strong>{counts.late}</strong>
+          </div>
+          <div className="att-stat absent">
+            <div className="att-stat-icon"><XCircle /></div>
+            <span>Absent</span>
+            <strong>{counts.absent}</strong>
+          </div>
+          <div className="att-stat leave">
+            <div className="att-stat-icon"><TimerReset /></div>
+            <span>On leave</span>
+            <strong>{counts.on_leave}</strong>
+          </div>
+        </div>
+
+        <div className="att-filters">
+          <div className="att-field att-filter-field">
+            <label htmlFor="attendance-search">Search Attendance</label>
+            <Search />
+            <input
+              id="attendance-search"
+              className="att-input"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search name, ID, designation"
+            />
+          </div>
+          <div className="att-field">
+            <label htmlFor="attendance-department">Department</label>
+            <select
+              id="attendance-department"
+              className="att-select"
+              value={departmentFilter}
+              onChange={(event) => setDepartmentFilter(event.target.value)}
+            >
+              <option value="">All departments</option>
+              {departments.map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="att-field">
+            <label htmlFor="attendance-shift">Shift</label>
+            <select
+              id="attendance-shift"
+              className="att-select"
+              value={shiftFilter}
+              onChange={(event) => setShiftFilter(event.target.value)}
+            >
+              <option value="">All shifts</option>
+              {shifts.map((shift) => (
+                <option key={shift.id} value={shift.id}>
+                  {shift.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="att-grid">
+          <div>
+            <div className="att-section-head">
+              <div className="att-section-title">
+                <UserRoundCheck />
+                Attendance sheet
+              </div>
+              <span className="att-live">
+                <span className="att-live-dot" />
+                {isGenerating ? "Updating" : "Live view"}
+              </span>
+            </div>
+            <div className="att-table-wrap">
+              <table className="att-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Shift</th>
+                  <th>In</th>
+                  <th>Out</th>
+                  <th>Status</th>
+                  <th>Notes</th>
+                  <th>Ack</th>
+                  <th>State</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sheetQuery.isLoading && !localRows.length ? (
+                  <tr>
+                    <td colSpan={9}>
+                      <div className="att-empty">Loading attendance...</div>
+                    </td>
+                  </tr>
+                ) : visibleRows.length ? (
+                  visibleRows.map((row) => {
+                    const index = localRows.findIndex((item) => item === row);
+                    const recordId = row.attendance_id || row.id;
+                    const status = String(row.status || "absent").toLowerCase();
+                    return (
+                      <tr key={recordId || `${row.employee_id}-${index}`}>
+                        <td>
+                          <div className="att-person">
+                            <span className="att-avatar">{initials(row.name)}</span>
+                            <div>
+                              <div className="att-name">{row.name || row.employee_id}</div>
+                              <div>{row.designation || "No designation"}</div>
+                              <div className="att-muted">
+                                {row.employee_id}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div>{row.shift?.name || "Unassigned"}</div>
+                          <div className="att-muted">
+                            {row.shift?.expected_in || "--"} - {row.shift?.expected_out || "--"}
+                          </div>
+                        </td>
+                        <td>
+                          {canWrite ? (
+                            <input
+                              className="att-input"
+                              type="time"
+                              value={toTimeInput(row.check_in)}
+                              onChange={(event) =>
+                                updateRow(index, { check_in: event.target.value })
+                              }
+                            />
+                          ) : (
+                            toTimeInput(row.check_in) || "--"
+                          )}
+                        </td>
+                        <td>
+                          {canWrite ? (
+                            <input
+                              className="att-input"
+                              type="time"
+                              value={toTimeInput(row.check_out)}
+                              onChange={(event) =>
+                                updateRow(index, { check_out: event.target.value })
+                              }
+                            />
+                          ) : (
+                            toTimeInput(row.check_out) || "--"
+                          )}
+                        </td>
+                        <td>
+                          {canWrite ? (
+                            <select
+                              aria-label={`Status for ${row.employee_id}`}
+                              className="att-select"
+                              value={status}
+                              onChange={(event) =>
+                                updateRow(index, { status: event.target.value })
+                              }
+                            >
+                              {STATUSES.map((option) => (
+                                <option key={option} value={option}>
+                                  {statusLabel[option]}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className={`att-pill ${status}`}>
+                              {statusLabel[status] || row.status}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          {canWrite && !row.read_only_notes ? (
+                            <input
+                              className="att-input"
+                              value={row.notes || ""}
+                              onChange={(event) =>
+                                updateRow(index, { notes: event.target.value })
+                              }
+                              placeholder="Optional"
+                            />
+                          ) : (
+                            row.notes || "--"
+                          )}
+                        </td>
+                        <td>{row.ack ? "Acknowledged" : "Pending"}</td>
+                        <td>
+                          <span className="att-pill">{row.state || "draft"}</span>
+                        </td>
+                        <td>
+                          {isEmployee && recordId && !row.ack ? (
+                            <button
+                              className="att-btn primary"
+                              onClick={() => handleAck(row)}
+                            >
+                              Acknowledge Attendance
+                            </button>
+                          ) : (
+                            <span className="att-muted">No action</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={9}>
+                      <div className="att-empty">
+                        No attendance rows match these filters.
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              </table>
+            </div>
+          </div>
+
+          <aside className="att-side">
+            {!isEmployee && canWrite && (
+              <div className="att-card">
+                <h3><LockKeyhole />Unlock workflow</h3>
+                <p>
+                  Use unlock requests for correction windows after a sheet has
+                  moved forward. Approvals apply to the selected date and
+                  location.
+                </p>
+                <div className="att-field" style={{ marginTop: 12 }}>
+                  <label htmlFor="unlock-reason">Unlock Reason</label>
+                  <textarea
+                    id="unlock-reason"
+                    className="att-textarea"
+                    value={unlockReason}
+                    onChange={(event) => setUnlockReason(event.target.value)}
+                    placeholder="Correction needed for check-in time"
+                  />
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn" style={{ background: 'rgba(255,255,255,.2)', border: 'none', color: '#fff' }} type="button">📤 Export</button>
-                  <button className="btn" style={{ background: 'rgba(255,255,255,.2)', border: 'none', color: '#fff' }} type="button">📥 Import</button>
-                  {(activeRole === 'branch_hr' || activeRole === 'department_hr') && (
+                <div className="att-actions" style={{ marginTop: 10 }}>
+                  <button
+                    className="att-btn warning"
+                    onClick={handleRequestUnlock}
+                    disabled={actionBusy || !sheetLocationId || !unlockReason.trim()}
+                  >
+                    {requestUnlock.isPending ? <Loader2 className="att-spin" /> : <AlertTriangle />}
+                    Request Unlock
+                  </button>
+                  {canUnlock && (
                     <button
-                      className="btn prim"
-                      type="button"
-                      onClick={() => {
-                        const branchName = (user && (user as any).branch) || BRANCHES[0].name;
-                        const branchObj = BRANCHES.find(b => b.name === branchName) || BRANCHES[0];
-                        const branchId = branchObj.id;
-                        const data = EMP_DATA[branchId] || attendanceRows.map(r => ({ name: r.name, code: r.code, dept: r.dept, shift: r.shift, ci: r.ci, co: r.co, status: r.status, note: r.notes }));
-
-                        // mark local rows as submitted
-                        setAttendanceRows(prev => prev.map(emp => ({ ...emp, state: 'submitted' })));
-
-                        window.dispatchEvent(new CustomEvent('attendanceSheetSubmitted', {
-                          detail: {
-                            branchId,
-                            branchName: branchObj.name,
-                            date: new Date().toISOString().split('T')[0],
-                            lockedBy: (user && (user as any).username) || 'Branch HR',
-                            data,
-                          }
-                        }));
-
-                        alert('Sheet submitted to Head HR');
-                      }}
+                      className="att-btn danger"
+                      onClick={handleApproveUnlock}
+                      disabled={actionBusy || !sheetLocationId || !unlockReason.trim()}
                     >
-                      📨 Submit Sheet
+                      {approveUnlock.isPending ? <Loader2 className="att-spin" /> : <LockKeyhole />}
+                      Approve Unlock
                     </button>
                   )}
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="hrstats">
-              <div className={`hrstat ${hrStatFilter === 'Present' ? 'on' : ''}`} onClick={() => setHrStatFilter(hrStatFilter === 'Present' ? 'All' : 'Present')}>
-                <div className="hrstat-icon" style={{ background: '#d1fae5', color: '#059669' }}>✅</div>
-                <div className="hrstat-val" id="hv-Present">{hrCounts.present}</div>
-                <div className="hrstat-lbl">Present</div>
-              </div>
-              <div className={`hrstat ${hrStatFilter === 'Late' ? 'on' : ''}`} onClick={() => setHrStatFilter(hrStatFilter === 'Late' ? 'All' : 'Late')}>
-                <div className="hrstat-icon" style={{ background: '#fef3c7', color: '#d97706' }}>⏰</div>
-                <div className="hrstat-val" id="hv-Late">{hrCounts.late}</div>
-                <div className="hrstat-lbl">Late</div>
-              </div>
-              <div className={`hrstat ${hrStatFilter === 'Absent' ? 'on' : ''}`} onClick={() => setHrStatFilter(hrStatFilter === 'Absent' ? 'All' : 'Absent')}>
-                <div className="hrstat-icon" style={{ background: '#fee2e2', color: '#dc2626' }}>❌</div>
-                <div className="hrstat-val" id="hv-Absent">{hrCounts.absent}</div>
-                <div className="hrstat-lbl">Absent</div>
-              </div>
-              <div className={`hrstat ${hrStatFilter === 'On Leave' ? 'on' : ''}`} onClick={() => setHrStatFilter(hrStatFilter === 'On Leave' ? 'All' : 'On Leave')}>
-                <div className="hrstat-icon" style={{ background: '#ede9fe', color: '#7c3aed' }}>🏖️</div>
-                <div className="hrstat-val" id="hv-OnLeave">{hrCounts.onLeave}</div>
-                <div className="hrstat-lbl">On Leave</div>
-              </div>
-            </div>
-
-            <div className="alertbar"><span className="apill">⚠️ 3 Lates = 1 Day Cut</span><span><strong id="hr-al-abs">{hrCounts.absent}</strong> Absent · <strong id="hr-al-late">{hrCounts.late}</strong> Late today</span></div>
-
-            <div className="abar">
-              <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>🔍 Search by name:</span>
-              <div className="hrsearch"><span>👤</span><input type="text" id="hr-search" value={hrSearchTerm} placeholder="Type employee name..." onChange={(e) => setHrSearchTerm(e.target.value)} /></div>
-              <button className="clrbtn" type="button" onClick={() => setHrSearchTerm('')}>Clear ✕</button>
-              <span style={{ fontSize: 10, color: '#9ca3af', marginLeft: 'auto' }}><span id="hr-shown">{countHr}</span> of {hrEmployees.length} staff</span>
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table className="tbl">
-                <thead><tr>
-                  <th style={{ width: 170 }}>Employee</th>
-                  <th style={{ width: 80 }}>Shift</th>
-                  <th style={{ width: 85 }}>Check In</th>
-                  <th style={{ width: 85 }}>Check Out</th>
-                  <th style={{ width: 85 }}>Status</th>
-                  <th style={{ width: 85 }}>State</th>
-                  <th style={{ width: 120 }}>Notes</th>
-                  <th style={{ width: 55 }}>Lates</th>
-                  <th style={{ width: 120 }}>Actions</th>
-                </tr></thead>
-                <tbody>
-                  {filteredHR.length === 0 ? (
-                    <tr><td colSpan={9} style={{ textAlign: 'center', padding: 36, color: '#9ca3af', fontSize: 12 }}>No matching records</td></tr>
-                  ) : filteredHR.map((emp) => (
-                    <tr key={emp.code}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                          <div className="av" style={{ background: ng(emp.name) }}>{ini(emp.name)}</div>
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: 11, color: '#1e1b4b' }}>{emp.name}</div>
-                            <span className="chip">{emp.code}</span> <span style={{ fontSize: 9, color: '#9ca3af' }}>{emp.dept}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td dangerouslySetInnerHTML={{ __html: shiftBadge(emp.shift) }} />
-                      <td><span style={{ fontSize: 11, cursor: 'pointer', background: '#f8fafc', padding: '2px 6px', borderRadius: 5 }}>🕒 {t12(emp.ci)}</span></td>
-                      <td><span style={{ fontSize: 11, cursor: 'pointer', background: '#f8fafc', padding: '2px 6px', borderRadius: 5 }}>🕒 {t12(emp.co)}</span></td>
-                      <td dangerouslySetInnerHTML={{ __html: statusBadge(emp.status) }} />
-                      <td dangerouslySetInnerHTML={{ __html: stateBadge(emp.state || 'submitted') }} />
-                      <td><span className="notecell" title={emp.notes}>{emp.notes || '—'}</span></td>
-                      <td><button className="lbtn" type="button">{emp.lates > 0 ? <span className="lnum">{emp.lates}</span> : <span style={{ color: '#9ca3af', fontFamily: 'monospace' }}>0</span>}</button></td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {(emp.state === 'draft' || emp.state === 'saved') && <button className="btn btn-sm btn-primary" onClick={() => submitAttendance(emp.code)}>Submit</button>}
-                          {emp.state === 'submitted' && <>
-                            <button className="btn btn-sm btn-secondary" onClick={() => unlockAttendance(emp.code)}>Unlock</button>
-                            <button className="btn btn-sm btn-ghost" onClick={() => requestUnlockAttendance(emp.code)}>Request Unlock</button>
-                          </>}
-                          {emp.state === 'unlock_requested' && <button className="btn btn-sm btn-primary" onClick={() => unlockAttendance(emp.code)}>Approve Unlock</button>}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="foot"><span id="hr-foot">{countHr} of {hrEmployees.length} staff · Click any field to edit inline</span><span id="hr-time">Updated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'emp' && isEmployee && (
-        <div id="hr">
-          <div className="ph">
-            <div>
-              <div className="ptitle">👤 My Attendance</div>
-              <div className="psub">Personal attendance summary · {formattedDate}</div>
-            </div>
-          </div>
-          <div className="mcard">
-            <div className="fbar">
-              <div className="fitem"><span style={{ fontWeight: 700 }}>Name</span><span style={{ marginLeft: 4 }}>{employeeRecord.name}</span></div>
-              <div className="fitem"><span style={{ fontWeight: 700 }}>Department</span><span style={{ marginLeft: 4 }}>{employeeRecord.dept}</span></div>
-              <div className="fitem"><span style={{ fontWeight: 700 }}>Status</span><span style={{ marginLeft: 4 }}>{employeeRecord.status}</span></div>
-              <div className="fitem"><span style={{ fontWeight: 700 }}>Shift</span><span style={{ marginLeft: 4 }}>{employeeRecord.shift}</span></div>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="tbl">
-                <thead><tr>
-                  <th style={{ width: 170 }}>Employee</th>
-                  <th style={{ width: 80 }}>Shift</th>
-                  <th style={{ width: 85 }}>Check In</th>
-                  <th style={{ width: 85 }}>Check Out</th>
-                  <th style={{ width: 85 }}>Status</th>
-                  <th style={{ width: 85 }}>State</th>
-                  <th style={{ width: 120 }}>Notes</th>
-                  <th style={{ width: 55 }}>Lates</th>
-                  <th style={{ width: 100 }}>Actions</th>
-                </tr></thead>
-                <tbody>
-                  <tr>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <div className="av" style={{ background: ng(employeeRecord.name) }}>{ini(employeeRecord.name)}</div>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 11, color: '#1e1b4b' }}>{employeeRecord.name}</div>
-                          <span className="chip">{employeeRecord.code}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td dangerouslySetInnerHTML={{ __html: shiftBadge(employeeRecord.shift) }} />
-                    <td><span style={{ fontSize: 11, background: '#f8fafc', padding: '2px 6px', borderRadius: 5 }}>🕒 {t12(employeeRecord.ci)}</span></td>
-                    <td><span style={{ fontSize: 11, background: '#f8fafc', padding: '2px 6px', borderRadius: 5 }}>🕒 {t12(employeeRecord.co)}</span></td>
-                    <td dangerouslySetInnerHTML={{ __html: statusBadge(employeeRecord.status) }} />
-                    <td dangerouslySetInnerHTML={{ __html: stateBadge(employeeRecord.state || 'acknowledged') }} />
-                    <td><span className="notecell" title={employeeRecord.notes}>{employeeRecord.notes || '—'}</span></td>
-                    <td><button className="lbtn" type="button">{employeeRecord.lates > 0 ? <span className="lnum">{employeeRecord.lates}</span> : <span style={{ color: '#9ca3af', fontFamily: 'monospace' }}>0</span>}</button></td>
-                    <td>
-                      {(employeeRecord.state === 'submitted') && <button className="btn btn-sm btn-success" onClick={() => acknowledgeAttendance(employeeRecord.code)}>Acknowledge</button>}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div className="foot"><span>Your attendance view is kept simple for employee role.</span><span>Updated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'mod' && (isSuperAdmin || isHR) && (
-        <div id="mod" className="ov">
-          <div className="modal">
-            <div className="mhead">
-              <div>
-                <div className="mt">➕ Add Attendance Entry</div>
-                <div className="ms">Manually record attendance for any employee</div>
-              </div>
-              <button className="mclose" type="button" onClick={() => setActiveTab(isSuperAdmin ? 'sa' : 'hr')}>✕</button>
-            </div>
-            <div className="mbody">
-              <div className="fg">
-                <div className="fl">Employee *</div>
-                <select className="fi" value={selectedEmployeeCode} onChange={(e) => setSelectedEmployeeCode(e.target.value)}>
-                  <option value="">— Select Employee —</option>
-                  {EMPS.map((emp) => (
-                    <option key={emp.code} value={emp.code}>{`${emp.name} · ${emp.code} · ${emp.dept}`}</option>
-                  ))}
-                </select>
-              </div>
-              {selectedEmployee && (
-                <div className="prev" id="m-prev">
-                  <div className="av" id="m-av" style={{ width: 36, height: 36, borderRadius: 10, background: ng(selectedEmployee.name) }}>{ini(selectedEmployee.name)}</div>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1e1b4b' }} id="m-name">{selectedEmployee.name}</div>
-                    <div style={{ fontSize: 10, color: '#6b7280' }} id="m-info">{selectedEmployee.code} · {selectedEmployee.dept}</div>
+            <div className="att-card">
+              <h3><FileCheck2 />Monthly report</h3>
+              <p>
+                A quick performance snapshot for the selected month, focused on
+                names, roles, and attendance health.
+              </p>
+              {reportQuery.isLoading ? (
+                <div className="att-empty" style={{ marginTop: 12 }}>
+                  Loading report...
+                </div>
+              ) : reportQuery.data?.length ? (
+                reportQuery.data.slice(0, 5).map((row: any) => (
+                  <div className="att-report-row" key={row.employee_id}>
+                    <div>
+                      <strong>{row.name || row.employee_id}</strong>
+                      <div className="att-muted">{row.designation || "Employee"}</div>
+                    </div>
+                    <strong>{row.attendance_percent ?? 0}%</strong>
                   </div>
-                  <div style={{ marginLeft: 'auto' }} id="m-shift-badge" dangerouslySetInnerHTML={{ __html: shiftBadge(selectedEmployee.shift) }} />
+                ))
+              ) : (
+                <div className="att-empty" style={{ marginTop: 12 }}>
+                  No report records for this month.
                 </div>
               )}
-              <div className="fg">
-                <div className="fl">Date</div>
-                <input type="date" className="fi" value={modalDate} onChange={(e) => setModalDate(e.target.value)} />
-              </div>
-              <div className="frow">
-                <div className="fg"><div className="fl">Check In</div><input type="time" className="fi" value={modalIn} onChange={(e) => setModalIn(e.target.value)} /></div>
-                <div className="fg"><div className="fl">Check Out</div><input type="time" className="fi" value={modalOut} onChange={(e) => setModalOut(e.target.value)} /></div>
-              </div>
-              <div className="fg">
-                <div className="fl">Status</div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 3 }}>
-                  {MODAL_STATUS.map((status) => {
-                    const active = modalStatus === status;
-                    const colors: Record<EmployeeStatus, [string, string, string]> = {
-                      Present: ['#d1fae5', '#065f46', '#a7f3d0'],
-                      Late: ['#fef3c7', '#92400e', '#fde68a'],
-                      Absent: ['#fee2e2', '#991b1b', '#fecaca'],
-                      'On Leave': ['#ede9fe', '#3730a3', '#c4b5fd'],
-                    };
-                    const [bg, color, border] = colors[status];
-                    return (
-                      <button
-                        key={status}
-                        type="button"
-                        className="stog"
-                        style={{ background: active ? bg : '#f9fafb', color: active ? color : '#9ca3af', borderColor: active ? border : '#e5e7eb' }}
-                        onClick={() => setModalStatus(status)}
-                      >
-                        {status}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="fg">
-                <div className="fl">Notes (optional)</div>
-                <textarea className="fi" rows={2} placeholder="Reason, remarks..." value={modalNotes} onChange={(e) => setModalNotes(e.target.value)} />
-              </div>
             </div>
-            <div className="mfoot">
-              <button className="btn" type="button" onClick={() => setActiveTab(isSuperAdmin ? 'sa' : 'hr')}>Cancel</button>
-              <button className="btn prim" type="button" id="save-btn" onClick={saveAttendance}>{saveLabel}</button>
-            </div>
-          </div>
+          </aside>
         </div>
-      )}
+      </section>
     </div>
   );
-};
-
-const deptBadge = (dept: string) => {
-  const map: Record<string, string> = {
-    Sales: '#ede9fe|#4338ca',
-    Accounts: '#dbeafe|#1e40af',
-    IT: '#d1fae5|#065f46',
-    HR: '#fef3c7|#92400e',
-    Warehouse: '#fff7ed|#c2410c',
-    Marketing: '#fce7f3|#9d174d',
-    Operations: '#f0fdf4|#166534',
-    Engineering: '#f0f9ff|#0369a1',
-  };
-  const [bg, color] = (map[dept] || '#f3f4f6|#6b7280').split('|');
-  return `<span style="font-size:9px;background:${bg};color:${color};padding:1px 7px;border-radius:20px;font-weight:700;">${dept}</span>`;
-};
-
-const shiftBadge = (shift: ShiftType) => {
-  if (shift === 'Morning') return '<span class="shift sm">Morning</span>';
-  if (shift === 'Evening') return '<span class="shift se">Evening</span>';
-  return '<span class="shift sn">Night</span>';
-};
-
-const statusBadge = (status: EmployeeStatus) => {
-  if (status === 'Present') return '<span class="stbadge sp">Present</span>';
-  if (status === 'Late') return '<span class="stbadge sl">Late</span>';
-  if (status === 'Absent') return '<span class="stbadge sa2">Absent</span>';
-  return '<span class="stbadge so">On Leave</span>';
-};
-
-const stateBadge = (state: string) => {
-  if (state === 'draft') return '<span class="stbadge" style="background:#f3f4f6;color:#6b7280;border-color:#d1d5db;">Draft</span>';
-  if (state === 'saved') return '<span class="stbadge" style="background:#dbeafe;color:#1e40af;border-color:#bfdbfe;">Saved</span>';
-  if (state === 'submitted') return '<span class="stbadge" style="background:#fef3c7;color:#92400e;border-color:#fde68a;">Submitted</span>';
-  if (state === 'unlock_requested') return '<span class="stbadge" style="background:#fcd34d;color:#78350f;border-color:#fbbf24;">Unlock Requested</span>';
-  if (state === 'acknowledged') return '<span class="stbadge" style="background:#d1fae5;color:#065f46;border-color:#a7f3d0;">Acknowledged</span>';
-  return '<span class="stbadge" style="background:#f3f4f6;color:#6b7280;border-color:#d1d5db;">Unknown</span>';
-};
-
-export default Attendance;
+}
