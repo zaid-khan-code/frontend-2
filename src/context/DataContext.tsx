@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { useAuthStore } from '../store/useAuthStore';
+import { apiClient } from '../services/apiClient';
 import {
   employees as defaultEmployees, Employee,
   attendanceData as defaultAttendance,
@@ -170,13 +171,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     async function loadFromBackend() {
       try {
-        const token = useAuthStore.getState().token;
-        const res = await fetch('/api/employees?page=1&limit=1000', {
-          credentials: 'include',
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        });
-        if (!res.ok) return;
-        const body = await res.json();
+        const { data: body } = await apiClient.get('/employees?page=1&limit=1000');
         const list = body?.data?.employees || body?.data || [];
         if (!Array.isArray(list)) return;
         const mapped = list.map((it: any) => ({
