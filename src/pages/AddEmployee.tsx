@@ -2980,106 +2980,70 @@ export default function AddEmployee() {
                 Step 8 of 8
               </span>
             </div>
-            <div className="acc-toggle">
-              <button
-                className={accountMethod === "A" ? "active" : "idle"}
-                onClick={() => setAccountMethod("A")}
-              >
-                HR Creates Credentials
-              </button>
-              <button
-                className={accountMethod === "B" ? "active" : "idle"}
-                onClick={() => setAccountMethod("B")}
-              >
-                Send Invite Link
-              </button>
-            </div>
-            {accountMethod === "A" ? (
-              <div>
-                <div className="add-form-row">
-                  <div className="add-form-group" style={{ marginBottom: 14 }}>
-                    <label className="add-label" htmlFor="employee-email-a">
-                      Employee Email <span>*</span>
-                    </label>
-                    <input
-                      id="employee-email-a"
-                      className="add-input"
-                      type="email"
-                      value={empEmail}
-                      onChange={(e) => setEmpEmail(e.target.value)}
-                      placeholder="employee@company.com"
-                    />
-                    {errors.empEmail && (
-                      <div className="add-err">{errors.empEmail}</div>
-                    )}
-                  </div>
-                  <div className="add-form-group">
-                    <label className="add-label" htmlFor="temporary-password">
-                      Temporary Password
-                    </label>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <input
-                        id="temporary-password"
-                        className="add-input mono"
-                        type="text"
-                        value={tempPassword}
-                        onChange={(e) => setTempPassword(e.target.value)}
-                        placeholder="Enter or generate"
-                        style={{ flex: 1 }}
-                      />
-                      <button
-                        type="button"
-                        className="add-back-btn"
-                        style={{ whiteSpace: "nowrap", height: 38 }}
-                        onClick={generatePassword}
-                      >
-                        Generate
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                {tempPassword && empEmail && (
-                  <div style={{ marginBottom: 14 }}>
-                    <button
-                      type="button"
-                      className="add-next-btn"
-                      style={{
-                        background: "linear-gradient(135deg, #25D366, #128C7E)",
-                        boxShadow: "0 4px 12px rgba(37, 211, 102, 0.3)",
-                      }}
-                      onClick={sendWhatsAppInvite}
-                    >
-                      <Phone size={14} /> Send Credentials via WhatsApp
-                    </button>
-                    <div className="add-hint" style={{ marginTop: 6 }}>
-                      This will open WhatsApp with a pre-filled message for{" "}
-                      {empPhone || contact1 || "the employee"}.
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                <div className="add-form-group" style={{ marginBottom: 10 }}>
-                  <label className="add-label" htmlFor="employee-email-b">
+
+            <div>
+              <div className="add-form-row">
+                <div className="add-form-group" style={{ marginBottom: 14 }}>
+                  <label className="add-label" htmlFor="employee-email-a">
                     Employee Email <span>*</span>
                   </label>
                   <input
-                    id="employee-email-b"
+                    id="employee-email-a"
                     className="add-input"
                     type="email"
                     value={empEmail}
                     onChange={(e) => setEmpEmail(e.target.value)}
+                    placeholder="employee@company.com"
                   />
                   {errors.empEmail && (
                     <div className="add-err">{errors.empEmail}</div>
                   )}
                 </div>
-                <div style={{ fontSize: 11, color: "#9ca3af" }}>
-                  Employee will receive a link and set their own password.
+                <div className="add-form-group">
+                  <label className="add-label" htmlFor="temporary-password">
+                    Temporary Password
+                  </label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      id="temporary-password"
+                      className="add-input mono"
+                      type="text"
+                      value={tempPassword}
+                      onChange={(e) => setTempPassword(e.target.value)}
+                      placeholder="Enter or generate"
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      className="add-back-btn"
+                      style={{ whiteSpace: "nowrap", height: 38 }}
+                      onClick={generatePassword}
+                    >
+                      Generate
+                    </button>
+                  </div>
                 </div>
               </div>
-            )}
+              {tempPassword && empEmail && (
+                <div style={{ marginBottom: 14 }}>
+                  <button
+                    type="button"
+                    className="add-next-btn"
+                    style={{
+                      background: "linear-gradient(135deg, #25D366, #128C7E)",
+                      boxShadow: "0 4px 12px rgba(37, 211, 102, 0.3)",
+                    }}
+                    onClick={sendWhatsAppInvite}
+                  >
+                    <Phone size={14} /> Send Credentials via WhatsApp
+                  </button>
+                  <div className="add-hint" style={{ marginTop: 6 }}>
+                    This will open WhatsApp with a pre-filled message for{" "}
+                    {empPhone || contact1 || "the employee"}.
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="add-form-group" style={{ marginTop: 14 }}>
               <label className="add-label" htmlFor="role">
