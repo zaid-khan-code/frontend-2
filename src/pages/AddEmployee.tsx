@@ -784,12 +784,43 @@ export default function AddEmployee() {
     }
   };
 
+  const generatePassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let pwd = "";
+    for (let i = 0; i < 10; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setTempPassword(pwd);
+  };
+
+  const sendWhatsAppInvite = () => {
+    const phone = empPhone || contact1;
+    if (!phone) {
+      showToast("Employee phone number is missing. Please add it in Step 3.", "error");
+      return;
+    }
+    if (!empEmail || !tempPassword) {
+      showToast("Email and Temporary Password are required to send an invite.", "error");
+      return;
+    }
+    
+    // Clean phone number (remove + and spaces)
+    const cleanPhone = phone.replace(/\D/g, "");
+    // If it doesn't start with a country code, assume Pakistan (92)
+    const finalPhone = cleanPhone.length === 10 ? `92${cleanPhone}` : cleanPhone;
+
+    const message = `*Welcome to the Team!*\n\nHello ${fullName},\n\nYour HR account has been created. Here are your login credentials:\n\n*Email:* ${empEmail}\n*Password:* ${tempPassword}\n\nPlease login at: ${window.location.origin}/login\n\n_Note: For security, please change your password after your first login._`;
+    
+    const whatsappUrl = `https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank");
+  };
+
   const handleSave = async () => {
     if (!validateBeforeSubmit()) return;
     const normalizedEmployeeId = formatEmployeeId(employeeIdInput).trim();
     setSaving(true);
     try {
-      const result = await addEmployee({
+      await addEmployee({
         employee_id: normalizedEmployeeId,
         name: fullName.trim(),
         father_name: fatherName.trim(),
@@ -894,13 +925,8 @@ export default function AddEmployee() {
         },
         allowances: allowances.length ? allowances : undefined,
       });
-      const pwd =
-        result?.tempPassword ?? result?.temp_password ?? tempPassword ?? null;
-      if (pwd) setCreatedTempPassword(pwd);
-      else {
-        showToast("Employee saved successfully");
-        navigate("/employees");
-      }
+      showToast("Employee saved successfully");
+      navigate("/employees");
     } catch (e: any) {
       const code = e?.response?.data?.error?.code;
       if (code === "DUPLICATE_CNIC")
@@ -2991,15 +3017,46 @@ export default function AddEmployee() {
                     <label className="add-label" htmlFor="temporary-password">
                       Temporary Password
                     </label>
-                    <input
-                      id="temporary-password"
-                      className="add-input"
-                      type="password"
-                      value={tempPassword}
-                      onChange={(e) => setTempPassword(e.target.value)}
-                    />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input
+                        id="temporary-password"
+                        className="add-input mono"
+                        type="text"
+                        value={tempPassword}
+                        onChange={(e) => setTempPassword(e.target.value)}
+                        placeholder="Enter or generate"
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        className="add-back-btn"
+                        style={{ whiteSpace: "nowrap", height: 38 }}
+                        onClick={generatePassword}
+                      >
+                        Generate
+                      </button>
+                    </div>
                   </div>
                 </div>
+                {tempPassword && empEmail && (
+                  <div style={{ marginBottom: 14 }}>
+                    <button
+                      type="button"
+                      className="add-next-btn"
+                      style={{
+                        background: "linear-gradient(135deg, #25D366, #128C7E)",
+                        boxShadow: "0 4px 12px rgba(37, 211, 102, 0.3)",
+                      }}
+                      onClick={sendWhatsAppInvite}
+                    >
+                      <Phone size={14} /> Send Credentials via WhatsApp
+                    </button>
+                    <div className="add-hint" style={{ marginTop: 6 }}>
+                      This will open WhatsApp with a pre-filled message for{" "}
+                      {empPhone || contact1 || "the employee"}.
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div>
@@ -3166,45 +3223,6 @@ export default function AddEmployee() {
           </div>
         </div>
       </div>
-
-      {createdTempPassword && (
-        <div
-          className="modal-backdrop"
-          onClick={() => {
-            setCreatedTempPassword(null);
-            navigate("/employees");
-          }}
-        >
-          <div
-            className="modal-card"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 420 }}
-          >
-            <div className="modal-header">
-              <h3>Employee Created</h3>
-            </div>
-            <div className="modal-body">
-              <p style={{ fontSize: 13, marginBottom: 10 }}>
-                Temporary password (share securely with the employee):
-              </p>
-              <div className="add-input mono" style={{ fontWeight: 700 }}>
-                {createdTempPassword}
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button
-                className="add-save-btn"
-                onClick={() => {
-                  setCreatedTempPassword(null);
-                  navigate("/employees");
-                }}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
