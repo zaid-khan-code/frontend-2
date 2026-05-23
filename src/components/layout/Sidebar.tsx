@@ -38,6 +38,7 @@ type SidebarLink = {
   label: string;
   badge?: string;
   comingSoon?: boolean;
+  disabled?: boolean;
 };
 
 export default function Sidebar() {
@@ -63,23 +64,26 @@ export default function Sidebar() {
       to: "/hr/branch-dashboard",
       icon: Building2,
       label: "Branch HR Dashboard",
+      disabled: true,
     },
-    { to: "/overview", icon: Monitor, label: "Overview", comingSoon: true },
+    { to: "/overview", icon: Monitor, label: "Overview", disabled: true },
     {
       to: "/saved-reports",
       icon: ScrollText,
       label: "Saved Reports",
-      comingSoon: true,
+      disabled: true,
     },
     {
       to: "/attendance-head-review",
       icon: ShieldCheck,
       label: "Head HR Review",
+      disabled: true,
     },
     {
       to: "/attendance-report",
       icon: ClipboardList,
       label: "Final Attendance Report",
+      disabled: true,
     },
     { to: "/directory", icon: MapPin, label: "Directory" },
     { to: "/employees", icon: Users, label: "Employees" },
@@ -199,7 +203,22 @@ export default function Sidebar() {
       <div className="sb-sec">
         <div className="sb-lbl">Core Modules</div>
         {mainLinks.map((link) =>
-          link.comingSoon ? (
+          link.disabled ? (
+            <div
+              key={link.to}
+              className="nav-a"
+              style={{
+                cursor: "not-allowed",
+                opacity: 0.5,
+                pointerEvents: "none",
+                userSelect: "none",
+              }}
+            >
+              <link.icon size={14} className="nav-ico" />
+              {link.label}
+              {link.badge && <span className="nav-badge">{link.badge}</span>}
+            </div>
+          ) : link.comingSoon ? (
             <div
               key={link.to}
               className={`nav-a`}
