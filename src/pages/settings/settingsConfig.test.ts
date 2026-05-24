@@ -48,4 +48,14 @@ describe("settings configuration registry", () => {
       label: "Penalty Rules",
     });
   });
+
+  it("supports company-wide leave policies without a department selection", () => {
+    const policy = settingsDefinitions.find((definition) => definition.slug === "leave-policies");
+    const departmentField = policy?.fields.find((field) => field.key === "department_id");
+
+    expect(departmentField).toMatchObject({
+      required: false,
+      includeBlank: true,
+    });
+  });
 });

@@ -77,6 +77,9 @@ function formatCell(definition: SettingsDefinition, key: string, value: any, loo
     return `PKR ${Number(value || 0).toLocaleString()}`;
   }
   if (key === "department_id" || key === "parent_department_id") {
+    if (!value && key === "department_id" && definition.entity === "leave-policies") {
+      return "Company-wide";
+    }
     return value ? lookups.departments.get(String(value)) || "Unknown department" : "None";
   }
   if (key === "leave_type_id") {
@@ -290,7 +293,13 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
                   value={form[field.key] ?? ""}
                   onChange={(event) => setForm((prev) => ({ ...prev, [field.key]: event.target.value }))}
                 >
-                  {(field.includeBlank || !field.required) && <option value="">None</option>}
+                  {(field.includeBlank || !field.required) && (
+                    <option value="">
+                      {definition.entity === "leave-policies" && field.key === "department_id"
+                        ? "Company-wide (all departments)"
+                        : "None"}
+                    </option>
+                  )}
                   {options.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}

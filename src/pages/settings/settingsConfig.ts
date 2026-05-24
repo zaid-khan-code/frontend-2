@@ -168,7 +168,7 @@ export const settingsDefinitions: SettingsDefinition[] = [
     slug: "leave-policies",
     entity: "leave-policies",
     title: "Leave Policies",
-    description: "Set yearly leave allowances by department and leave type.",
+    description: "Set yearly company-wide allowances and optional department-specific overrides.",
     group: "Leave Management",
     nameKeys: ["department_id", "leave_type_id"],
     columns: [
@@ -179,7 +179,7 @@ export const settingsDefinitions: SettingsDefinition[] = [
       { key: "is_active", label: "Status", type: "status" },
     ],
     fields: [
-      { key: "department_id", label: "Department", type: "select", source: "departments", required: true },
+      { key: "department_id", label: "Department", type: "select", source: "departments", required: false, includeBlank: true },
       { key: "leave_type_id", label: "Leave Type", type: "select", source: "leaveTypes", required: true },
       { key: "days_allowed", label: "Days Allowed", type: "number", parse: "int", required: true },
       { key: "year", label: "Year", type: "number", parse: "int", required: true },
