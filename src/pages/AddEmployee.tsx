@@ -304,7 +304,6 @@ export default function AddEmployee() {
   const { showToast } = useToastContext();
 
   const { data: deptData = [] } = useDepartments();
-  const { data: desigData = [] } = useDesignations();
   const { data: empTypeData = [] } = useEmploymentTypes();
   const { data: jobStatData = [] } = useJobStatuses();
   const { data: wModeData = [] } = useWorkModes();
@@ -343,18 +342,6 @@ export default function AddEmployee() {
     id: getOptionId(d),
     name: getOptionName(d),
   }));
-  const designations = desigData
-    .map((d: any) => ({
-      id: getOptionId(d),
-      name: getOptionName(d),
-      departmentId:
-        d.department_id ??
-        d.departmentId ??
-        d.department?.id ??
-        d.department?.department_id,
-      isActive: d.is_active ?? d.isActive ?? d.status !== "inactive",
-    }))
-    .filter((d: any) => d.isActive !== false);
   const roles = roleData.map((d: any) => ({
     id: d.id ?? d.uuid,
     roleName: d.role_name ?? d.name ?? d.title ?? d.role,
@@ -462,6 +449,8 @@ export default function AddEmployee() {
   const [paymentMode, setPaymentMode] = useState("Online Transfer");
   const [dept, setDept] = useState("");
   const [desig, setDesig] = useState("");
+  const { data: desigData = [], isLoading: designationsLoading } =
+    useDesignations(dept || null);
   const [empType, setEmpType] = useState("");
   const [jobStat, setJobStat] = useState("");
   const [wMode, setWMode] = useState("");
@@ -493,12 +482,20 @@ export default function AddEmployee() {
   const [empEmail, setEmpEmail] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const designations = desigData
+    .map((d: any) => ({
+      id: getOptionId(d),
+      name: getOptionName(d),
+      departmentId:
+        d.department_id ??
+        d.departmentId ??
+        d.department?.id ??
+        d.department?.department_id,
+      isActive: d.is_active ?? d.isActive ?? d.status !== "inactive",
+    }))
+    .filter((d: any) => d.isActive !== false);
   const selectedDept = departments.find((d: any) => d.id === dept);
-  const filteredDesignations = dept
-    ? designations.filter((d: any) =>
-        d.departmentId ? d.departmentId === dept : true,
-      )
-    : [];
+  const filteredDesignations = dept ? designations : [];
   const selectedDesig = filteredDesignations.find((d: any) => d.id === desig);
   const selectedShift = shifts.find((s: any) => s.id === shift);
   const shiftTiming =
@@ -2253,6 +2250,7 @@ export default function AddEmployee() {
                             id="designation"
                             className={`add-select${errors.desig ? " error" : ""}`}
                             value={desig}
+                            disabled={!dept || designationsLoading}
                             onChange={(e) => setDesig(e.target.value)}
                           >
                             <option value="" disabled hidden style={{ display: "none" }}>
@@ -2261,7 +2259,9 @@ export default function AddEmployee() {
                             {!filteredDesignations.length && (
                               <option value="" disabled>
                                 {dept
-                                  ? "No designations configured"
+                                  ? designationsLoading
+                                    ? "Loading designations..."
+                                    : "No designations configured"
                                   : "Select department first"}
                               </option>
                             )}

@@ -76,10 +76,20 @@ function renderAttendance() {
   );
 }
 
+function todayKey() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+const TODAY = todayKey();
+
 const sheetResponse = {
   success: true,
   data: {
-    date: "2026-05-23",
+    date: TODAY,
     location_id: "location-1",
     rows: [
       {
@@ -96,7 +106,7 @@ const sheetResponse = {
           expected_out: "18:00:00",
           late_after_minutes: 15,
         },
-        date: "2026-05-23",
+        date: TODAY,
         check_in: "09:10:00",
         check_out: "18:00:00",
         status: "present",
@@ -119,7 +129,7 @@ const sheetResponse = {
           expected_out: "22:00:00",
           late_after_minutes: 15,
         },
-        date: "2026-05-23",
+        date: TODAY,
         check_in: null,
         check_out: null,
         status: "absent",
@@ -170,10 +180,10 @@ describe("Attendance", () => {
       return Promise.resolve({ data: sheetResponse });
     });
     vi.mocked(apiClient.put).mockResolvedValue({
-      data: { success: true, data: { saved_count: 1, date: "2026-05-23", state: "saved" } },
+      data: { success: true, data: { saved_count: 1, date: TODAY, state: "saved" } },
     });
     vi.mocked(apiClient.post).mockResolvedValue({
-      data: { success: true, data: { submitted_count: 1, date: "2026-05-23", state: "submitted" } },
+      data: { success: true, data: { submitted_count: 1, date: TODAY, state: "submitted" } },
     });
     vi.mocked(apiClient.patch).mockResolvedValue({
       data: { success: true, data: { id: "attendance-1", ack: true } },
@@ -192,7 +202,7 @@ describe("Attendance", () => {
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith("/attendance", {
-        params: { date: "2026-05-23", location_id: "location-1" },
+        params: { date: TODAY, location_id: "location-1" },
       });
     });
 
@@ -245,7 +255,7 @@ describe("Attendance", () => {
 
     await waitFor(() => {
       expect(apiClient.put).toHaveBeenCalledWith("/attendance/save", {
-        date: "2026-05-23",
+        date: TODAY,
         location_id: "location-1",
         rows: expect.arrayContaining([
           expect.objectContaining({
@@ -260,7 +270,7 @@ describe("Attendance", () => {
     fireEvent.click(screen.getByRole("button", { name: /submit to ho/i }));
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith("/attendance/submit", {
-        date: "2026-05-23",
+        date: TODAY,
         location_id: "location-1",
       });
     });
@@ -271,7 +281,7 @@ describe("Attendance", () => {
     fireEvent.click(screen.getByRole("button", { name: /request unlock/i }));
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith("/attendance/unlock-request", {
-        date: "2026-05-23",
+        date: TODAY,
         location_id: "location-1",
         reason: "Correction needed",
       });
@@ -301,7 +311,7 @@ describe("Attendance", () => {
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith("/attendance", {
-        params: { date: "2026-05-23", location_id: "location-2" },
+        params: { date: TODAY, location_id: "location-2" },
       });
     });
   });
@@ -324,7 +334,7 @@ describe("Attendance", () => {
     expect(screen.queryByLabelText(/date/i)).toBeNull();
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith("/attendance", {
-        params: { date: "2026-05-23" },
+        params: { date: TODAY },
       });
     });
 
@@ -358,7 +368,7 @@ describe("Attendance", () => {
       expect(apiClient.get).toHaveBeenCalledWith("/dashboard/me");
       expect(apiClient.get).toHaveBeenCalledWith("/employees/EMP-HR");
       expect(apiClient.get).toHaveBeenCalledWith("/attendance", {
-        params: { date: "2026-05-23", location_id: "location-1" },
+        params: { date: TODAY, location_id: "location-1" },
       });
     });
   });

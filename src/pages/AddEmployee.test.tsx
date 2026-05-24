@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import AddEmployee from "./AddEmployee";
 
 const createEmployeeMock = vi.hoisted(() => vi.fn());
+const useDesignationsMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../context/DataContext", () => ({
   useData: () => ({}),
@@ -21,9 +22,7 @@ vi.mock("../hooks/useEmployees", () => ({
 
 vi.mock("../hooks/useConfig", () => ({
   useDepartments: () => ({ data: [{ id: "dept-1", name: "Engineering" }] }),
-  useDesignations: () => ({
-    data: [{ id: "desig-1", title: "Frontend Engineer", department_id: "dept-1" }],
-  }),
+  useDesignations: useDesignationsMock,
   useEmploymentTypes: () => ({ data: [{ id: "type-1", name: "Full Time" }] }),
   useJobStatuses: () => ({ data: [{ id: "status-1", name: "Active" }] }),
   useWorkModes: () => ({ data: [{ id: "mode-1", name: "Onsite" }] }),
@@ -57,6 +56,10 @@ function renderAddEmployee() {
 describe("AddEmployee", () => {
   beforeEach(() => {
     createEmployeeMock.mockReset();
+    useDesignationsMock.mockReset();
+    useDesignationsMock.mockReturnValue({
+      data: [{ id: "desig-1", title: "Frontend Engineer", department_id: "dept-1" }],
+    });
   });
 
   it("renders a guided personal information step", () => {
@@ -98,13 +101,19 @@ describe("AddEmployee", () => {
     expect(screen.getByText("Location and timeline")).toBeTruthy();
     expect(screen.getByLabelText(/department/i)).toBeTruthy();
     const departmentSelect = screen.getByLabelText(/department/i);
+    const designationSelect = screen.getByLabelText(/designation/i);
     expect(departmentSelect).toHaveProperty("value", "");
+    expect(designationSelect).toHaveProperty("disabled", true);
     expect(
       departmentSelect.querySelector('option[value=""]')?.textContent,
     ).toBe("Please Select");
+    expect(useDesignationsMock).toHaveBeenCalledWith(null);
 
     fireEvent.change(screen.getByLabelText(/department/i), {
       target: { value: "dept-1" },
+    });
+    await waitFor(() => {
+      expect(useDesignationsMock).toHaveBeenCalledWith("dept-1");
     });
     fireEvent.change(screen.getByLabelText(/designation/i), {
       target: { value: "desig-1" },

@@ -1,6 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../services/apiClient";
 
+function normalizeConfigList<T>(payload: any, entityName: string): T[] {
+  const dataNode = payload?.data ?? payload;
+  const candidates = [
+    dataNode,
+    dataNode?.[entityName],
+    dataNode?.items,
+    dataNode?.rows,
+    dataNode?.results,
+    dataNode?.data,
+  ];
+
+  const list = candidates.find(Array.isArray);
+  return (list || []) as T[];
+}
+
 // Generic hook factory for basic config entities
 export function createConfigHook<T>(entityName: string) {
   const queryKey = ["config", entityName];
@@ -12,7 +27,7 @@ export function createConfigHook<T>(entityName: string) {
       queryKey,
       queryFn: async () => {
         const { data } = await apiClient.get(`/config/${entityName}`);
-        return data.data as T[];
+        return normalizeConfigList<T>(data, entityName);
       },
     });
 
@@ -57,7 +72,58 @@ export function createConfigHook<T>(entityName: string) {
 
 // Specific hooks
 export const useDepartments = createConfigHook<any>("departments");
-export const useDesignations = createConfigHook<any>("designations");
+export function useDesignations(departmentId?: string | null) {
+  const queryClient = useQueryClient();
+  const queryKey = ["config", "designations", departmentId ?? "all"];
+
+  const query = useQuery({
+    queryKey,
+    enabled: departmentId !== null,
+    queryFn: async () => {
+      const { data } = await apiClient.get("/config/designations", {
+        params: departmentId ? { department_id: departmentId } : undefined,
+      });
+      return normalizeConfigList<any>(data, "designations");
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (newItem: Partial<any>) => {
+      const { data } = await apiClient.post("/config/designations", newItem);
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["config", "designations"] });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<any>;
+    }) => {
+      const { data } = await apiClient.patch(
+        `/config/designations/${id}`,
+        updates,
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["config", "designations"] });
+    },
+  });
+
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    create: createMutation.mutateAsync,
+    update: updateMutation.mutateAsync,
+  };
+}
 export const useEmploymentTypes = createConfigHook<any>("employment-types");
 export const useJobStatuses = createConfigHook<any>("job-statuses");
 export const useWorkModes = createConfigHook<any>("work-modes");
