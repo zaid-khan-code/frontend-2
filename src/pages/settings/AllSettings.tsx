@@ -7,6 +7,7 @@ import {
   createConfigHook,
   useDepartments,
   useLeaveTypes,
+  usePenaltyRules,
 } from "../../hooks/useConfig";
 import {
   getSettingsDefinition,
@@ -23,12 +24,17 @@ type ConfigHookResult = {
   update: (payload: { id: string; updates: any }) => Promise<any>;
 };
 
-const configHooks = Object.fromEntries(
+const genericConfigHooks = Object.fromEntries(
   settingsDefinitions.map((definition) => [
     definition.entity,
     createConfigHook<any>(definition.entity),
   ]),
 ) as Record<string, () => ConfigHookResult>;
+
+const configHooks = {
+  ...genericConfigHooks,
+  "penalty-rules": usePenaltyRules,
+} as Record<string, () => ConfigHookResult>;
 
 function displayName(row: any, keys: string[]) {
   for (const key of keys) {

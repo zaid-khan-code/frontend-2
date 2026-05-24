@@ -24,14 +24,14 @@ export default function MyPenalties() {
       id: p.id || 'N/A',
       rawDate: p.penalty_date || p.date || p.created_at || '',
       date: (p.penalty_date || p.date || p.created_at || '').split('T')[0],
-      type: p.penalty_rule?.name || p.type || 'Manual Penalty',
+      type: p.rule_name || p.penalty_rule?.name || p.penalty_type || 'Manual Penalty',
       reason: p.reason || p.notes || 'No reason provided',
-      amount: Number(p.amount ?? p.final_amount ?? p.penalty_amount ?? p.deduction_amount ?? 0),
+      amount: Number(p.amount_pkr ?? p.amount ?? p.final_amount ?? p.penalty_amount ?? p.deduction_amount ?? 0),
       status: p.status || 'pending',
       acked: Boolean(p.employee_ack || p.ack || p.acknowledged || p.is_acknowledged),
-      appliedBy: p.actioned_by_name || p.actioned_by || p.applied_by_name || p.applied_by || 'HR',
+      appliedBy: p.proposed_by_name || p.actioned_by_name || p.actioned_by || p.applied_by_name || p.applied_by || 'HR',
       month: (p.penalty_date || p.date || p.created_at) ? new Date(p.penalty_date || p.date || p.created_at).toLocaleString('default', { month: 'long', year: 'numeric' }) : '',
-      waivedReason: p.status === 'rejected' ? p.notes : undefined,
+      waivedReason: p.status === 'rejected' ? (p.review_note || p.notes) : undefined,
     }));
   }, [serverPenalties]);
 

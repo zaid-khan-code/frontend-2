@@ -34,7 +34,7 @@ export function usePenalties(params?: any) {
   });
 
   const approveMutation = useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string, amount: number, notes?: string }) => {
+    mutationFn: async ({ id, ...payload }: { id: string, amount?: number, notes?: string }) => {
       const { data } = await apiClient.patch(`/penalties/${id}/approve`, payload);
       return data.data;
     },
@@ -44,7 +44,7 @@ export function usePenalties(params?: any) {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string, notes?: string }) => {
+    mutationFn: async ({ id, ...payload }: { id: string, reviewNote: string }) => {
       const { data } = await apiClient.patch(`/penalties/${id}/reject`, payload);
       return data.data;
     },

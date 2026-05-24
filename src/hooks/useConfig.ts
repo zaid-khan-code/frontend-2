@@ -132,6 +132,51 @@ export const useShifts = createConfigHook<any>("shifts");
 export const useLeaveTypes = createConfigHook<any>("leave-types");
 export const useLeavePolicies = createConfigHook<any>("leave-policies");
 export const useLeaveCapacity = createConfigHook<any>("leave-capacity");
-export const usePenaltyRules = createConfigHook<any>("penalty-rules");
+export function usePenaltyRules() {
+  const queryClient = useQueryClient();
+  const queryKey = ["penalty-rules"];
+
+  const query = useQuery({
+    queryKey,
+    queryFn: async () => {
+      const { data } = await apiClient.get("/penalty-rules");
+      return normalizeConfigList<any>(data, "penalty-rules");
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (newItem: Partial<any>) => {
+      const { data } = await apiClient.post("/penalty-rules", newItem);
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<any>;
+    }) => {
+      const { data } = await apiClient.patch(`/penalty-rules/${id}`, updates);
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    create: createMutation.mutateAsync,
+    update: updateMutation.mutateAsync,
+  };
+}
 export const useAllowanceTypes = createConfigHook<any>("allowance-types");
 export const useRoles = createConfigHook<any>("roles");
