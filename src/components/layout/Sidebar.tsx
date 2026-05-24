@@ -19,7 +19,6 @@ import {
   CalendarRange,
   Wallet,
   AlertTriangle,
-  FormInput,
   ShieldCheck,
   Bell,
   ScrollText,
@@ -31,6 +30,7 @@ import {
 import { useData } from "../../context/DataContext";
 import { useToastContext } from "../../context/ToastContext";
 import logo from "../../images/logo.png";
+import { settingsNavigationGroups } from "../../pages/settings/settingsConfig";
 
 type SidebarLink = {
   to: string;
@@ -150,27 +150,9 @@ export default function Sidebar() {
 
   const { showToast } = useToastContext();
 
-  const settingsLinks = [
-    { to: "/settings/departments", label: "Departments" },
-    { to: "/settings/designations", label: "Designations" },
-    { to: "/settings/job-statuses", label: "Job Statuses" },
-    { to: "/settings/reporting-managers", label: "Reporting Mgrs" },
-    { to: "/settings/work-modes", label: "Work Modes" },
-    { to: "/settings/work-locations", label: "Work Locations" },
-    { to: "/settings/employment-types", label: "Emp. Types" },
-    { to: "/settings/shifts", label: "Shifts" },
-    { to: "/settings/leave-types", label: "Leave Types" },
-    { to: "/settings/leave-policies", label: "Leave Policies" },
-    { to: "/settings/payroll-components", label: "Salary Components" },
-    { to: "/settings/penalties-config", label: "Penalties Config" },
-    { to: "/settings/tax-config", label: "Tax Config" },
-    { to: "/settings/global-days", label: "Global Days" },
-  ];
-
   const adminLinks = [
     { to: "/accounts", icon: ShieldCheck, label: "HR Accounts" },
     { to: "/audit-log", icon: ScrollText, label: "Audit Log" },
-    { to: "/settings/custom-fields", icon: FormInput, label: "Custom Fields" },
   ];
 
   const liveAttendance = useMemo(() => {
@@ -263,29 +245,25 @@ export default function Sidebar() {
             </button>
             {settingsOpen && (
               <>
-                {settingsLinks.map((link) => (
-                  <NavLink
-                    key={link.to}
-                    to={link.to}
-                    className={({ isActive }) =>
-                      `nav-a ${isActive ? "active" : ""}`
-                    }
-                  >
-                    <Settings size={14} className="nav-ico" />
-                    {link.label}
-                  </NavLink>
+                {settingsNavigationGroups.map((group) => (
+                  <React.Fragment key={group.label}>
+                    <div className="sb-lbl" style={{ marginTop: 10 }}>
+                      {group.label}
+                    </div>
+                    {group.links.map((link) => (
+                      <NavLink
+                        key={link.to}
+                        to={link.to}
+                        className={({ isActive }) =>
+                          `nav-a ${isActive ? "active" : ""}`
+                        }
+                      >
+                        <Settings size={14} className="nav-ico" />
+                        {link.label}
+                      </NavLink>
+                    ))}
+                  </React.Fragment>
                 ))}
-                {activeRole === "super_admin" && (
-                  <NavLink
-                    to="/settings/custom-fields"
-                    className={({ isActive }) =>
-                      `nav-a ${isActive ? "active" : ""}`
-                    }
-                  >
-                    <FormInput size={14} className="nav-ico" />
-                    Custom Fields
-                  </NavLink>
-                )}
               </>
             )}
           </div>

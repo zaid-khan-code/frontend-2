@@ -64,16 +64,14 @@ import {
   WorkLocationsPage,
   EmploymentTypesPage,
   JobStatusesPage,
-  ReportingManagersPage,
   ShiftsPage,
   LeaveTypesPage,
   LeavePoliciesPage,
-  PayrollComponentsPage,
-  PenaltiesConfigPage,
-  TaxConfigPage,
-  GlobalDaysPage,
+  LeaveCapacitySettingsPage,
+  AllowanceTypesPage,
+  PenaltyRulesPage,
+  RolesPage,
 } from "./pages/settings/AllSettings";
-import CustomFields from "./pages/settings/CustomFields";
 
 /**
  * 1. Protected Route Wrapper
@@ -243,10 +241,6 @@ const App = () => (
                   element={<DepartmentsPage />}
                 />
                 <Route
-                  path="/settings/reporting-managers"
-                  element={<ReportingManagersPage />}
-                />
-                <Route
                   path="/settings/designations"
                   element={<DesignationsPage />}
                 />
@@ -276,20 +270,20 @@ const App = () => (
                   element={<LeavePoliciesPage />}
                 />
                 <Route
-                  path="/settings/payroll-components"
-                  element={<PayrollComponentsPage />}
+                  path="/settings/leave-capacity"
+                  element={<LeaveCapacitySettingsPage />}
                 />
                 <Route
-                  path="/settings/penalties-config"
-                  element={<PenaltiesConfigPage />}
+                  path="/settings/allowance-types"
+                  element={<AllowanceTypesPage />}
                 />
                 <Route
-                  path="/settings/tax-config"
-                  element={<TaxConfigPage />}
+                  path="/settings/penalty-rules"
+                  element={<PenaltyRulesPage />}
                 />
                 <Route
-                  path="/settings/global-days"
-                  element={<GlobalDaysPage />}
+                  path="/settings/roles"
+                  element={<RolesPage />}
                 />
 
                 {/* SuperAdmin + Head HR Only */}
@@ -300,10 +294,6 @@ const App = () => (
                 >
                   <Route path="/accounts" element={<Accounts />} />
                   <Route path="/audit-log" element={<AuditLog />} />
-                  <Route
-                    path="/settings/custom-fields"
-                    element={<CustomFields />}
-                  />
                 </Route>
               </Route>
             </Route>
