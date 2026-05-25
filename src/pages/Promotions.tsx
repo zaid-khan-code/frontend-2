@@ -57,7 +57,7 @@ const AV_GRADS = [
   'linear-gradient(135deg,#3b82f6,#60a5fa)',
 ];
 const avGrad = (name: string) => AV_GRADS[(name?.charCodeAt(0) || 0) % AV_GRADS.length];
-const getInitials = (name: string) => (name || '?').split(' ').filter(Boolean).map((n:string) => n[0]).join('').slice(0,2).toUpperCase();
+const getInitials = (name: string) => (name || '').split(' ').filter(Boolean).map((n:string) => n[0]).join('').slice(0,2).toUpperCase();
 
 const salaryDelta = (oldS: number, newS: number) => {
   const diff = newS - oldS;
@@ -264,7 +264,7 @@ export default function Promotions() {
             </div>
             {hasFilters && (
               <button className="pr-btn pr-btn-danger" style={{height:34,fontSize:11}} onClick={()=>{setDateFilter('');setDesigFilter('');}}>
-                Clear ✕
+                Clear 
               </button>
             )}
             <span style={{marginLeft:'auto',fontSize:11,color:'#9ca3af'}}>
@@ -293,7 +293,7 @@ export default function Promotions() {
                 {filteredPromotions.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{textAlign:'center',padding:'48px 20px'}}>
-                      <div style={{fontSize:28,marginBottom:8}}>🏆</div>
+                      <div style={{fontSize:28,marginBottom:8}}></div>
                       <div style={{fontSize:13,fontWeight:600,color:'#374151',marginBottom:4}}>No promotions found</div>
                       <div style={{fontSize:11,color:'#9ca3af'}}>{hasFilters ? 'Try adjusting your filters' : 'Record your first promotion to get started'}</div>
                     </td>
@@ -396,7 +396,7 @@ export default function Promotions() {
                 {jobHistory.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{textAlign:'center',padding:'48px 20px'}}>
-                      <div style={{fontSize:28,marginBottom:8}}>📋</div>
+                      <div style={{fontSize:28,marginBottom:8}}></div>
                       <div style={{fontSize:13,fontWeight:600,color:'#374151',marginBottom:4}}>No job history records</div>
                       <div style={{fontSize:11,color:'#9ca3af'}}>Job history will be automatically recorded when promotions are made</div>
                     </td>
@@ -424,7 +424,7 @@ export default function Promotions() {
                           background: h.changeType === 'promotion' ? '#eff6ff' : '#f0fdf4',
                           color: h.changeType === 'promotion' ? '#1d4ed8' : '#166534'
                         }}>
-                          {h.changeType === 'promotion' ? '🏆 Promotion' : '💰 Salary Adjustment'}
+                          {h.changeType === 'promotion' ? ' Promotion' : ' Salary Adjustment'}
                         </span>
                       </td>
 

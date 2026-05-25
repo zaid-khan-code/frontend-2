@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Info, Plus, Pencil, Trash2 } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useToastContext } from '../../context/ToastContext';
@@ -92,7 +92,7 @@ export default function CustomFields() {
           </tr>)}</tbody></table>
         }
       </div>
-      <div className="card" style={{ marginTop: 12, background: 'var(--pl)', border: '1px solid var(--p2)' }}><div style={{ fontSize: 12, color: 'var(--p)' }}>ℹ Custom fields appear in the relevant form sections of the employee wizard.</div></div>
+      <div className="card" style={{ marginTop: 12, background: 'var(--pl)', border: '1px solid var(--p2)' }}><div style={{ fontSize: 12, color: 'var(--p)', display: 'flex', alignItems: 'center', gap: 6 }}><Info size={14} aria-hidden="true" /> Custom fields appear in the relevant form sections of the employee wizard.</div></div>
       <Modal open={modal} onClose={() => setModal(false)} title={editIdx !== null ? 'Edit Custom Field' : 'Add Custom Field'} footer={
         <><button className="btn btn-secondary" onClick={() => setModal(false)}>Cancel</button><button className="btn btn-primary" onClick={handleSave}>Save</button></>
       }>

@@ -8,7 +8,8 @@ type ModuleCard = {
   description: string;
   to: string;
   icon: React.ComponentType<{ size?: number }>;
-  roles: Array<"super_admin" | "hr" | "employee">;
+  roles: string[];
+  disabled?: boolean;
 };
 
 const modules: ModuleCard[] = [
@@ -35,31 +36,39 @@ const modules: ModuleCard[] = [
   },
   {
     title: "Payroll",
-    description: "Payout processing and monthly breakdowns",
+    description: "Payroll module placeholder and payslip readiness notes",
     to: "/payroll",
     icon: Wallet,
-    roles: ["super_admin", "hr"],
+    roles: ["super_admin", "head_hr", "hr_manager"],
+    disabled: true,
   },
   {
     title: "Announcements",
     description: "Broadcast updates to branch and departments",
     to: "/announcements",
     icon: Megaphone,
-    roles: ["super_admin", "hr", "employee"],
+    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "hr_manager", "hr_executive", "employee"],
   },
   {
     title: "Penalty Workflow",
     description: "Branch to HO approvals and decisions",
     to: "/penalty-workflow",
     icon: ShieldCheck,
-    roles: ["super_admin", "hr"],
+    roles: ["super_admin", "head_hr", "hr_manager"],
   },
 ];
+
+const hrRoles = new Set(["hr", "head_hr", "branch_hr", "department_hr", "hr_manager", "hr_executive"]);
+
+function roleMatches(module: ModuleCard, role: string) {
+  if (module.roles.includes(role)) return true;
+  return module.roles.includes("hr") && hrRoles.has(role);
+}
 
 export default function Launchpad() {
   const navigate = useNavigate();
   const { activeRole } = useAuth();
-  const visibleModules = modules.filter((module) => module.roles.includes(activeRole));
+  const visibleModules = modules.filter((module) => roleMatches(module, activeRole));
 
   return (
     <div>
@@ -85,8 +94,11 @@ export default function Launchpad() {
           <button
             key={module.title}
             className="card"
-            onClick={() => navigate(module.to)}
-            style={{ textAlign: "left", cursor: "pointer" }}
+            onClick={() => {
+              if (!module.disabled) navigate(module.to);
+            }}
+            style={{ textAlign: "left", cursor: module.disabled ? "not-allowed" : "pointer", opacity: module.disabled ? 0.62 : 1 }}
+            disabled={module.disabled}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <div className="ct-ico blue">
@@ -95,6 +107,7 @@ export default function Launchpad() {
               <div style={{ fontSize: 16, fontWeight: 700, color: "var(--t1)" }}>{module.title}</div>
             </div>
             <p style={{ color: "var(--t3)", fontSize: 12 }}>{module.description}</p>
+            {module.disabled && <span className="pill pill-steel">Coming Soon</span>}
           </button>
         ))}
       </div>

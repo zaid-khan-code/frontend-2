@@ -37,6 +37,7 @@ describe("settings configuration registry", () => {
       "Leave Management",
       "Finance & Compliance",
       "Access Control",
+      "Workspace Management",
     ]);
 
     expect(settingsNavigationGroups.flatMap((group) => group.links)).toContainEqual({
@@ -46,6 +47,18 @@ describe("settings configuration registry", () => {
     expect(settingsNavigationGroups.flatMap((group) => group.links)).toContainEqual({
       to: "/settings/penalty-rules",
       label: "Penalty Rules",
+    });
+    expect(settingsNavigationGroups.flatMap((group) => group.links)).toContainEqual({
+      to: "/settings/directory",
+      label: "Directory Management",
+    });
+    expect(settingsNavigationGroups.flatMap((group) => group.links)).toContainEqual({
+      to: "/settings/calendar-events",
+      label: "Calendar Events",
+    });
+    expect(settingsNavigationGroups.flatMap((group) => group.links)).toContainEqual({
+      to: "/settings/announcements",
+      label: "Announcements",
     });
   });
 

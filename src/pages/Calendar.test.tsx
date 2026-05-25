@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Calendar from "./Calendar";
 import { apiClient } from "../services/apiClient";
@@ -29,7 +30,9 @@ function renderCalendar() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <Calendar />
+      <MemoryRouter>
+        <Calendar />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -117,7 +120,7 @@ describe("Calendar", () => {
     });
   });
 
-  it("creates and updates calendar events when the user has write permission", async () => {
+  it("keeps the calendar viewer read-only even when the user has write permission", async () => {
     useAuthStore.setState({
       user: {
         email: "hr@example.com",
@@ -146,44 +149,10 @@ describe("Calendar", () => {
     renderCalendar();
 
     expect(await screen.findByText("Pakistan Day 2026")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: /add event/i }));
-    fireEvent.change(screen.getByLabelText(/title/i), {
-      target: { value: "Eid Holiday" },
-    });
-    fireEvent.change(screen.getByLabelText(/^date/i), {
-      target: { value: "2026-04-01" },
-    });
-    fireEvent.change(screen.getByLabelText(/event category/i), {
-      target: { value: "holiday" },
-    });
-    fireEvent.change(screen.getAllByLabelText(/visibility/i)[1], {
-      target: { value: "all" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /^save event$/i }));
-
-    await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith("/calendar-events", {
-        title: "Eid Holiday",
-        date: "2026-04-01",
-        type: "holiday",
-        visibility: "all",
-      });
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /edit pakistan day 2026/i }));
-    fireEvent.change(screen.getByLabelText(/title/i), {
-      target: { value: "Pakistan Day Updated" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /^save event$/i }));
-
-    await waitFor(() => {
-      expect(apiClient.patch).toHaveBeenCalledWith("/calendar-events/event-1", {
-        title: "Pakistan Day Updated",
-        date: "2026-03-23",
-        type: "holiday",
-        visibility: "all",
-      });
-    });
+    expect(screen.queryByRole("button", { name: /add event/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /edit pakistan day 2026/i })).toBeNull();
+    expect(screen.getByText(/manage calendar events/i)).toBeTruthy();
+    expect(apiClient.post).not.toHaveBeenCalled();
+    expect(apiClient.patch).not.toHaveBeenCalled();
   });
 });

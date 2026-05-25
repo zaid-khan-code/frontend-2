@@ -63,15 +63,15 @@ export default function Sidebar() {
     { to: "/launchpad", icon: Zap, label: "Launchpad" },
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/employees", icon: Users, label: "Employees" },
-    { to: "/directory", icon: MapPin, label: "Directory" },
     { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
     { to: "/leave", icon: CalendarDays, label: "Leave" },
-    { to: "/payroll", icon: DollarSign, label: "Payroll" },
+    { to: "/payroll", icon: DollarSign, label: "Payroll", disabled: true },
     { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
-    { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty" },
+    { to: "/penalty", icon: ClipboardList, label: "Penalty" },
     { to: "/penalty-workflow", icon: CheckCircle2, label: "Penalty Submissions" },
     { to: "/announcements", icon: Zap, label: "Announcements" },
     { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
+    { to: "/directory", icon: MapPin, label: "Directory" },
     
     // Disabled items down
     {
@@ -108,29 +108,29 @@ export default function Sidebar() {
   const branchHrLinks: SidebarLink[] = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/employees", icon: Users, label: "Employees" },
-    { to: "/directory", icon: MapPin, label: "Directory" },
     { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
     { to: "/leave", icon: CalendarDays, label: "Leave" },
-    { to: "/payroll", icon: DollarSign, label: "Payroll" },
+    { to: "/payroll", icon: DollarSign, label: "Payroll", disabled: true },
     { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
-    { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty" },
+    { to: "/penalty", icon: ClipboardList, label: "Penalty" },
     { to: "/penalty-workflow", icon: CheckCircle2, label: "Penalty Submissions" },
     { to: "/announcements", icon: Zap, label: "Announcements" },
     { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
+    { to: "/directory", icon: MapPin, label: "Directory" },
   ];
 
   // Department HR - Department level access
   const departmentHrLinks: SidebarLink[] = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/employees", icon: Users, label: "Employees" },
-    { to: "/directory", icon: MapPin, label: "Directory" },
     { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
     { to: "/leave", icon: CalendarDays, label: "Leave" },
-    { to: "/payroll", icon: DollarSign, label: "Payroll" },
+    { to: "/payroll", icon: DollarSign, label: "Payroll", disabled: true },
     { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
-    { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty" },
+    { to: "/penalty", icon: ClipboardList, label: "Penalty" },
     { to: "/penalty-workflow", icon: CheckCircle2, label: "Penalty Submissions" },
     { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
+    { to: "/directory", icon: MapPin, label: "Directory" },
   ];
 
   // Select menu based on role

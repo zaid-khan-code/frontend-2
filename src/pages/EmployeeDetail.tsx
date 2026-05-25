@@ -485,7 +485,7 @@ export default function EmployeeDetail() {
       )}
 
       {tab === "penalties" && (
-        <InfoCard title="Penalty Ledger" icon={<BadgeDollarSign size={15} />}>
+        <InfoCard title="Penalty" icon={<BadgeDollarSign size={15} />}>
           {penaltiesError && (
             <div style={{ display: "flex", gap: 10, alignItems: "center", padding: 14, border: "1px dashed rgba(245,158,11,.45)", borderRadius: 12, background: "rgba(255,251,235,.7)", color: "#92400e", marginBottom: 12 }}>
               <AlertTriangle size={16} /> Penalty data is not available for your current permissions.

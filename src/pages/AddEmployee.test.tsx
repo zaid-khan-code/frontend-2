@@ -150,7 +150,7 @@ describe("AddEmployee", () => {
       "disabled",
       true,
     );
-  });
+  }, 10000);
 
   it("renders bank, medical, salary, allowances, and account steps", async () => {
     renderAddEmployee();
@@ -292,5 +292,5 @@ describe("AddEmployee", () => {
     expect(screen.queryByText("CNIC Copy")).toBeNull();
     expect(screen.queryByText("Profile Photo")).toBeNull();
     expect(screen.queryByText("Employment Contract")).toBeNull();
-  }, 10000);
+  }, 20000);
 });

@@ -6,7 +6,6 @@ import { getRoleAccessConfig } from "../../utils/roleBasedAccess";
 import{
   LayoutDashboard,
   CalendarCheck,
-  Wallet,
   CalendarDays,
   User,
   LogOut,
@@ -30,7 +29,6 @@ export default function EmployeeSidebar() {
     { to: "/my-leave", icon: CalendarDays, label: "Apply for Leave" },
     { to: "/my-penalties", icon: AlertTriangle, label: "My Penalties" },
     { to: "/my-directory", icon: Users, label: "Directory" },
-    { to: "/my-payslips", icon: Wallet, label: "My Payslips" },
     { to: "/my-profile", icon: User, label: "My Profile" },
   ];
 

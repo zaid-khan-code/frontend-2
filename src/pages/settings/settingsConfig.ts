@@ -277,6 +277,15 @@ export const settingsNavigationGroups = Array.from(
   }, new Map<string, Array<{ to: string; label: string }>>()),
 ).map(([label, links]) => ({ label, links }));
 
+settingsNavigationGroups.push({
+  label: "Workspace Management",
+  links: [
+    { to: "/settings/directory", label: "Directory Management" },
+    { to: "/settings/calendar-events", label: "Calendar Events" },
+    { to: "/settings/announcements", label: "Announcements" },
+  ],
+});
+
 export function getSettingsDefinition(slug: string) {
   return settingsDefinitions.find((definition) => definition.slug === slug);
 }

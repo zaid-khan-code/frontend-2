@@ -47,6 +47,8 @@ import Directory from "./pages/Directory";
 import EmployeeWidgets from "./pages/EmployeeWidgets";
 import Calendar from "./pages/Calendar";
 import FeaturePlaceholder from "./components/FeaturePlaceholder";
+import CalendarEventsSettings from "./pages/settings/CalendarEventsSettings";
+import AnnouncementsSettings from "./pages/settings/AnnouncementsSettings";
 
 // Employee Specific Pages
 import MyDashboard from "./pages/MyDashboard";
@@ -210,7 +212,8 @@ const App = () => (
                 <Route path="/payroll" element={<Payroll />} />
                 <Route path="/promotions" element={<Promotions />} />
                 <Route path="/leave-wallet" element={<LeaveWalletHistory />} />
-                <Route path="/penalty-ledger" element={<PenaltyLedger />} />
+                <Route path="/penalty" element={<PenaltyLedger />} />
+                <Route path="/penalty-ledger" element={<Navigate to="/penalty" replace />} />
                 <Route path="/announcements" element={<AnnouncementsFeed />} />
                 <Route path="/calendar" element={<Calendar />} />
 
@@ -293,6 +296,18 @@ const App = () => (
                 <Route
                   path="/settings/roles"
                   element={<RolesPage />}
+                />
+                <Route
+                  path="/settings/directory"
+                  element={<Directory management />}
+                />
+                <Route
+                  path="/settings/calendar-events"
+                  element={<CalendarEventsSettings />}
+                />
+                <Route
+                  path="/settings/announcements"
+                  element={<AnnouncementsSettings />}
                 />
 
                 {/* SuperAdmin + Head HR Only */}

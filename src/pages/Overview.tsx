@@ -14,7 +14,7 @@ export default function OverviewPage() {
   if (activeRole !== 'super_admin' && activeRole !== 'head_hr') {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#94a3b8', flexDirection: 'column', gap: 12 }}>
-        <span style={{ fontSize: 40 }}>🔒</span>
+        <span style={{ fontSize: 40 }}></span>
         <span style={{ fontSize: 14, fontWeight: 700 }}>Access Restricted</span>
         <span style={{ fontSize: 12 }}>This page is only visible to SuperAdmin and Head HR.</span>
       </div>
@@ -73,7 +73,7 @@ export default function OverviewPage() {
         <div className="topbar">
           <div>
             <div className="page-title">
-              <div className="page-title-ic" style={{ background: 'linear-gradient(135deg,#eef2ff,#dbeafe)' }}>📊</div>
+              <div className="page-title-ic" style={{ background: 'linear-gradient(135deg,#eef2ff,#dbeafe)' }}></div>
               Overview
             </div>
             <div className="page-sub">Company-wide attendance summary · All branches · {new Date().toLocaleDateString('en-PK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
@@ -83,18 +83,18 @@ export default function OverviewPage() {
               const data = { exportedAt: new Date().toISOString(), stats, branches: branchSummary };
               const b = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
               const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'overview_report.json'; a.click();
-            }}>📤 Export Summary</button>
+            }}> Export Summary</button>
           </div>
         </div>
 
         {/* Main Stat Cards */}
         <div className="stat-grid-5">
           {[
-            { cls: 'sc-green',  icon: '✅', val: stats.present, lbl: 'Present Today',  sub: `${Math.round(stats.present / stats.total * 100)}% attendance` },
+            { cls: 'sc-green',  icon: '', val: stats.present, lbl: 'Present Today',  sub: `${Math.round(stats.present / stats.total * 100)}% attendance` },
             { cls: 'sc-amber',  icon: '⏰', val: stats.late,    lbl: 'Late Arrivals',  sub: 'Flagged check-ins' },
-            { cls: 'sc-red',    icon: '❌', val: stats.absent,  lbl: 'Absent Today',   sub: 'Without leave' },
-            { cls: 'sc-violet', icon: '🏖️', val: stats.onLeave, lbl: 'On Leave',       sub: 'Approved leaves' },
-            { cls: 'sc-indigo', icon: '👥', val: stats.total,   lbl: 'Total Staff',    sub: `Across ${BRANCHES.length} branches` },
+            { cls: 'sc-red',    icon: '', val: stats.absent,  lbl: 'Absent Today',   sub: 'Without leave' },
+            { cls: 'sc-violet', icon: '', val: stats.onLeave, lbl: 'On Leave',       sub: 'Approved leaves' },
+            { cls: 'sc-indigo', icon: '', val: stats.total,   lbl: 'Total Staff',    sub: `Across ${BRANCHES.length} branches` },
           ].map((s, i) => (
             <div key={i} className={`scard ${s.cls}`}>
               <div className="scard-icon">{s.icon}</div>
@@ -108,9 +108,9 @@ export default function OverviewPage() {
         {/* Lock Status Row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 18 }}>
           {[
-            { cls: 'sc-indigo', icon: '📝', val: lockStats.open,      lbl: 'Open Sheets',   sub: 'Not yet submitted' },
-            { cls: 'sc-amber',  icon: '🔒', val: lockStats.submitted, lbl: 'Submitted',     sub: 'Awaiting Head HR' },
-            { cls: 'sc-green',  icon: '✅', val: lockStats.finalized, lbl: 'Finalized',     sub: 'Saved to reports' },
+            { cls: 'sc-indigo', icon: '', val: lockStats.open,      lbl: 'Open Sheets',   sub: 'Not yet submitted' },
+            { cls: 'sc-amber',  icon: '', val: lockStats.submitted, lbl: 'Submitted',     sub: 'Awaiting Head HR' },
+            { cls: 'sc-green',  icon: '', val: lockStats.finalized, lbl: 'Finalized',     sub: 'Saved to reports' },
             { cls: 'sc-red',    icon: '↩️', val: lockStats.rejected,  lbl: 'Sent Back',     sub: 'Needs correction' },
           ].map((s, i) => (
             <div key={i} className={`scard ${s.cls}`}>
@@ -125,7 +125,7 @@ export default function OverviewPage() {
         {/* Branch Summary Table */}
         <div className="card" style={{ marginBottom: 18 }}>
           <div className="card-header">
-            <div className="card-title">🏢 Branch-wise Summary</div>
+            <div className="card-title"> Branch-wise Summary</div>
             <span style={{ fontSize: 11, color: 'var(--t3)', fontWeight: 600 }}>{BRANCHES.length} branches</span>
           </div>
           <div className="tbl-wrap">
@@ -179,7 +179,7 @@ export default function OverviewPage() {
         {/* All Employees Table */}
         <div className="card">
           <div className="card-header">
-            <div className="card-title">👥 All Employees Today</div>
+            <div className="card-title"> All Employees Today</div>
             <span style={{ fontSize: 11, color: 'var(--t3)', fontWeight: 600 }}>{allEmps.length} total records</span>
           </div>
           <div className="tbl-wrap">

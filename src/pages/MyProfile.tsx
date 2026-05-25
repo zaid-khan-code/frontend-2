@@ -87,8 +87,6 @@ const allowanceFields = [
 ];
 
 const emergencyFields = [
-  "contact_1",
-  "contact_2",
   "perment_address",
   "postal_address",
   "e_contact_1_relation",
@@ -552,6 +550,65 @@ function ProfileHero({ employee }: { employee: any }) {
   );
 }
 
+function ContactCards({ source }: { source: any }) {
+  const contacts = [
+    {
+      label: "Primary",
+      name: source?.e_contact_1_full_name || source?.primary_contact || "Primary contact",
+      relation: source?.e_contact_1_relation,
+      phone: source?.e_contact_1_phone || source?.contact_1,
+      code: source?.e_contact_1_phone_country_code,
+      email: source?.e_contact_1_email,
+      accent: "var(--p)",
+      tint: "rgba(37,99,235,.09)",
+    },
+    {
+      label: "Secondary",
+      name: source?.e_contact_2_full_name || "Secondary contact",
+      relation: source?.e_contact_2_relation,
+      phone: source?.e_contact_2_phone || source?.contact_2,
+      code: source?.e_contact_2_phone_country_code,
+      email: source?.e_contact_2_email,
+      accent: "var(--teal)",
+      tint: "rgba(13,148,136,.09)",
+    },
+  ].filter((contact) => contact.phone || contact.name !== "Secondary contact" || contact.email);
+
+  if (!contacts.length) {
+    return (
+      <div className="mono" style={{ color: "var(--t3)", fontSize: 12 }}>
+        Not provided
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 12 }}>
+      {contacts.map((contact) => (
+        <div
+          key={contact.label}
+          style={{
+            padding: 13,
+            borderRadius: 10,
+            background: contact.tint,
+            border: "1px solid var(--br2)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <span className="pill pill-blue" style={{ color: contact.accent }}>{contact.label}</span>
+            {contact.relation && <span style={{ fontSize: 11, color: "var(--t3)" }}>{contact.relation}</span>}
+          </div>
+          <div style={{ fontWeight: 850, color: "var(--t1)", marginBottom: 4 }}>{formatValue(contact.name)}</div>
+          <div className="mono" style={{ fontSize: 14, fontWeight: 850, color: contact.accent }}>
+            {[contact.code, contact.phone].filter(Boolean).join(" ")}
+          </div>
+          {contact.email && <div className="mono" style={{ marginTop: 5, fontSize: 11, color: "var(--t3)" }}>{contact.email}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function MyProfile() {
   const { user } = useAuth();
   const employeeId = user?.employeeId;
@@ -673,6 +730,7 @@ export default function MyProfile() {
       </DataSection>
 
       <DataSection title="emergencyContacts">
+        <ContactCards source={emp.emergencyContacts} />
         <FieldGrid
           source={emp.emergencyContacts}
           fields={emergencyFields}

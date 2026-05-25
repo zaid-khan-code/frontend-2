@@ -29,9 +29,9 @@ const SHIFT_META: Record<ShiftCode, { bg: string; color: string; dot: string; la
 // Penalty rules
 const PENALTY_RULES = [
   { icon: '⏰', title: 'Late Arrival',     condition: 'CheckIn > ShiftStart + 10m',        penalty: '–3 Days Salary',       color: '#ef4444', approved: false },
-  { icon: '📅', title: 'Saturday Absent',  condition: 'Day=Sat & Status=Absent & !Leave',  penalty: '–2 Days + 1 CL Cut',  color: '#ef4444', approved: false },
-  { icon: '📋', title: 'Uninformed Leave', condition: 'Status=Absent & No Application',    penalty: 'Paid · No Deduction',  color: '#f97316', approved: false },
-  { icon: '✅', title: 'CEO Approved',     condition: 'Leave.Approver = CEO',              penalty: 'Waived',               color: '#16a34a', approved: true  },
+  { icon: '', title: 'Saturday Absent',  condition: 'Day=Sat & Status=Absent & !Leave',  penalty: '–2 Days + 1 CL Cut',  color: '#ef4444', approved: false },
+  { icon: '', title: 'Uninformed Leave', condition: 'Status=Absent & No Application',    penalty: 'Paid · No Deduction',  color: '#f97316', approved: false },
+  { icon: '', title: 'CEO Approved',     condition: 'Leave.Approver = CEO',              penalty: 'Waived',               color: '#16a34a', approved: true  },
 ];
 
 const AV_GRADS = [
@@ -43,7 +43,7 @@ const AV_GRADS = [
   'linear-gradient(135deg,#3b82f6,#60a5fa)',
 ];
 const avGrad  = (name: string) => AV_GRADS[(name?.charCodeAt(0) || 0) % AV_GRADS.length];
-const getIni  = (name: string) => (name || '?').split(' ').filter(Boolean).map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+const getIni  = (name: string) => (name || '').split(' ').filter(Boolean).map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
 const chipClass = (s: DutyRoster['status']) =>
   `dr-chip ${ s==='Scheduled'?'dr-chip-scheduled': s==='Completed'?'dr-chip-completed': s==='Cancelled'?'dr-chip-cancelled':'dr-chip-onleave'}`;
 
@@ -249,10 +249,10 @@ const DutyRosterPage: React.FC = () => {
   const onLeave      = rosters.filter(r => r.status === 'On Leave').length;
 
   const STATS = [
-    { label:'Total Entries', val:totalEntries, sub:'All roster entries', icon:'📋', grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', glow:'rgba(99,102,241,.3)' },
-    { label:'Scheduled',     val:scheduled,    sub:'Upcoming duties',    icon:'📅', grad:'linear-gradient(135deg,#3b82f6,#06b6d4)', glow:'rgba(59,130,246,.3)' },
-    { label:'Completed',     val:completed,    sub:'Duties done',        icon:'✅', grad:'linear-gradient(135deg,#10b981,#34d399)', glow:'rgba(16,185,129,.3)' },
-    { label:'On Leave',      val:onLeave,      sub:'Staff on leave',     icon:'🏖️', grad:'linear-gradient(135deg,#f97316,#fbbf24)', glow:'rgba(249,115,22,.3)'  },
+    { label:'Total Entries', val:totalEntries, sub:'All roster entries', icon:'', grad:'linear-gradient(135deg,#6366f1,#8b5cf6)', glow:'rgba(99,102,241,.3)' },
+    { label:'Scheduled',     val:scheduled,    sub:'Upcoming duties',    icon:'', grad:'linear-gradient(135deg,#3b82f6,#06b6d4)', glow:'rgba(59,130,246,.3)' },
+    { label:'Completed',     val:completed,    sub:'Duties done',        icon:'', grad:'linear-gradient(135deg,#10b981,#34d399)', glow:'rgba(16,185,129,.3)' },
+    { label:'On Leave',      val:onLeave,      sub:'Staff on leave',     icon:'', grad:'linear-gradient(135deg,#f97316,#fbbf24)', glow:'rgba(249,115,22,.3)'  },
   ];
 
   // Weekly summary counts
@@ -285,7 +285,7 @@ const DutyRosterPage: React.FC = () => {
                   boxShadow:view===v?'0 2px 8px rgba(0,0,0,.1)':'none',
                   transition:'all .2s',
                 }}>
-                  {v==='weekly' ? '📅 Weekly Grid' : '📋 Roster List'}
+                  {v==='weekly' ? ' Weekly Grid' : ' Roster List'}
                 </button>
               ))}
             </div>
@@ -313,7 +313,7 @@ const DutyRosterPage: React.FC = () => {
               {/* Header gradient */}
               <div style={{background:'linear-gradient(135deg,#ec4899,#f97316)',padding:'16px 18px'}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:2}}>
-                  <span style={{fontSize:18}}>⚙️</span>
+                  <span style={{fontSize:18}}></span>
                   <span style={{fontSize:15,fontWeight:800,color:'#fff'}}>Penalty Engine</span>
                 </div>
                 <div style={{fontSize:10,color:'rgba(255,255,255,.75)'}}>Backend rule book · runs nightly</div>
@@ -322,7 +322,7 @@ const DutyRosterPage: React.FC = () => {
               <div style={{background:'#fff',padding:'14px 16px'}}>
                 {/* 3 Lates banner */}
                 <div className="lates-banner" style={{marginBottom:14}}>
-                  <span style={{fontSize:18}}>🔥</span>
+                  <span style={{fontSize:18}}></span>
                   <span>3 Lates = 1 Day Cut</span>
                 </div>
 
@@ -355,7 +355,7 @@ const DutyRosterPage: React.FC = () => {
                   </div>
                 ))}
                 <div style={{marginTop:6,padding:'8px 10px',background:'#f8fafc',borderRadius:8,fontSize:10,color:'#9ca3af',lineHeight:1.6}}>
-                  📌 Click any cell to cycle:<br/>
+                   Click any cell to cycle:<br/>
                   <span style={{fontWeight:600,color:'#374151'}}>M → E → N → Off → M</span>
                 </div>
               </div>
@@ -426,7 +426,7 @@ const DutyRosterPage: React.FC = () => {
                   background:'linear-gradient(135deg,#06b6d4,#3b82f6)',
                   padding:'14px 20px',display:'flex',alignItems:'center',gap:10
                 }}>
-                  <span style={{fontSize:16}}>📅</span>
+                  <span style={{fontSize:16}}></span>
                   <div>
                     <div style={{fontSize:14,fontWeight:800,color:'#fff'}}>Duty Roster · Is Hafte</div>
                     <div style={{fontSize:10,color:'rgba(255,255,255,.75)'}}>Click on any cell to change shift cycle</div>
@@ -514,7 +514,7 @@ const DutyRosterPage: React.FC = () => {
                     {hasFilters && (
                       <button className="dr-btn dr-btn-danger" style={{height:34,fontSize:11}}
                         onClick={()=>{setSelectedDepartment('All');setSelectedShift('All');}}>
-                        Clear ✕
+                        Clear 
                       </button>
                     )}
                     <span style={{marginLeft:'auto',fontSize:11,color:'#9ca3af'}}>
@@ -537,7 +537,7 @@ const DutyRosterPage: React.FC = () => {
                       <tbody>
                         {filteredRosters.length===0 ? (
                           <tr><td colSpan={8} style={{textAlign:'center',padding:'48px 20px'}}>
-                            <div style={{fontSize:28,marginBottom:8}}>📅</div>
+                            <div style={{fontSize:28,marginBottom:8}}></div>
                             <div style={{fontSize:13,fontWeight:600,color:'#374151',marginBottom:4}}>No roster entries found</div>
                             <div style={{fontSize:11,color:'#9ca3af'}}>Try adjusting your filters or add a new entry</div>
                           </td></tr>
@@ -609,7 +609,7 @@ const DutyRosterPage: React.FC = () => {
                   <div style={{fontSize:16,fontWeight:700,color:'#fff'}}>Add Roster Entry</div>
                   <div style={{fontSize:11,color:'rgba(255,255,255,.75)',marginTop:2}}>Assign duty to an employee</div>
                 </div>
-                <button className="dr-btn dr-btn-sm" style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'none'}} onClick={()=>setIsAddDialogOpen(false)}>✕</button>
+                <button className="dr-btn dr-btn-sm" style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'none'}} onClick={()=>setIsAddDialogOpen(false)}></button>
               </div>
               <AddRosterForm employees={visibleEmployees} onSubmit={handleAddRoster} onCancel={()=>setIsAddDialogOpen(false)}/>
             </div>
@@ -625,7 +625,7 @@ const DutyRosterPage: React.FC = () => {
                   <div style={{fontSize:16,fontWeight:700,color:'#fff'}}>Duty Roster Templates</div>
                   <div style={{fontSize:11,color:'rgba(255,255,255,.75)',marginTop:2}}>{templates.length} templates available</div>
                 </div>
-                <button className="dr-btn dr-btn-sm" style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'none'}} onClick={()=>setIsTemplateDialog(false)}>✕</button>
+                <button className="dr-btn dr-btn-sm" style={{background:'rgba(255,255,255,.2)',color:'#fff',border:'none'}} onClick={()=>setIsTemplateDialog(false)}></button>
               </div>
               <div style={{padding:22,display:'flex',flexDirection:'column',gap:14,maxHeight:'70vh',overflowY:'auto'}}>
                 {templates.map(tmpl=>(

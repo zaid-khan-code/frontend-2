@@ -23,7 +23,7 @@ function useToast() {
   }, []);
   const ToastEl = (
     <div className={`toast${visible ? ' show' : ''}`} style={{ background: type === 'error' ? '#7f1d1d' : '#1e293b' }}>
-      <span>{type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+      <span>{type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info'}</span>
       <span>{msg}</span>
     </div>
   );
@@ -52,7 +52,7 @@ function DetailModal({ report, onClose, onExport }: DetailModalProps) {
         {/* Modal Header */}
         <div style={{ background: nameGrad(report.branch), padding: '18px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>📋 {report.branch} — {report.date}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}> {report.branch} — {report.date}</div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,.75)', marginTop: 3 }}>
               Locked by {report.lockedBy} · Verified by {report.verifiedBy} at {report.verifiedAt} · {report.empCount} employees
             </div>
@@ -62,11 +62,11 @@ function DetailModal({ report, onClose, onExport }: DetailModalProps) {
               className="btn"
               style={{ background: 'rgba(255,255,255,.15)', color: '#fff', borderColor: 'rgba(255,255,255,.2)' }}
               onClick={onExport}>
-              📤 Export
+               Export
             </button>
             <button
               style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,.2)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}
-              onClick={onClose}>✕</button>
+              onClick={onClose}></button>
           </div>
         </div>
 
@@ -88,7 +88,7 @@ function DetailModal({ report, onClose, onExport }: DetailModalProps) {
         {/* Search */}
         <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <div className="fsrc">
-            <span>🔍</span>
+            <span></span>
             <input type="text" placeholder="Search employee or department..." value={empSearch} onChange={e => setEmpSearch(e.target.value)} />
           </div>
         </div>
@@ -109,7 +109,7 @@ function DetailModal({ report, onClose, onExport }: DetailModalProps) {
             </thead>
             <tbody>
               {filteredEmps.length === 0 ? (
-                <tr><td colSpan={7} className="empty"><span className="empty-ic">🔍</span>No matching employees</td></tr>
+                <tr><td colSpan={7} className="empty"><span className="empty-ic"></span>No matching employees</td></tr>
               ) : filteredEmps.map(e => (
                 <tr key={e.code} style={{ borderBottom: '1px solid #f8fafc' }}>
                   <td style={{ padding: '11px 14px', verticalAlign: 'middle' }}>
@@ -146,7 +146,7 @@ export default function SavedReports() {
   if (activeRole !== 'super_admin' && activeRole !== 'head_hr') {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 12, color: '#94a3b8' }}>
-        <span style={{ fontSize: 40 }}>🔒</span>
+        <span style={{ fontSize: 40 }}></span>
         <span style={{ fontSize: 14, fontWeight: 700 }}>Access Restricted</span>
         <span style={{ fontSize: 12 }}>Only SuperAdmin and Head HR can access this page.</span>
       </div>
@@ -187,13 +187,13 @@ export default function SavedReports() {
   const exportReport = (r: SavedReport) => {
     const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `report_${r.branch.replace(/ /g, '_')}_${r.date}.json`; a.click();
-    toast('📤 Report exported', 'success');
+    toast(' Report exported', 'success');
   };
 
   const bulkExport = () => {
     const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), reports: finalizedReports }, null, 2)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `all_reports_${new Date().toISOString().split('T')[0]}.json`; a.click();
-    toast('📦 Bulk export complete', 'success');
+    toast(' Bulk export complete', 'success');
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -209,26 +209,26 @@ export default function SavedReports() {
         <div className="topbar">
           <div>
             <div className="page-title">
-              <div className="page-title-ic" style={{ background: 'linear-gradient(135deg,#d1fae5,#ccfbf1)' }}>📁</div>
+              <div className="page-title-ic" style={{ background: 'linear-gradient(135deg,#d1fae5,#ccfbf1)' }}></div>
               Saved Reports
             </div>
             <div className="page-sub">Finalized attendance sheets · Verified by Head HR</div>
           </div>
           <div className="topbar-right">
             <select className="fsel" value={monthFilter} onChange={e => setMonthFilter(e.target.value)}>
-              <option value="all">📅 All Months</option>
+              <option value="all"> All Months</option>
               <option value="2026-05">May 2026</option>
               <option value="2026-04">April 2026</option>
               <option value="2026-03">March 2026</option>
             </select>
-            <button className="btn btn-ghost" onClick={bulkExport}>📦 Bulk Export</button>
+            <button className="btn btn-ghost" onClick={bulkExport}> Bulk Export</button>
           </div>
         </div>
 
         {/* Summary Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
           <div className="scard sc-green" onClick={() => setActiveTab('finalized')} style={{ cursor: 'pointer' }}>
-            <div className="scard-icon">✅</div>
+            <div className="scard-icon"></div>
             <div className="scard-val">{finalizedReports.length}</div>
             <div className="scard-lbl">Finalized Reports</div>
             <div className="scard-sub">Saved & verified</div>
@@ -250,7 +250,7 @@ export default function SavedReports() {
         {/* Tabs */}
         <div className="tabs" style={{ maxWidth: 500, marginBottom: 16 }}>
           {([
-            { key: 'finalized', label: '✅ Finalized', count: finalizedReports.length, countBg: 'var(--indigo)' },
+            { key: 'finalized', label: ' Finalized', count: finalizedReports.length, countBg: 'var(--indigo)' },
             { key: 'pending',   label: '⏳ Pending',   count: pendingBranches.length,  countBg: 'var(--amber)' },
             { key: 'rejected',  label: '↩️ Rejected',  count: rejectedBranches.length, countBg: 'var(--red)' },
           ] as const).map(t => (
@@ -270,7 +270,7 @@ export default function SavedReports() {
             {/* Search */}
             <div className="frow" style={{ marginBottom: 14 }}>
               <div className="fsrc">
-                <span>🔍</span>
+                <span></span>
                 <input type="text" placeholder="Search branch name..." value={searchReport} onChange={e => setSearchReport(e.target.value)} />
               </div>
               <span style={{ fontSize: 11, color: 'var(--t3)', fontWeight: 600, marginLeft: 'auto' }}>
@@ -280,14 +280,14 @@ export default function SavedReports() {
 
             {filteredFinal.length === 0 ? (
               <div className="card">
-                <div className="empty"><span className="empty-ic">📭</span>No finalized reports yet</div>
+                <div className="empty"><span className="empty-ic"></span>No finalized reports yet</div>
               </div>
             ) : (
               <div className="saved-list">
                 {filteredFinal.map(r => (
                   <div key={r.id} className="saved-item">
                     <div className="saved-item-left">
-                      <div className="saved-ic" style={{ background: 'var(--green-l)' }}>📋</div>
+                      <div className="saved-ic" style={{ background: 'var(--green-l)' }}></div>
                       <div>
                         <div className="saved-name">{r.branch} — {r.date}</div>
                         <div className="saved-meta">
@@ -305,8 +305,8 @@ export default function SavedReports() {
                       </div>
                     </div>
                     <div className="saved-btns">
-                      <button className="btn btn-ghost" onClick={() => setViewReport(r)}>👁 View</button>
-                      <button className="btn btn-outline-green" onClick={() => exportReport(r)}>📤 Export</button>
+                      <button className="btn btn-ghost" onClick={() => setViewReport(r)}> View</button>
+                      <button className="btn btn-outline-green" onClick={() => exportReport(r)}> Export</button>
                     </div>
                   </div>
                 ))}
@@ -320,7 +320,7 @@ export default function SavedReports() {
           <>
             {pendingBranches.length === 0 ? (
               <div className="card">
-                <div className="empty"><span className="empty-ic">✅</span>No pending sheets — all clear!</div>
+                <div className="empty"><span className="empty-ic"></span>No pending sheets — all clear!</div>
               </div>
             ) : (
               <div className="saved-list">
@@ -330,7 +330,7 @@ export default function SavedReports() {
                   return (
                     <div key={b.id} className="saved-item">
                       <div className="saved-item-left">
-                        <div className="saved-ic" style={{ background: 'var(--amber-l)' }}>🔒</div>
+                        <div className="saved-ic" style={{ background: 'var(--amber-l)' }}></div>
                         <div>
                           <div className="saved-name">{b.name}</div>
                           <div className="saved-meta">
@@ -357,9 +357,9 @@ export default function SavedReports() {
                               empCount: emps.length, data: emps,
                             };
                             setReports(p => [...p, rep]);
-                            toast(`✅ ${b.name} verified & finalized!`, 'success');
+                            toast(` ${b.name} verified & finalized!`, 'success');
                           }}>
-                          ✅ Verify
+                           Verify
                         </button>
                         <button
                           className="btn btn-outline-red"
@@ -385,7 +385,7 @@ export default function SavedReports() {
           <>
             {rejectedBranches.length === 0 ? (
               <div className="card">
-                <div className="empty"><span className="empty-ic">✅</span>No rejected sheets</div>
+                <div className="empty"><span className="empty-ic"></span>No rejected sheets</div>
               </div>
             ) : (
               <div className="saved-list">
@@ -410,9 +410,9 @@ export default function SavedReports() {
                           className="btn btn-ghost"
                           onClick={() => {
                             setLocks(p => ({ ...p, [b.id]: { ...p[b.id], status: 'unlocked', reason: undefined } }));
-                            toast(`🔓 ${b.name} reopened for correction`, 'info');
+                            toast(` ${b.name} reopened for correction`, 'info');
                           }}>
-                          🔓 Reopen
+                           Reopen
                         </button>
                       </div>
                     </div>

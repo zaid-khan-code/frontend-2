@@ -70,6 +70,7 @@ const G = `
   *{box-sizing:border-box;}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   @keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes calSlide{from{opacity:.2;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}
   .pg{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;}
   .hc{cursor:pointer;transition:transform .18s,box-shadow .18s;}
   .hc:hover{transform:translateY(-5px) scale(1.015);}
@@ -92,6 +93,7 @@ const G = `
   .cal-day.today::after{background:#fff;}
   .cal-day.birthday::after{background:#ec4899;}
   .cal-day.today.birthday::after{background:#fff;}
+  .cal-month-anim{animation:calSlide .22s ease both;}
 `;
 
 // ─── Reusable mini components ─────────────────────────────────────────────────
@@ -345,6 +347,8 @@ function MiniCalendar({
       </div>
 
       <div
+        key={`${viewYear}-${viewMonth}`}
+        className="cal-month-anim"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(7,1fr)",
@@ -520,7 +524,8 @@ function MiniCalendar({
               marginBottom: 6,
             }}
           >
-            🎂 Birthdays this month
+            <Cake size={12} style={{ verticalAlign: "text-bottom", marginRight: 4 }} />
+            Birthdays this month
           </div>
           {monthBirthdays.map((emp, i) => {
             const dob = new Date(emp.dob || emp.date_of_birth);
@@ -875,7 +880,7 @@ export default function Dashboard() {
   const actions = useMemo(() => {
     if (Array.isArray(metrics?.pending_actions)) {
       return metrics.pending_actions.map((pa: any) => ({
-        emoji: "!",
+        marker: "!",
         text: pa.text || `Missing fields: ${(pa.missing_fields || []).join(", ")}`,
         cta: pa.cta || "Fix",
         link: pa.link || `/employees/${pa.employee_id}`,
@@ -884,7 +889,7 @@ export default function Dashboard() {
     return pendingLv > 0
       ? [
           {
-            emoji: "!",
+            marker: "!",
             text: `${pendingLv} leave requests awaiting approval`,
             cta: "Review",
             link: "/leave",
@@ -1937,7 +1942,7 @@ export default function Dashboard() {
                       i < actions.length - 1 ? "1px solid #f3f4f6" : "none",
                   }}
                 >
-                  <span style={{ fontSize: 15 }}>{a.emoji}</span>
+                  <span style={{ fontSize: 15 }}>{a.marker}</span>
                   <span
                     style={{
                       flex: 1,
