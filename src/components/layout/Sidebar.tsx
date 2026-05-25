@@ -15,6 +15,7 @@ import {
   MapPin,
   UserCheck,
   ClipboardList,
+  CheckCircle2,
   Clock,
   CalendarRange,
   Wallet,
@@ -67,7 +68,8 @@ export default function Sidebar() {
     { to: "/leave", icon: CalendarDays, label: "Leave" },
     { to: "/payroll", icon: DollarSign, label: "Payroll" },
     { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
-    { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty Ledger" },
+    { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty" },
+    { to: "/penalty-workflow", icon: CheckCircle2, label: "Penalty Submissions" },
     { to: "/announcements", icon: Zap, label: "Announcements" },
     { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
     
@@ -111,7 +113,8 @@ export default function Sidebar() {
     { to: "/leave", icon: CalendarDays, label: "Leave" },
     { to: "/payroll", icon: DollarSign, label: "Payroll" },
     { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
-    { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty Ledger" },
+    { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty" },
+    { to: "/penalty-workflow", icon: CheckCircle2, label: "Penalty Submissions" },
     { to: "/announcements", icon: Zap, label: "Announcements" },
     { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
   ];
@@ -125,7 +128,8 @@ export default function Sidebar() {
     { to: "/leave", icon: CalendarDays, label: "Leave" },
     { to: "/payroll", icon: DollarSign, label: "Payroll" },
     { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
-    { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty Ledger" },
+    { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty" },
+    { to: "/penalty-workflow", icon: CheckCircle2, label: "Penalty Submissions" },
     { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
   ];
 
