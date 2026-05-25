@@ -58,8 +58,20 @@ export default function Sidebar() {
   const initials = getUserInitials(user?.username || "");
 
   const superAdminLinks: SidebarLink[] = [
+    // Active/Enabled first
     { to: "/launchpad", icon: Zap, label: "Launchpad" },
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/employees", icon: Users, label: "Employees" },
+    { to: "/directory", icon: MapPin, label: "Directory" },
+    { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
+    { to: "/leave", icon: CalendarDays, label: "Leave" },
+    { to: "/payroll", icon: DollarSign, label: "Payroll" },
+    { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
+    { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty Ledger" },
+    { to: "/announcements", icon: Zap, label: "Announcements" },
+    { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
+    
+    // Disabled items down
     {
       to: "/hr/branch-dashboard",
       icon: Building2,
@@ -85,21 +97,6 @@ export default function Sidebar() {
       label: "Final Attendance Report",
       disabled: true,
     },
-    { to: "/directory", icon: MapPin, label: "Directory" },
-    { to: "/employees", icon: Users, label: "Employees" },
-    { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
-    { to: "/leave", icon: CalendarDays, label: "Leave" },
-    { to: "/payroll", icon: DollarSign, label: "Payroll" },
-    { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
-    { to: "/penalty-ledger", icon: ClipboardList, label: "Penalty Ledger" },
-    { to: "/announcements", icon: Zap, label: "Announcements" },
-    {
-      to: "/calendar",
-      icon: CalendarRange,
-      label: "Calendar Events",
-    },
-    { to: "/accounts", icon: ShieldCheck, label: "HR Accounts" },
-    { to: "/audit-log", icon: ScrollText, label: "Audit Log" },
   ];
 
   // Head HR - Same as Superadmin (Full Company Access)
@@ -108,8 +105,8 @@ export default function Sidebar() {
   // Branch HR - Branch level access (no branch-dashboard link here)
   const branchHrLinks: SidebarLink[] = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { to: "/directory", icon: MapPin, label: "Directory" },
     { to: "/employees", icon: Users, label: "Employees" },
+    { to: "/directory", icon: MapPin, label: "Directory" },
     { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
     { to: "/leave", icon: CalendarDays, label: "Leave" },
     { to: "/payroll", icon: DollarSign, label: "Payroll" },
@@ -122,8 +119,8 @@ export default function Sidebar() {
   // Department HR - Department level access
   const departmentHrLinks: SidebarLink[] = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { to: "/directory", icon: MapPin, label: "Directory" },
     { to: "/employees", icon: Users, label: "Employees" },
+    { to: "/directory", icon: MapPin, label: "Directory" },
     { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
     { to: "/leave", icon: CalendarDays, label: "Leave" },
     { to: "/payroll", icon: DollarSign, label: "Payroll" },
