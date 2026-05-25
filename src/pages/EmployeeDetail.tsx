@@ -1,714 +1,313 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useData } from "../context/DataContext";
-import { useAuth } from "../context/AuthContext";
-import { getVisibleEmployees } from "../utils/utils";
-import { getStatusColor, formatPKR } from "../services/api";
+import React, { useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
-  Pencil,
-  Trash2,
-  UserX,
-  Plus,
+  AlertTriangle,
+  BadgeDollarSign,
+  Banknote,
+  CalendarDays,
   ChevronDown,
+  Clock3,
   FileText,
-  Download,
-  Printer,
-  Clock,
-  TrendingUp,
+  HeartPulse,
+  Mail,
+  MapPin,
+  Phone,
+  ShieldCheck,
+  UserRound,
 } from "lucide-react";
-import Modal from "../components/common/Modal";
-import DecisionBanner from "../components/common/DecisionBanner";
-import { useToastContext } from "../context/ToastContext";
 import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
 } from "recharts";
-import { useEmployee, useEmployees } from "../hooks/useEmployees";
+import Modal from "../components/common/Modal";
+import { useToastContext } from "../context/ToastContext";
+import { useAttendanceReport } from "../hooks/useAttendance";
+import { useEmployee } from "../hooks/useEmployees";
+import { useLeaveBalances, useLeaves } from "../hooks/useLeaves";
+import { usePenalties } from "../hooks/usePenalties";
 import { useRbac } from "../hooks/useRbac";
-import { useAttendance } from "../hooks/useAttendance";
-import { useLeaves } from "../hooks/useLeaves";
+import { formatPKR, getStatusColor } from "../services/api";
 
-// ── Activity log and doc mock data logic identical to original...
-const deptColors: Record<string, string> = {
-  Engineering: "#1565c0",
-  Marketing: "#e67e22",
-  HR: "#1b7a4e",
-  Sales: "#b71c1c",
-  Finance: "#00695c",
-};
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const activityLog = [
-  {
-    action: "Salary Updated",
-    date: "2026-03-19 09:20",
-    by: "Super Admin",
-    before: "PKR 120,000",
-    after: "PKR 150,000",
-    type: "UPDATE",
-  },
-  {
-    action: "Leave Approved",
-    date: "2026-03-15 14:30",
-    by: "Super Admin",
-    before: "Pending",
-    after: "Approved",
-    type: "UPDATE",
-  },
-  {
-    action: "Promoted",
-    date: "2024-01-01 10:00",
-    by: "Super Admin",
-    before: "Senior Developer",
-    after: "Lead Developer",
-    type: "UPDATE",
-  },
-  {
-    action: "Shift Changed",
-    date: "2023-06-15 11:20",
-    by: "HR1",
-    before: "Evening Shift",
-    after: "Morning Shift",
-    type: "UPDATE",
-  },
-  {
-    action: "Employee Created",
-    date: "2020-01-15 09:00",
-    by: "Super Admin",
-    before: "-",
-    after: "EMP001",
-    type: "CREATE",
-  },
-];
+function firstValue(...values: any[]) {
+  return values.find((value) => value !== undefined && value !== null && value !== "");
+}
 
-const documents = [
-  {
-    name: "CNIC Copy",
-    category: "CNIC",
-    file: "cnic_scan.pdf",
-    uploaded: true,
-  },
-  {
-    name: "Profile Photo",
-    category: "Education",
-    file: "ahmed_photo.jpg",
-    uploaded: true,
-  },
-  {
-    name: "Degree Certificate",
-    category: "Education",
-    file: "degree.pdf",
-    uploaded: true,
-  },
-  {
-    name: "Employment Contract",
-    category: "Contract",
-    file: "",
-    uploaded: false,
-  },
-  { name: "Electric Bill", category: "Medical", file: "", uploaded: false },
-];
+function text(value: any) {
+  const resolved = firstValue(value);
+  return resolved === undefined ? "Not provided" : String(resolved);
+}
+
+function numberValue(value: any) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatDate(value: any) {
+  if (!value) return "Not provided";
+  const raw = String(value);
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const date = match
+    ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])))
+    : new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw.slice(0, 10) || "Not provided";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatStatus(value: any) {
+  return text(value).replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getWindowMonths(offset: 0 | 6) {
+  const now = new Date();
+  return Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - offset - (5 - index), 1);
+    return {
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+      label: `${MONTHS[date.getMonth()]} ${String(date.getFullYear()).slice(2)}`,
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+    };
+  });
+}
+
+function getInitials(name: string, fallback: string) {
+  return (name || fallback || "?")
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function normalizeEmployee(raw: any) {
+  return {
+    id: text(firstValue(raw?.employee_id, raw?.id)),
+    name: text(firstValue(raw?.personalInfo?.name, raw?.name, raw?.employee_name)),
+    fatherName: text(firstValue(raw?.personalInfo?.father_name, raw?.father_name)),
+    cnic: text(firstValue(raw?.personalInfo?.cnic, raw?.cnic)),
+    dob: firstValue(raw?.personalInfo?.date_of_birth, raw?.date_of_birth),
+    gender: text(firstValue(raw?.personalInfo?.gender, raw?.medicalInfo?.gender, raw?.gender)),
+    department: text(firstValue(raw?.jobInfo?.department_name, raw?.department_name, raw?.department)),
+    designation: text(firstValue(raw?.jobInfo?.designation_name, raw?.designation_title, raw?.designation_name, raw?.designation)),
+    employmentType: text(firstValue(raw?.jobInfo?.employment_type_name, raw?.employment_type_name)),
+    jobStatus: text(firstValue(raw?.jobInfo?.job_status_name, raw?.job_status_name, raw?.status)),
+    workMode: text(firstValue(raw?.jobInfo?.work_mode_name, raw?.work_mode_name)),
+    workLocation: text(firstValue(raw?.jobInfo?.work_location_name, raw?.work_location_name)),
+    shift: text(firstValue(raw?.jobInfo?.shift_name, raw?.shift_name)),
+    dateOfJoining: firstValue(raw?.jobInfo?.date_of_joining, raw?.date_of_joining),
+    dateOfExit: firstValue(raw?.jobInfo?.date_of_exit, raw?.date_of_exit),
+    email: text(firstValue(raw?.accountInfo?.email, raw?.email, raw?.user?.email)),
+    phone: text(firstValue(raw?.accountInfo?.phone, raw?.phone, raw?.emergencyContacts?.contact_1)),
+    emergency1: text(raw?.emergencyContacts?.e_contact_1_full_name),
+    emergency2: text(raw?.emergencyContacts?.e_contact_2_full_name),
+    permanentAddress: text(raw?.emergencyContacts?.perment_address),
+    postalAddress: text(raw?.emergencyContacts?.postal_address),
+    bankName: text(raw?.bankInfo?.bank_name),
+    bankAccount: text(raw?.bankInfo?.account_number),
+    bankVerified: Boolean(raw?.bankInfo?.is_verified),
+    bloodGroup: text(raw?.medicalInfo?.blood_group),
+    allergies: text(raw?.medicalInfo?.allergy_notes),
+    chronicConditions: text(raw?.medicalInfo?.chronic_condition_notes),
+    medications: text(raw?.medicalInfo?.emergency_medication),
+    salary: numberValue(raw?.salaryInfo?.base_salary),
+    currency: text(raw?.salaryInfo?.currency || "PKR"),
+  };
+}
+
+function InfoCard({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden", borderRadius: 14 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "13px 15px",
+          borderBottom: "1px solid var(--br2)",
+          background: "linear-gradient(90deg, rgba(37,99,235,.08), rgba(255,255,255,.8))",
+          fontSize: 12,
+          fontWeight: 900,
+          color: "var(--t1)",
+          textTransform: "uppercase",
+        }}
+      >
+        <span style={{ display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: 9, background: "rgba(37,99,235,.1)", color: "var(--p)" }}>
+          {icon}
+        </span>
+        {title}
+      </div>
+      <div style={{ padding: 15 }}>{children}</div>
+    </div>
+  );
+}
+
+function FieldGrid({ items }: { items: Array<[string, any]> }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
+      {items.map(([label, value]) => (
+        <div key={label} style={{ padding: "11px 12px", border: "1px solid var(--br2)", borderRadius: 10, background: "rgba(248,250,252,.72)" }}>
+          <div style={{ fontSize: 10, fontWeight: 850, textTransform: "uppercase", color: "var(--t3)", marginBottom: 6 }}>{label}</div>
+          <div style={{ fontSize: 13, fontWeight: 750, color: "var(--t1)", overflowWrap: "anywhere" }}>{text(value)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ padding: 26, textAlign: "center", color: "var(--t3)", fontSize: 13 }}>
+      {children}
+    </div>
+  );
+}
 
 export default function EmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToastContext();
-  const {
-    employees,
-    payrollData,
-    promotions,
-    penalties,
-    setPromotions,
-    setPenalties,
-  } = useData();
-  const { user, activeRole } = useAuth();
-  const {
-    data: rawEmp,
-    isLoading,
-    resendCredentials,
-    isResendingCredentials,
-  } = useEmployee(id);
-  const { update } = useEmployees();
   const { can } = useRbac();
-  const canEdit = can("edit_employee");
-  const canResendCredentials = can("resend_credentials");
-
   const [tab, setTab] = useState("profile");
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [windowOffset, setWindowOffset] = useState<0 | 6>(0);
   const [resendModalOpen, setResendModalOpen] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
-  const [promoModal, setPromoModal] = useState(false);
-  const [penaltyModal, setPenaltyModal] = useState(false);
-  const [personalEditOpen, setPersonalEditOpen] = useState(false);
-  const [jobEditOpen, setJobEditOpen] = useState(false);
-  const [isUpdatingPersonal, setIsUpdatingPersonal] = useState(false);
-  const [isUpdatingJob, setIsUpdatingJob] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [editFatherName, setEditFatherName] = useState("");
-  const [editDob, setEditDob] = useState("");
-  const [editCnic, setEditCnic] = useState("");
-  const [editGender, setEditGender] = useState("");
-  const [editContact1, setEditContact1] = useState("");
-  const [editContact2, setEditContact2] = useState("");
-  const [editEmergency1, setEditEmergency1] = useState("");
-  const [editEmergency2, setEditEmergency2] = useState("");
-  const [editPermanentAddress, setEditPermanentAddress] = useState("");
-  const [editPostalAddress, setEditPostalAddress] = useState("");
-  const [editBloodGroup, setEditBloodGroup] = useState("");
-  const [editAllergies, setEditAllergies] = useState("");
-  const [editChronic, setEditChronic] = useState("");
-  const [editMedications, setEditMedications] = useState("");
-  const [editDepartment, setEditDepartment] = useState("");
-  const [editDesignation, setEditDesignation] = useState("");
-  const [editEmploymentType, setEditEmploymentType] = useState("");
-  const [editJobStatus, setEditJobStatus] = useState("");
-  const [editWorkMode, setEditWorkMode] = useState("");
-  const [editWorkLocation, setEditWorkLocation] = useState("");
-  const [editShift, setEditShift] = useState("");
-  const [editDateOfJoining, setEditDateOfJoining] = useState("");
-  const [editDateOfExit, setEditDateOfExit] = useState("");
-  const [editCommissionEligible, setEditCommissionEligible] = useState(false);
-  const [promoDesig, setPromoDesig] = useState("");
-  const [promoSalary, setPromoSalary] = useState("");
-  const [promoDate, setPromoDate] = useState("");
-  const [promoNotes, setPromoNotes] = useState("");
-  const [penaltyChecks, setPenaltyChecks] = useState<boolean[]>([
-    false,
-    false,
-    false,
-    false,
-  ]);
-  const [penaltyOtherDesc, setPenaltyOtherDesc] = useState("");
-  const [penaltyOtherFine, setPenaltyOtherFine] = useState("");
-  const [actionsOpen, setActionsOpen] = useState(false);
+  const { data: rawEmployee, isLoading, resendCredentials, isResendingCredentials } = useEmployee(id);
+  const employee = useMemo(() => (rawEmployee ? normalizeEmployee(rawEmployee) : null), [rawEmployee]);
+  const employeeId = employee?.id || id || "";
 
-  const visibleEmployees = useMemo(
-    () => getVisibleEmployees(user, activeRole, employees),
-    [user, activeRole, employees],
+  const months = useMemo(() => getWindowMonths(windowOffset), [windowOffset]);
+  const latestMonth = months[months.length - 1];
+  const { data: reportRows = [], isLoading: attendanceLoading } = useAttendanceReport(
+    employeeId && latestMonth
+      ? { employee_id: employeeId, year: latestMonth.year, month: latestMonth.month }
+      : undefined,
+  );
+  const { data: leaveRows = [], isLoading: leavesLoading } = useLeaves(employeeId ? { employee_id: employeeId } : undefined);
+  const { data: leaveBalances = [], isLoading: balancesLoading } = useLeaveBalances(employeeId ? { employee_id: employeeId, year: new Date().getFullYear() } : undefined);
+  const { data: penaltyRows = [], isLoading: penaltiesLoading, isError: penaltiesError } = usePenalties(employeeId ? { employee_id: employeeId } : undefined);
+
+  const attendanceChart = months.map((month) => {
+    const row = reportRows.find((item: any) => {
+      const rowDate = item.month || item.date || item.attendance_month;
+      return rowDate ? String(rowDate).startsWith(month.key) : true;
+    }) || reportRows[0] || {};
+    return {
+      month: month.label,
+      present: numberValue(row.presents ?? row.present),
+      absent: numberValue(row.absents ?? row.absent),
+      late: numberValue(row.lates ?? row.late),
+    };
+  });
+
+  const attendanceTotals = attendanceChart.reduce(
+    (acc, row) => ({
+      present: acc.present + row.present,
+      absent: acc.absent + row.absent,
+      late: acc.late + row.late,
+    }),
+    { present: 0, absent: 0, late: 0 },
   );
 
-  const emp = useMemo(() => {
-    if (!rawEmp) return null;
-    return {
-      id: rawEmp.employee_id || rawEmp.id,
-      internalId: rawEmp.id,
-      name: rawEmp.personalInfo?.name || rawEmp.name || "",
-      fatherName: rawEmp.personalInfo?.father_name || rawEmp.father_name || "",
-      dob: rawEmp.personalInfo?.date_of_birth || rawEmp.date_of_birth || "",
-      cnic: rawEmp.personalInfo?.cnic || rawEmp.cnic || "",
-      gender:
-        rawEmp.personalInfo?.gender ||
-        rawEmp.medicalInfo?.gender ||
-        rawEmp.gender ||
-        "",
-      department:
-        rawEmp.jobInfo?.department_name || rawEmp.department_name || "",
-      designation:
-        rawEmp.jobInfo?.designation_name ||
-        rawEmp.designation_name ||
-        rawEmp.designation_title ||
-        "",
-      employmentType:
-        rawEmp.jobInfo?.employment_type_name ||
-        rawEmp.employment_type_name ||
-        "",
-      jobStatus:
-        rawEmp.jobInfo?.job_status_name ||
-        rawEmp.job_status_name ||
-        rawEmp.status ||
-        "",
-      workMode: rawEmp.jobInfo?.work_mode_name || rawEmp.work_mode_name || "",
-      workLocation:
-        rawEmp.jobInfo?.work_location_name || rawEmp.work_location_name || "",
-      shift: rawEmp.jobInfo?.shift_name || rawEmp.shift_name || "",
-      dateOfJoining:
-        rawEmp.jobInfo?.date_of_joining || rawEmp.date_of_joining || "",
-      email: rawEmp.accountInfo?.email || rawEmp.email || rawEmp.user?.email || "",
-      contact1:
-        rawEmp.accountInfo?.phone ||
-        rawEmp.phone ||
-        rawEmp.emergencyContacts?.contact_1 ||
-        "",
-      contact2: "", // Map correctly from backend if available
-      emergency1: rawEmp.emergencyContacts?.e_contact_1_full_name || "",
-      emergency2: rawEmp.emergencyContacts?.e_contact_2_full_name || "",
-      permanentAddress: rawEmp.emergencyContacts?.perment_address || "",
-      bankName: rawEmp.bankInfo?.bank_name || "",
-      bankAccount: rawEmp.bankInfo?.account_number || "",
-      paymentMode: "",
-      bloodGroup: rawEmp.medicalInfo?.blood_group || "",
-      allergies: rawEmp.medicalInfo?.allergy_notes || "",
-      chronicConditions: "",
-      medications: rawEmp.medicalInfo?.emergency_medication || "",
-      salary: {
-        basic: Number(rawEmp.salaryInfo?.base_salary) || 0,
-        houseRent: 0,
-        medical: 0,
-        conveyance: 0,
-        commission: 0,
-      },
-      avatar: rawEmp.accountInfo?.email
-        ? rawEmp.accountInfo.email.split("@")[0].slice(0, 2).toUpperCase()
-        : "",
-      commissionEligible: false,
-    };
-  }, [rawEmp]);
-
-  useEffect(() => {
-    if (!emp) return;
-    setEditName(emp.name);
-    setEditFatherName(emp.fatherName);
-    setEditDob(emp.dob);
-    setEditCnic(emp.cnic);
-    setEditGender(emp.gender);
-    setEditContact1(emp.contact1);
-    setEditContact2(emp.contact2);
-    setEditEmergency1(emp.emergency1);
-    setEditEmergency2(emp.emergency2);
-    setEditPermanentAddress(emp.permanentAddress);
-    setEditPostalAddress(emp.postalAddress || "");
-    setEditBloodGroup(emp.bloodGroup);
-    setEditAllergies(emp.allergies);
-    setEditChronic(emp.chronicConditions);
-    setEditMedications(emp.medications);
-    setEditDepartment(emp.department);
-    setEditDesignation(emp.designation);
-    setEditEmploymentType(emp.employmentType);
-    setEditJobStatus(emp.jobStatus);
-    setEditWorkMode(emp.workMode);
-    setEditWorkLocation(emp.workLocation);
-    setEditShift(emp.shift);
-    setEditDateOfJoining(emp.dateOfJoining);
-    setEditDateOfExit(emp.dateOfExit || "");
-    setEditCommissionEligible(emp.commissionEligible);
-  }, [emp]);
-
-  const tabs = ["Profile", "Attendance", "Leave", "Settings"];
-  const employeeQueryId = emp?.id || id;
-  const {
-    data: employeeAttendanceRows = [],
-    isLoading: isEmployeeAttendanceLoading,
-  } = useAttendance(employeeQueryId ? { employee_id: employeeQueryId } : undefined);
-  const {
-    data: employeeLeaveRows = [],
-    isLoading: isEmployeeLeaveLoading,
-  } = useLeaves(employeeQueryId ? { employee_id: employeeQueryId } : undefined);
-
-  if (isLoading)
-    return <div style={{ padding: 50, textAlign: "center" }}>Loading...</div>;
-
-  if (!emp) {
-    return (
-      <div style={{ padding: "50px", textAlign: "center", color: "#6b7280" }}>
-        <h2>Employee not found or access denied</h2>
-        <button
-          onClick={() => navigate("/employees")}
-          className="btn btn-primary"
-          style={{ marginTop: "20px" }}
-        >
-          Back to Employees
-        </button>
-      </div>
-    );
-  }
-
-  const handleSavePersonal = async () => {
-    if (!emp) return;
-    setIsUpdatingPersonal(true);
-    try {
-      await update({
-        id: emp.id,
-        updates: {
-          personalInfo: {
-            name: editName,
-            father_name: editFatherName,
-            cnic: editCnic,
-            date_of_birth: editDob,
-            gender: editGender,
-          },
-          accountInfo: {
-            phone: editContact1,
-          },
-          emergencyContacts: {
-            e_contact_1_full_name: editEmergency1,
-            e_contact_2_full_name: editEmergency2,
-            perment_address: editPermanentAddress,
-            postal_address: editPostalAddress,
-          },
-          medicalInfo: {
-            blood_group: editBloodGroup,
-            allergy_notes: editAllergies,
-            chronic_condition_notes: editChronic,
-            emergency_medication: editMedications,
-          },
-        },
-      });
-      showToast("Personal info updated");
-      setPersonalEditOpen(false);
-    } catch {
-      showToast("Failed to update personal info", "error");
-    } finally {
-      setIsUpdatingPersonal(false);
-    }
-  };
-
-  const handleSaveJob = async () => {
-    if (!emp) return;
-    setIsUpdatingJob(true);
-    try {
-      await update({
-        id: emp.id,
-        updates: {
-          jobInfo: {
-            department: editDepartment,
-            designation: editDesignation,
-            employment_type: editEmploymentType,
-            job_status: editJobStatus,
-            work_mode: editWorkMode,
-            work_location: editWorkLocation,
-            shift: editShift,
-            date_of_joining: editDateOfJoining,
-            date_of_exit: editDateOfExit || undefined,
-            commission_eligible: editCommissionEligible,
-          },
-        },
-      });
-      showToast("Job details updated");
-      setJobEditOpen(false);
-    } catch {
-      showToast("Failed to update job details", "error");
-    } finally {
-      setIsUpdatingJob(false);
-    }
-  };
-
   const handleResendCredentials = async () => {
-    if (!id || !canResendCredentials) return;
+    if (!employeeId) return;
     try {
-      const result = await resendCredentials(id);
-      const pwd =
-        result?.tempPassword ??
-        result?.temp_password ??
-        result?.password ??
-        null;
-      setTempPassword(pwd);
+      const result = await resendCredentials(employeeId);
+      setTempPassword(result?.tempPassword ?? result?.temp_password ?? result?.password ?? null);
       setResendModalOpen(true);
       showToast("Credentials resent successfully");
     } catch {
       showToast("Failed to resend credentials", "error");
     }
   };
-  const empPayroll = payrollData.filter((p: any) => p.empId === emp.id);
-  const empPromos = promotions.filter((p: any) => p.empId === emp.id);
-  const empPenalties = penalties.filter((p: any) => p.empId === emp.id);
-  const empLeaves = Array.isArray(employeeLeaveRows) ? employeeLeaveRows : [];
-  const empAttendance = Array.isArray(employeeAttendanceRows)
-    ? employeeAttendanceRows
-    : [];
-  const normalizeStatus = (value?: string) => {
-    const status = String(value || "").toLowerCase();
-    if (status === "present") return "Present";
-    if (status === "late") return "Late";
-    if (status === "absent") return "Absent";
-    if (status === "half_day") return "Half Day";
-    if (status === "on_leave") return "On Leave";
-    return value || "-";
-  };
-  const formatDateOnly = (value?: string) => {
-    if (!value) return "-";
-    const raw = String(value);
-    const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) return raw.slice(0, 10);
-    return new Intl.DateTimeFormat("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).format(date);
-  };
-  const formatTimeOnly = (value?: string) => {
-    if (!value) return "-";
-    const match = String(value).match(/(\d{2}):(\d{2})/);
-    return match ? `${match[1]}:${match[2]}` : String(value);
-  };
 
-  const savePromo = () => {
-    setPromotions((prev) => [
-      ...prev,
-      {
-        id: "PR" + String(prev.length + 1).padStart(3, "0"),
-        empId: emp.id,
-        empName: emp.name,
-        oldDesignation: emp.designation,
-        newDesignation: promoDesig,
-        oldSalary: emp.salary.basic,
-        newSalary: parseInt(promoSalary) || 0,
-        date: promoDate || new Date().toISOString().split("T")[0],
-        approvedBy: "Super Admin",
-      },
-    ]);
-    showToast("Promotion recorded");
-    setPromoModal(false);
-    setPromoDesig("");
-    setPromoSalary("");
-    setPromoDate("");
-    setPromoNotes("");
-  };
+  if (isLoading) {
+    return <div style={{ padding: 50, textAlign: "center" }}>Loading employee profile...</div>;
+  }
 
-  const savePenalty = () => {
-    const penaltyNames = [
-      "Late 3+ days",
-      "Eating at desk",
-      "Smoking in office",
-      "Drinking at desk",
-    ];
-    const fines = [2000, 500, 1000, 500];
-    penaltyChecks.forEach((checked, i) => {
-      if (checked) {
-        setPenalties((prev) => [
-          ...prev,
-          {
-            id: "PN" + String(prev.length + 1).padStart(3, "0"),
-            empId: emp.id,
-            empName: emp.name,
-            type: penaltyNames[i],
-            amount: fines[i],
-            date: new Date().toISOString().split("T")[0],
-            appliedBy: "HR1",
-            status: "Active",
-          },
-        ]);
-      }
-    });
-    if (penaltyOtherDesc && penaltyOtherFine) {
-      setPenalties((prev) => [
-        ...prev,
-        {
-          id: "PN" + String(prev.length + 1).padStart(3, "0"),
-          empId: emp.id,
-          empName: emp.name,
-          type: penaltyOtherDesc,
-          amount: parseInt(penaltyOtherFine) || 0,
-          date: new Date().toISOString().split("T")[0],
-          appliedBy: "HR1",
-          status: "Active",
-        },
-      ]);
-    }
-    showToast("Penalty applied");
-    setPenaltyModal(false);
-    setPenaltyChecks([false, false, false, false]);
-    setPenaltyOtherDesc("");
-    setPenaltyOtherFine("");
-  };
-
-  const attChart = Array.from({ length: 6 }, (_, offset) => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - (5 - offset));
-    const month = date.toLocaleString("en-US", { month: "short" });
-    const monthRows = empAttendance.filter((row: any) => {
-      const rawDate = row.date || row.attendance_date || row.created_at;
-      const rowDate = rawDate ? new Date(rawDate) : null;
-      return (
-        rowDate &&
-        !Number.isNaN(rowDate.getTime()) &&
-        rowDate.getMonth() === date.getMonth() &&
-        rowDate.getFullYear() === date.getFullYear()
-      );
-    });
-    return {
-      month,
-      present: monthRows.filter((row: any) => normalizeStatus(row.status) === "Present").length,
-      absent: monthRows.filter((row: any) => normalizeStatus(row.status) === "Absent").length,
-      late: monthRows.filter((row: any) => normalizeStatus(row.status) === "Late").length,
-    };
-  });
-  const salaryProgression = empPromos.map((p: any) => ({
-    date: p.date.substring(0, 7),
-    salary: p.newSalary,
-  }));
-  if (salaryProgression.length === 0)
-    salaryProgression.push({
-      date: emp.dateOfJoining?.substring(0, 7) || "2020-01",
-      salary: emp.salary.basic,
-    });
-
-  const InfoGrid = ({ items }: { items: [string, string][] }) => (
-    <div
-      style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}
-    >
-      {items.map(([label, value], i) => (
-        <div key={i}>
-          <div
-            style={{
-              fontSize: 10.5,
-              fontWeight: 600,
-              color: "var(--t3)",
-              textTransform: "uppercase",
-              letterSpacing: ".06em",
-              marginBottom: 4,
-            }}
-          >
-            {label}
-          </div>
-          <div style={{ fontSize: 13 }}>{value}</div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const SectionHeading = ({ title, action }: { title: string; action?: React.ReactNode }) => (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 14,
-        gap: 12,
-      }}
-    >
-      <div
-        style={{
-          fontSize: 13,
-          fontWeight: 800,
-          color: "var(--t1)",
-          letterSpacing: ".01em",
-        }}
-      >
-        {title}
+  if (!employee) {
+    return (
+      <div style={{ padding: 50, textAlign: "center", color: "var(--t3)" }}>
+        <h2>Employee not found or access denied</h2>
+        <button className="btn btn-primary" onClick={() => navigate("/employees")}>Back to Employees</button>
       </div>
-      {action}
-    </div>
-  );
+    );
+  }
+
+  const tabs = ["Profile", "Attendance", "Leave", "Penalties", "Settings"];
+  const initials = getInitials(employee.name, employee.id);
+  const quickActions = [
+    { label: "Open attendance sheet", action: () => navigate("/attendance") },
+    { label: "Open leave management", action: () => navigate("/leave") },
+    { label: "Open payroll", action: () => navigate("/payroll") },
+    ...(can("resend_credentials") ? [{ label: "Resend credentials", action: handleResendCredentials }] : []),
+  ];
 
   return (
-    <div>
-      {/* Header */}
+    <div style={{ display: "grid", gap: 14 }}>
       <div
         className="card"
         style={{
-          marginBottom: 12,
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
+          padding: 18,
+          borderRadius: 16,
+          overflow: "visible",
+          background: "linear-gradient(135deg, rgba(37,99,235,.12), rgba(13,148,136,.09) 48%, rgba(168,85,247,.12))",
+          border: "1px solid rgba(147,197,253,.55)",
         }}
       >
-        <div
-          className="avatar avatar-lg"
-          style={{ background: deptColors[emp.department] || "var(--p)" }}
-        >
-          {emp.avatar}
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 18, fontWeight: 800 }}>{emp.name}</span>
-            <span className="mono" style={{ fontSize: 11, color: "var(--t3)" }}>
-              {emp.id}
-            </span>
-            <span className={`pill ${getStatusColor(emp.jobStatus)}`}>
-              {emp.jobStatus}
-            </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ width: 62, height: 62, borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(135deg, var(--p), var(--teal))", color: "white", fontSize: 18, fontWeight: 950 }}>
+            {initials}
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--t2)", marginTop: 4 }}>
-            {emp.department} · {emp.designation}
-          </div>
-          {emp.email && (
-            <div
-              className="mono"
-              style={{ fontSize: 11, color: "var(--t3)", marginTop: 3 }}
-            >
-              {emp.email}
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <h1 style={{ margin: 0, fontSize: 26, lineHeight: 1.1, color: "var(--t1)" }}>{employee.name}</h1>
+              <span className="mono" style={{ fontSize: 12, color: "var(--t3)" }}>{employee.id}</span>
+              <span className={`pill ${getStatusColor(employee.jobStatus)}`}>{employee.jobStatus}</span>
             </div>
-          )}
-        </div>
-        <div style={{ display: "flex", gap: 8, position: "relative" }}>
-          {canEdit && (
-            <button
-              className="btn btn-ghost"
-              onClick={() => setPersonalEditOpen(true)}
-            >
-              <Pencil size={13} /> Edit
-            </button>
-          )}
-          <div style={{ position: "relative" }}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setActionsOpen(!actionsOpen)}
-            >
+            <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "var(--t2)", fontSize: 13 }}>
+              <span>{employee.designation}</span>
+              <span>in</span>
+              <strong>{employee.department}</strong>
+              <span style={{ color: "var(--t3)" }}>|</span>
+              <MapPin size={13} />
+              <span>{employee.workLocation}</span>
+            </div>
+          </div>
+          <div style={{ position: "relative", zIndex: 20 }}>
+            <button className="btn btn-secondary" onClick={() => setActionsOpen((open) => !open)}>
               Quick Actions <ChevronDown size={12} />
             </button>
             {actionsOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  right: 0,
-                  marginTop: 4,
-                  background: "var(--card)",
-                  border: "1px solid var(--br)",
-                  borderRadius: "var(--rsm)",
-                  boxShadow: "var(--sh2)",
-                  zIndex: 10,
-                  minWidth: 180,
-                  padding: 4,
-                }}
-              >
-                {[
-                  {
-                    label: "Generate Payslip",
-                    action: () => navigate("/payroll"),
-                  },
-                  {
-                    label: "Mark Attendance",
-                    action: () => navigate("/attendance"),
-                  },
-                  { label: "Apply Leave", action: () => navigate("/leave") },
-                  {
-                    label: "Promote Employee",
-                    action: () => {
-                      setPromoModal(true);
-                      setActionsOpen(false);
-                    },
-                  },
-                  {
-                    label: "Add Penalty",
-                    action: () => {
-                      setPenaltyModal(true);
-                      setActionsOpen(false);
-                    },
-                  },
-                ].map((item, i) => (
+              <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: 220, background: "#fff", border: "1px solid var(--br)", borderRadius: 12, boxShadow: "var(--sh2)", zIndex: 2000, padding: 6 }}>
+                {quickActions.map((item) => (
                   <button
-                    key={i}
+                    key={item.label}
                     onClick={() => {
-                      item.action();
                       setActionsOpen(false);
+                      item.action();
                     }}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "8px 12px",
-                      border: "none",
-                      background: "none",
-                      cursor: "pointer",
-                      fontSize: 12,
-                      color: "var(--t2)",
-                      borderRadius: 4,
-                    }}
-                    onMouseOver={(e) =>
-                      (e.currentTarget.style.background = "var(--hover)")
-                    }
-                    onMouseOut={(e) =>
-                      (e.currentTarget.style.background = "none")
-                    }
+                    style={{ display: "block", width: "100%", border: "none", background: "transparent", textAlign: "left", padding: "9px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12, color: "var(--t2)" }}
                   >
                     {item.label}
                   </button>
@@ -716,1137 +315,228 @@ export default function EmployeeDetail() {
               </div>
             )}
           </div>
-          {can("delete_employee") && (
-            <button className="btn btn-danger">
-              <UserX size={13} /> Deactivate
-            </button>
-          )}
         </div>
       </div>
 
       <div className="tabs" style={{ overflowX: "auto" }}>
-        {tabs.map((t) => (
-          <button
-            key={t}
-            className={`tab ${tab === t.toLowerCase().replace(" ", "-") ? "active" : ""}`}
-            onClick={() => setTab(t.toLowerCase().replace(" ", "-"))}
-          >
-            {t}
-          </button>
-        ))}
+        {tabs.map((item) => {
+          const key = item.toLowerCase();
+          return (
+            <button key={key} className={`tab ${tab === key ? "active" : ""}`} onClick={() => setTab(key)}>
+              {item}
+            </button>
+          );
+        })}
       </div>
 
       {tab === "profile" && (
-        <>
-          <div className="card">
-            <SectionHeading title="Personal & Contact Information" />
-            {canEdit && (
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  marginBottom: 12,
-                }}
-              >
-                <button
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => setPersonalEditOpen(true)}
-                >
-                  <Pencil size={12} /> Edit Profile
-                </button>
-              </div>
-            )}
-            <InfoGrid
+        <div style={{ display: "grid", gap: 12 }}>
+          <InfoCard title="Personal & Contact" icon={<UserRound size={15} />}>
+            <FieldGrid
               items={[
-                ["Full Name", emp.name],
-                ["Email", emp.email || "Not provided"],
-                ["Father Name", emp.fatherName],
-                ["Date of Birth", emp.dob],
-                ["CNIC", emp.cnic],
-                ["Gender", emp.gender],
-                ["Contact 1", emp.contact1],
-                ["Contact 2", emp.contact2 || "N/A"],
-                ["Emergency 1", emp.emergency1],
-                ["Emergency 2", emp.emergency2 || "N/A"],
-                ["Permanent Address", emp.permanentAddress],
-                ["Bank Name", emp.bankName || "Not provided"],
-                ["Bank Account", emp.bankAccount || "Not provided"],
-                ["Payment Mode", emp.paymentMode],
+                ["Full Name", employee.name],
+                ["Email", employee.email],
+                ["Phone", employee.phone],
+                ["Father Name", employee.fatherName],
+                ["Date of Birth", formatDate(employee.dob)],
+                ["CNIC", employee.cnic],
+                ["Gender", employee.gender],
+                ["Emergency Contact 1", employee.emergency1],
+                ["Emergency Contact 2", employee.emergency2],
+                ["Permanent Address", employee.permanentAddress],
+                ["Postal Address", employee.postalAddress],
               ]}
             />
-          </div>
-          <div className="card" style={{ marginTop: 12 }}>
-            <SectionHeading title="Job Information" />
-            {canEdit && (
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  marginBottom: 12,
-                }}
-              >
-                <button
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => setJobEditOpen(true)}
-                >
-                  <Pencil size={12} /> Edit Job
-                </button>
-              </div>
-            )}
-            <InfoGrid
+          </InfoCard>
+          <InfoCard title="Job Information" icon={<ShieldCheck size={15} />}>
+            <FieldGrid
               items={[
-                ["Department", emp.department],
-                ["Designation", emp.designation],
-                ["Employment Type", emp.employmentType],
-                ["Job Status", emp.jobStatus],
-                ["Work Mode", emp.workMode],
-                ["Work Location", emp.workLocation],
-                ["Shift", emp.shift],
-                ["Date of Joining", emp.dateOfJoining],
-                ["Commission Eligible", emp.commissionEligible ? "Yes" : "No"],
+                ["Department", employee.department],
+                ["Designation", employee.designation],
+                ["Employment Type", employee.employmentType],
+                ["Job Status", employee.jobStatus],
+                ["Work Mode", employee.workMode],
+                ["Work Location", employee.workLocation],
+                ["Shift", employee.shift],
+                ["Date of Joining", formatDate(employee.dateOfJoining)],
+                ["Date of Exit", formatDate(employee.dateOfExit)],
               ]}
             />
-            <div style={{ marginTop: 16 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "var(--t3)",
-                  textTransform: "uppercase",
-                  marginBottom: 8,
-                }}
-              >
-                Salary Structure
-              </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1fr",
-                  gap: 12,
-                }}
-              >
-                {[
-                  ["Basic", emp.salary.basic],
-                  ["House Rent", emp.salary.houseRent],
-                  ["Medical", emp.salary.medical],
-                  ["Conveyance", emp.salary.conveyance],
-                  ["Commission", emp.salary.commission],
-                ].map(([l, v], i) => (
-                  <div key={i}>
-                    <span style={{ fontSize: 11, color: "var(--t3)" }}>
-                      {l}:{" "}
-                    </span>
-                    <span className="mono" style={{ fontWeight: 600 }}>
-                      {formatPKR(v as number)}
-                    </span>
-                  </div>
-                ))}
-                <div>
-                  <span style={{ fontSize: 11, color: "var(--t3)" }}>
-                    Total:{" "}
-                  </span>
-                  <span
-                    className="mono"
-                    style={{ fontWeight: 700, color: "var(--p)" }}
-                  >
-                    {formatPKR(
-                      emp.salary.basic +
-                        emp.salary.houseRent +
-                        emp.salary.medical +
-                        emp.salary.conveyance +
-                        emp.salary.commission,
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
+          </InfoCard>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+            <InfoCard title="Salary & Bank" icon={<Banknote size={15} />}>
+              <FieldGrid
+                items={[
+                  ["Base Salary", employee.currency === "PKR" ? formatPKR(employee.salary) : `${employee.salary.toLocaleString("en-PK")} ${employee.currency}`],
+                  ["Bank Name", employee.bankName],
+                  ["Bank Account", employee.bankAccount],
+                  ["Verification", employee.bankVerified ? "Verified" : "Not provided"],
+                ]}
+              />
+            </InfoCard>
+            <InfoCard title="Medical" icon={<HeartPulse size={15} />}>
+              <FieldGrid
+                items={[
+                  ["Blood Group", employee.bloodGroup],
+                  ["Allergies", employee.allergies],
+                  ["Chronic Conditions", employee.chronicConditions],
+                  ["Medication", employee.medications],
+                ]}
+              />
+            </InfoCard>
           </div>
-          <div className="card" style={{ marginTop: 12 }}>
-            <SectionHeading title="Medical Information" />
-            <InfoGrid
-              items={[
-                ["Blood Group", emp.bloodGroup],
-                ["Allergies", emp.allergies],
-                ["Chronic Conditions", emp.chronicConditions],
-                ["Medications", emp.medications],
-              ]}
-            />
-          </div>
-        </>
+        </div>
       )}
 
       {tab === "attendance" && (
-        <div style={{ minHeight: 320 }}>
-          <div>
-            <SectionHeading title="Attendance Summary" />
-            <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-              {[
-                {
-                  label: "Present",
-                  val: empAttendance.filter(
-                    (a: any) => normalizeStatus(a.status) === "Present",
-                  ).length,
-                  cls: "pill-green",
-                },
-                {
-                  label: "Absent",
-                  val: empAttendance.filter(
-                    (a: any) => normalizeStatus(a.status) === "Absent",
-                  ).length,
-                  cls: "pill-red",
-                },
-                {
-                  label: "Late",
-                  val: empAttendance.filter(
-                    (a: any) => normalizeStatus(a.status) === "Late",
-                  ).length,
-                  cls: "pill-amber",
-                },
-              ].map((s, i) => (
-                <span key={i} className={`pill ${s.cls}`}>
-                  {s.label}: {s.val}
-                </span>
-              ))}
+        <InfoCard title={windowOffset === 0 ? "Attendance (Last 6 Months)" : "Attendance (Previous 6 Months)"} icon={<Clock3 size={15} />}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <span className="pill pill-green">Present: {attendanceTotals.present}</span>
+              <span className="pill pill-red">Absent: {attendanceTotals.absent}</span>
+              <span className="pill pill-amber">Late: {attendanceTotals.late}</span>
             </div>
-            {/* Attendance Chart */}
-            <div className="card" style={{ marginBottom: 12 }}>
-              <div className="ch">
-                <div className="ct">
-                  <div className="ct-ico blue">
-                    <TrendingUp size={13} />
-                  </div>
-                  Attendance (Last 6 Months)
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={attChart}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8edf8" />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 10, fill: "#7590a8" }}
-                  />
-                  <YAxis tick={{ fontSize: 10, fill: "#7590a8" }} />
-                  <Tooltip />
-                  <Bar
-                    dataKey="present"
-                    fill="#1565c0"
-                    radius={[3, 3, 0, 0]}
-                    barSize={14}
-                  />
-                  <Bar
-                    dataKey="absent"
-                    fill="#e53935"
-                    radius={[3, 3, 0, 0]}
-                    barSize={14}
-                  />
-                  <Bar
-                    dataKey="late"
-                    fill="#e67e22"
-                    radius={[3, 3, 0, 0]}
-                    barSize={14}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="card">
-              <SectionHeading title="Attendance Records" />
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Day</th>
-                    <th>Check In</th>
-                    <th>Check Out</th>
-                    <th>Status</th>
-                    <th>Late By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isEmployeeAttendanceLoading ? (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign: "center", color: "var(--t3)" }}>
-                        Loading attendance...
-                      </td>
-                    </tr>
-                  ) : empAttendance.length ? (
-                    empAttendance.map((a: any, i: number) => {
-                      const status = normalizeStatus(a.status);
-                      return (
-                    <tr key={a.id || i}>
-                      <td className="mono">
-                        {formatDateOnly(a.date || a.attendance_date || a.created_at)}
-                      </td>
-                      <td>{a.day || "-"}</td>
-                      <td className="mono">{formatTimeOnly(a.checkIn || a.check_in)}</td>
-                      <td className="mono">{formatTimeOnly(a.checkOut || a.check_out)}</td>
-                      <td>
-                        <span className={`pill ${getStatusColor(status)}`}>
-                          {status}
-                        </span>
-                      </td>
-                      <td className="mono">{a.lateBy || "-"}</td>
-                    </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign: "center", color: "var(--t3)" }}>
-                        No attendance records found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className={`btn btn-sm ${windowOffset === 0 ? "btn-primary" : "btn-ghost"}`} onClick={() => setWindowOffset(0)}>Last 6 months</button>
+              <button className={`btn btn-sm ${windowOffset === 6 ? "btn-primary" : "btn-ghost"}`} onClick={() => setWindowOffset(6)}>Previous 6 months</button>
             </div>
           </div>
-        </div>
+          {attendanceLoading ? (
+            <EmptyState>Loading attendance...</EmptyState>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={attendanceChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e8edf8" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#7590a8" }} />
+                <YAxis tick={{ fontSize: 11, fill: "#7590a8" }} />
+                <Tooltip />
+                <Bar dataKey="present" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="absent" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="late" fill="#f97316" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </InfoCard>
       )}
 
       {tab === "leave" && (
-        <div style={{ minHeight: 320 }}>
-          <div>
-            <SectionHeading title="Leave Summary" />
-            <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-              {[
-                { label: "Pending", value: empLeaves.filter((l: any) => String(l.status || "").toLowerCase() === "pending").length, cls: "pill-amber" },
-                { label: "Approved", value: empLeaves.filter((l: any) => String(l.status || "").toLowerCase() === "approved").length, cls: "pill-green" },
-                { label: "Rejected", value: empLeaves.filter((l: any) => String(l.status || "").toLowerCase() === "rejected").length, cls: "pill-red" },
-              ].map((item) => (
-                <span key={item.label} className={`pill ${item.cls}`}>
-                  {item.label}: {item.value}
-                </span>
-              ))}
-            </div>
-            <div className="card">
-              <SectionHeading title="Leave Requests" />
-              <table>
-                <thead>
-                  <tr>
-                    <th>Type</th>
-                    <th>From</th>
-                    <th>To</th>
-                    <th>Days</th>
-                    <th>Reason</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isEmployeeLeaveLoading ? (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign: "center", color: "var(--t3)" }}>
-                        Loading leave requests...
-                      </td>
-                    </tr>
-                  ) : empLeaves.length ? (
-                    empLeaves.map((l: any, i: number) => {
-                      const status = l.status || "-";
-                      return (
-                    <tr key={l.id || i}>
-                      <td>{l.leave_type?.name || l.leave_type_name || l.leaveType || l.type || "-"}</td>
-                      <td className="mono">{formatDateOnly(l.from || l.start_date || l.date_from)}</td>
-                      <td className="mono">{formatDateOnly(l.to || l.end_date || l.date_to)}</td>
-                      <td className="mono">{l.days || l.total_days || l.duration || "-"}</td>
-                      <td>{l.reason || l.notes || "-"}</td>
-                      <td>
-                        <span className={`pill ${getStatusColor(status)}`}>
-                          {status}
-                        </span>
-                      </td>
-                    </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign: "center", color: "var(--t3)" }}>
-                        No leave requests found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {tab === "settings" && (
-        <div style={{ minHeight: 280 }}>
-          <div className="card">
-            <SectionHeading title="Account Settings" />
-            {canResendCredentials ? (
-              <button
-                className="btn btn-primary"
-                onClick={handleResendCredentials}
-                disabled={isResendingCredentials}
-              >
-                {isResendingCredentials ? "Sending..." : "Resend Credentials"}
-              </button>
-            ) : (
-              <p style={{ fontSize: 12, color: "var(--t3)" }}>
-                You do not have permission to resend credentials.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {tab === "payslips" && (
-        <div className="card">
-          <table>
-            <thead>
-              <tr>
-                <th>Period</th>
-                <th>Gross</th>
-                <th>Net</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {empPayroll.map((p: any, i: number) => {
-                const g =
-                  p.basic +
-                  p.houseRent +
-                  p.medical +
-                  p.conveyance +
-                  p.commission;
-                const d =
-                  p.absentDeduction +
-                  p.tax +
-                  p.loan +
-                  p.advance +
-                  p.latePenalty +
-                  p.otherDeduction;
-                return (
-                  <tr key={i}>
-                    <td>March 2026</td>
-                    <td className="mono">{formatPKR(g)}</td>
-                    <td
-                      className="mono"
-                      style={{ fontWeight: 600, color: "var(--green)" }}
-                    >
-                      {formatPKR(g - d)}
-                    </td>
-                    <td>
-                      <span className={`pill ${getStatusColor(p.status)}`}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td>
-                      <button className="btn btn-sm btn-ghost">
-                        View Payslip
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {tab === "promotions" && (
-        <div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
-          >
-            <div />
-            <button
-              className="btn btn-primary"
-              onClick={() => setPromoModal(true)}
-            >
-              <Plus size={13} /> Record Promotion
-            </button>
-          </div>
-          {/* Salary progression chart */}
-          {salaryProgression.length > 1 && (
-            <div className="card" style={{ marginBottom: 12 }}>
-              <div className="ch">
-                <div className="ct">
-                  <div className="ct-ico green">
-                    <TrendingUp size={13} />
-                  </div>
-                  Salary Progression
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={160}>
-                <LineChart data={salaryProgression}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8edf8" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10, fill: "#7590a8" }}
-                  />
-                  <YAxis tick={{ fontSize: 10, fill: "#7590a8" }} />
-                  <Tooltip formatter={(v: number) => formatPKR(v)} />
-                  <Line
-                    type="monotone"
-                    dataKey="salary"
-                    stroke="#1b7a4e"
-                    strokeWidth={2}
-                    dot={{ r: 4, fill: "#1b7a4e" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-          <div className="card">
-            {empPromos.length === 0 ? (
-              <div className="empty-state">
-                <p>No promotions recorded</p>
+        <div style={{ display: "grid", gap: 12 }}>
+          <InfoCard title="Leave Balances" icon={<CalendarDays size={15} />}>
+            {balancesLoading ? (
+              <EmptyState>Loading leave balances...</EmptyState>
+            ) : leaveBalances.length ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
+                {leaveBalances.map((balance: any, index: number) => {
+                  const total = numberValue(balance.balance);
+                  const used = numberValue(balance.used);
+                  const remaining = numberValue(balance.remaining ?? total - used);
+                  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                  return (
+                    <div key={balance.leave_type_id || balance.id || index} style={{ padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "linear-gradient(135deg, rgba(236,253,245,.82), rgba(255,255,255,.9))" }}>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)", marginBottom: 6 }}>{text(balance.name || balance.leave_type || balance.type)}</div>
+                      <div className="mono" style={{ fontSize: 18, fontWeight: 950, color: "var(--green)" }}>{remaining} remaining</div>
+                      <div style={{ marginTop: 10, height: 7, borderRadius: 999, background: "rgba(15,23,42,.08)", overflow: "hidden" }}>
+                        <div style={{ width: `${pct}%`, height: "100%", background: "var(--green)" }} />
+                      </div>
+                      <div style={{ marginTop: 7, fontSize: 11, color: "var(--t3)" }}>{used} used of {total}</div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
-              empPromos.map((p: any, i: number) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "flex",
-                    gap: 16,
-                    padding: "12px 0",
-                    borderBottom: "1px solid var(--br2)",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 3,
-                      height: 40,
-                      background: "var(--p)",
-                      borderRadius: 2,
-                      marginTop: 4,
-                    }}
-                  />
-                  <div>
-                    <div
-                      className="mono"
-                      style={{ fontSize: 10, color: "var(--t3)" }}
-                    >
-                      {p.date}
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>
-                      {p.oldDesignation} → {p.newDesignation}
-                    </div>
-                    <div
-                      className="mono"
-                      style={{ fontSize: 11, color: "var(--t2)" }}
-                    >
-                      {formatPKR(p.oldSalary)} → {formatPKR(p.newSalary)}
-                    </div>
-                    <div style={{ fontSize: 10.5, color: "var(--t3)" }}>
-                      Approved by {p.approvedBy}
-                    </div>
-                  </div>
-                </div>
-              ))
+              <EmptyState>No leave balances are assigned for this employee.</EmptyState>
             )}
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <DecisionBanner>
-              DECISION NEEDED — Promotion Trigger: Manual / Automatic / Both?
-              Confirm in meeting.
-            </DecisionBanner>
-          </div>
-          <Modal
-            open={promoModal}
-            onClose={() => setPromoModal(false)}
-            title="Record Promotion"
-            footer={
-              <>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setPromoModal(false)}
-                >
-                  Cancel
-                </button>
-                <button className="btn btn-primary" onClick={savePromo}>
-                  Save
-                </button>
-              </>
-            }
-          >
-            <div className="form-group">
-              <label className="form-label">Promotion Date</label>
-              <input
-                className="input"
-                type="date"
-                value={promoDate}
-                onChange={(e) => setPromoDate(e.target.value)}
-              />
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Old Designation</label>
-                <input className="input" value={emp.designation} disabled />
+          </InfoCard>
+          <InfoCard title="Leave Requests" icon={<FileText size={15} />}>
+            {leavesLoading ? (
+              <EmptyState>Loading leave requests...</EmptyState>
+            ) : leaveRows.length ? (
+              <div style={{ overflowX: "auto" }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>From</th>
+                      <th>To</th>
+                      <th>Days</th>
+                      <th>Reason</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaveRows.map((leave: any, index: number) => (
+                      <tr key={leave.id || index}>
+                        <td>{text(leave.leave_type?.name || leave.leave_type_name || leave.leave_type || leave.type)}</td>
+                        <td className="mono">{formatDate(leave.from || leave.start_date || leave.date_from)}</td>
+                        <td className="mono">{formatDate(leave.to || leave.end_date || leave.date_to)}</td>
+                        <td className="mono">{text(leave.days || leave.total_days || leave.duration)}</td>
+                        <td>{text(leave.reason || leave.notes)}</td>
+                        <td><span className={`pill ${getStatusColor(leave.status)}`}>{formatStatus(leave.status)}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="form-group">
-                <label className="form-label">New Designation</label>
-                <input
-                  className="input"
-                  value={promoDesig}
-                  onChange={(e) => setPromoDesig(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Old Salary</label>
-                <input
-                  className="input mono"
-                  value={formatPKR(emp.salary.basic)}
-                  disabled
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">New Salary</label>
-                <input
-                  className="input mono"
-                  value={promoSalary}
-                  onChange={(e) => setPromoSalary(e.target.value)}
-                  placeholder="PKR"
-                />
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Notes</label>
-              <textarea
-                className="input"
-                rows={2}
-                value={promoNotes}
-                onChange={(e) => setPromoNotes(e.target.value)}
-              />
-            </div>
-          </Modal>
+            ) : (
+              <EmptyState>No leave requests found.</EmptyState>
+            )}
+          </InfoCard>
         </div>
       )}
 
       {tab === "penalties" && (
-        <div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginBottom: 12,
-            }}
-          >
-            <button
-              className="btn btn-primary"
-              onClick={() => setPenaltyModal(true)}
-            >
-              <Plus size={13} /> Add Penalty
-            </button>
-          </div>
-          <div className="card">
-            {empPenalties.length === 0 ? (
-              <div className="empty-state">
-                <p>No penalties recorded</p>
-              </div>
-            ) : (
+        <InfoCard title="Penalty Ledger" icon={<BadgeDollarSign size={15} />}>
+          {penaltiesError && (
+            <div style={{ display: "flex", gap: 10, alignItems: "center", padding: 14, border: "1px dashed rgba(245,158,11,.45)", borderRadius: 12, background: "rgba(255,251,235,.7)", color: "#92400e", marginBottom: 12 }}>
+              <AlertTriangle size={16} /> Penalty data is not available for your current permissions.
+            </div>
+          )}
+          {penaltiesLoading ? (
+            <EmptyState>Loading penalties...</EmptyState>
+          ) : penaltyRows.length ? (
+            <div style={{ overflowX: "auto" }}>
               <table>
                 <thead>
                   <tr>
                     <th>Date</th>
-                    <th>Type</th>
-                    <th>Fine</th>
-                    <th>Applied By</th>
+                    <th>Rule</th>
+                    <th>Amount</th>
+                    <th>Reason</th>
                     <th>Status</th>
+                    <th>Ack</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {empPenalties.map((p: any, i: number) => (
-                    <tr key={i}>
-                      <td className="mono">{p.date}</td>
-                      <td>{p.type}</td>
-                      <td className="mono">{formatPKR(p.amount)}</td>
-                      <td>{p.appliedBy}</td>
-                      <td>
-                        <span className={`pill ${getStatusColor(p.status)}`}>
-                          {p.status}
-                        </span>
-                      </td>
+                  {penaltyRows.map((penalty: any, index: number) => (
+                    <tr key={penalty.id || index}>
+                      <td className="mono">{formatDate(penalty.date)}</td>
+                      <td>{text(penalty.rule_name || penalty.name || penalty.type)}</td>
+                      <td className="mono">{formatPKR(numberValue(penalty.amount_pkr || penalty.applied_amount_pkr || penalty.amount))}</td>
+                      <td>{text(penalty.reason || penalty.review_note)}</td>
+                      <td><span className={`pill ${getStatusColor(penalty.status)}`}>{formatStatus(penalty.status)}</span></td>
+                      <td>{penalty.employee_ack ? "Acknowledged" : "Pending"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <DecisionBanner>
-              DECISION NEEDED — Half-day Penalty Amount formula. Confirm in
-              meeting.
-            </DecisionBanner>
-          </div>
-          <Modal
-            open={penaltyModal}
-            onClose={() => setPenaltyModal(false)}
-            title="Add Penalty"
-            footer={
-              <>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setPenaltyModal(false)}
-                >
-                  Cancel
-                </button>
-                <button className="btn btn-primary" onClick={savePenalty}>
-                  Apply Penalties
-                </button>
-              </>
-            }
-          >
-            {[
-              "Late 3+ days this month — Fine: TBD",
-              "Eating at desk — Fine: PKR 500",
-              "Smoking in office — Fine: PKR 1,000",
-              "Drinking at desk — Fine: PKR 500",
-            ].map((p, i) => (
-              <label
-                key={i}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "8px 0",
-                  borderBottom: "1px solid var(--br2)",
-                  fontSize: 12.5,
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={penaltyChecks[i]}
-                  onChange={(e) => {
-                    const c = [...penaltyChecks];
-                    c[i] = e.target.checked;
-                    setPenaltyChecks(c);
-                  }}
-                />
-                <span>{p}</span>
-              </label>
-            ))}
-            <div className="form-group" style={{ marginTop: 12 }}>
-              <label className="form-label">Other</label>
-              <div className="form-row">
-                <input
-                  className="input"
-                  placeholder="Description"
-                  value={penaltyOtherDesc}
-                  onChange={(e) => setPenaltyOtherDesc(e.target.value)}
-                />
-                <input
-                  className="input mono"
-                  placeholder="PKR"
-                  value={penaltyOtherFine}
-                  onChange={(e) => setPenaltyOtherFine(e.target.value)}
-                />
-              </div>
             </div>
-          </Modal>
-        </div>
+          ) : (
+            <EmptyState>No penalties recorded.</EmptyState>
+          )}
+        </InfoCard>
       )}
 
-      {tab === "activity" && (
-        <div className="card">
-          <div className="ch">
-            <div className="ct">
-              <div className="ct-ico blue">
-                <Clock size={13} />
-              </div>
-              Activity Log
-            </div>
-          </div>
-          {activityLog.map((a, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                gap: 12,
-                padding: "12px 0",
-                borderBottom:
-                  i < activityLog.length - 1 ? "1px solid var(--br2)" : "none",
-              }}
-            >
-              <div
-                style={{
-                  width: 3,
-                  background: a.type === "CREATE" ? "var(--green)" : "var(--p)",
-                  borderRadius: 2,
-                  flexShrink: 0,
-                }}
-              />
-              <div style={{ flex: 1 }}>
-                <div
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>
-                    {a.action}
-                  </span>
-                  <span
-                    className={`pill ${a.type === "CREATE" ? "pill-green" : "pill-blue"}`}
-                  >
-                    {a.type}
-                  </span>
-                </div>
-                <div
-                  className="mono"
-                  style={{ fontSize: 10, color: "var(--t3)", marginTop: 2 }}
-                >
-                  {a.date} · by {a.by}
-                </div>
-                {a.before !== "-" && (
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 16,
-                      marginTop: 6,
-                      fontSize: 11,
-                    }}
-                  >
-                    <span style={{ color: "var(--t3)" }}>
-                      Before:{" "}
-                      <span style={{ color: "var(--red)" }}>{a.before}</span>
-                    </span>
-                    <span style={{ color: "var(--t3)" }}>
-                      After:{" "}
-                      <span style={{ color: "var(--green)" }}>{a.after}</span>
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+      {tab === "settings" && (
+        <InfoCard title="Account Settings" icon={<Mail size={15} />}>
+          {can("resend_credentials") ? (
+            <button className="btn btn-primary" onClick={handleResendCredentials} disabled={isResendingCredentials}>
+              {isResendingCredentials ? "Sending..." : "Resend Credentials"}
+            </button>
+          ) : (
+            <p style={{ fontSize: 12, color: "var(--t3)", margin: 0 }}>You do not have permission to resend credentials.</p>
+          )}
+        </InfoCard>
       )}
-
-      {tab === "documents" && (
-        <div className="card">
-          <div className="ch">
-            <div className="ct">
-              <div className="ct-ico blue">
-                <FileText size={13} />
-              </div>
-              Documents
-            </div>
-            <button className="btn btn-sm btn-ghost" disabled>
-              <Download size={12} /> Download All (Coming Soon)
-            </button>
-          </div>
-          {documents.map((doc, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "12px 0",
-                borderBottom: "1px solid var(--br2)",
-              }}
-            >
-              <FileText size={16} style={{ color: "var(--t3)" }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500 }}>{doc.name}</div>
-                <div style={{ fontSize: 10, color: "var(--t3)" }}>
-                  {doc.category}
-                </div>
-              </div>
-              {doc.uploaded ? (
-                <>
-                  <span className="pill pill-green">✓ {doc.file}</span>
-                  <button className="btn btn-sm btn-ghost">View</button>
-                  <button className="btn btn-sm btn-ghost">
-                    <Download size={12} />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="pill pill-amber">⚠ Missing</span>
-                  <button className="btn btn-sm btn-ghost">Upload</button>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <Modal
-        open={personalEditOpen}
-        onClose={() => setPersonalEditOpen(false)}
-        title="Edit Personal Info"
-        footer={
-          <>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setPersonalEditOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleSavePersonal}
-              disabled={isUpdatingPersonal}
-            >
-              {isUpdatingPersonal ? "Saving..." : "Save Changes"}
-            </button>
-          </>
-        }
-      >
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Full Name</label>
-            <input
-              className="input"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Father Name</label>
-            <input
-              className="input"
-              value={editFatherName}
-              onChange={(e) => setEditFatherName(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">CNIC</label>
-            <input
-              className="input"
-              value={editCnic}
-              onChange={(e) => setEditCnic(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Date of Birth</label>
-            <input
-              className="input"
-              type="date"
-              value={editDob}
-              onChange={(e) => setEditDob(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Gender</label>
-            <input
-              className="input"
-              value={editGender}
-              onChange={(e) => setEditGender(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Contact 1</label>
-            <input
-              className="input"
-              value={editContact1}
-              onChange={(e) => setEditContact1(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Emergency Contact 1</label>
-            <input
-              className="input"
-              value={editEmergency1}
-              onChange={(e) => setEditEmergency1(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Emergency Contact 2</label>
-            <input
-              className="input"
-              value={editEmergency2}
-              onChange={(e) => setEditEmergency2(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">Permanent Address</label>
-            <textarea
-              className="input"
-              rows={2}
-              value={editPermanentAddress}
-              onChange={(e) => setEditPermanentAddress(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">Postal Address</label>
-            <textarea
-              className="input"
-              rows={2}
-              value={editPostalAddress}
-              onChange={(e) => setEditPostalAddress(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Blood Group</label>
-            <input
-              className="input"
-              value={editBloodGroup}
-              onChange={(e) => setEditBloodGroup(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Allergies</label>
-            <input
-              className="input"
-              value={editAllergies}
-              onChange={(e) => setEditAllergies(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">Chronic Conditions</label>
-            <textarea
-              className="input"
-              rows={2}
-              value={editChronic}
-              onChange={(e) => setEditChronic(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group" style={{ flex: 1 }}>
-            <label className="form-label">Medications</label>
-            <textarea
-              className="input"
-              rows={2}
-              value={editMedications}
-              onChange={(e) => setEditMedications(e.target.value)}
-            />
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        open={jobEditOpen}
-        onClose={() => setJobEditOpen(false)}
-        title="Edit Job Details"
-        footer={
-          <>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setJobEditOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleSaveJob}
-              disabled={isUpdatingJob}
-            >
-              {isUpdatingJob ? "Saving..." : "Save Changes"}
-            </button>
-          </>
-        }
-      >
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Department</label>
-            <input
-              className="input"
-              value={editDepartment}
-              onChange={(e) => setEditDepartment(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Designation</label>
-            <input
-              className="input"
-              value={editDesignation}
-              onChange={(e) => setEditDesignation(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Employment Type</label>
-            <input
-              className="input"
-              value={editEmploymentType}
-              onChange={(e) => setEditEmploymentType(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Job Status</label>
-            <input
-              className="input"
-              value={editJobStatus}
-              onChange={(e) => setEditJobStatus(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Work Mode</label>
-            <input
-              className="input"
-              value={editWorkMode}
-              onChange={(e) => setEditWorkMode(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Work Location</label>
-            <input
-              className="input"
-              value={editWorkLocation}
-              onChange={(e) => setEditWorkLocation(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Shift</label>
-            <input
-              className="input"
-              value={editShift}
-              onChange={(e) => setEditShift(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Date of Joining</label>
-            <input
-              className="input"
-              type="date"
-              value={editDateOfJoining}
-              onChange={(e) => setEditDateOfJoining(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Date of Exit</label>
-            <input
-              className="input"
-              type="date"
-              value={editDateOfExit}
-              onChange={(e) => setEditDateOfExit(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="form-row" style={{ alignItems: "center", gap: 12 }}>
-          <label className="form-label" style={{ marginRight: 10 }}>
-            Commission Eligible
-          </label>
-          <input
-            type="checkbox"
-            checked={editCommissionEligible}
-            onChange={(e) => setEditCommissionEligible(e.target.checked)}
-          />
-        </div>
-      </Modal>
 
       <Modal
         open={resendModalOpen}
@@ -1856,20 +546,9 @@ export default function EmployeeDetail() {
         }}
         title="Temporary Password"
       >
-        <p style={{ fontSize: 13, marginBottom: 12 }}>
-          Share this password with the employee securely. It will not be sent
-          automatically.
-        </p>
-        <div
-          className="mono"
-          style={{
-            padding: 12,
-            background: "var(--hover)",
-            borderRadius: 8,
-            fontWeight: 700,
-          }}
-        >
-          {tempPassword || "—"}
+        <p style={{ fontSize: 13, marginBottom: 12 }}>Share this password with the employee securely. It will not be sent automatically.</p>
+        <div className="mono" style={{ padding: 12, background: "var(--hover)", borderRadius: 8, fontWeight: 800 }}>
+          {tempPassword || "Not provided"}
         </div>
       </Modal>
     </div>

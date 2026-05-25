@@ -84,9 +84,6 @@ const salaryFields = [
 const allowanceFields = [
   "allowance_type_id",
   "amount",
-  "is_percentage",
-  "is_current",
-  "is_active",
 ];
 
 const emergencyFields = [
@@ -115,7 +112,6 @@ const bankFields = [
   "account_title",
   "account_number",
   "account_type",
-  "is_verified",
 ];
 
 const medicalFields = [
@@ -182,10 +178,18 @@ function formatDateOnly(value: any) {
 }
 
 function formatValue(value: any, field?: string) {
-  if (value === null || value === undefined) return "null";
-  if (typeof value === "boolean") return value ? "true" : "false";
+  if (value === null || value === undefined) return "Not provided";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
   if (field && isDateField(field)) return formatDateOnly(value);
   return String(value);
+}
+
+function formatAllowanceAmount(allowance: any) {
+  const amount = Number(allowance?.amount ?? 0);
+  if (allowance?.is_percentage) {
+    return `${Number.isFinite(amount) ? amount.toLocaleString("en-PK") : allowance?.amount}%`;
+  }
+  return `${Number.isFinite(amount) ? amount.toLocaleString("en-PK") : allowance?.amount} PKR`;
 }
 
 function labelFromKey(key: string) {
@@ -641,11 +645,12 @@ export default function MyProfile() {
                 >
                   {formatValue(allowance?.field_name)}
                 </div>
-                <FieldGrid
-                  source={allowance}
-                  fields={allowanceFields}
-                  accent={sectionMeta.allowances.accent}
-                />
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span className="mono" style={{ fontSize: 18, fontWeight: 900, color: "var(--t1)" }}>
+                    {formatAllowanceAmount(allowance)}
+                  </span>
+                  {allowance?.is_current && <span className="pill pill-green">Current</span>}
+                </div>
               </div>
             ))}
           </div>
@@ -676,6 +681,11 @@ export default function MyProfile() {
       </DataSection>
 
       <DataSection title="bankInfo">
+        {emp.bankInfo?.is_verified && (
+          <div style={{ marginBottom: 10 }}>
+            <span className="pill pill-green">Verified</span>
+          </div>
+        )}
         <FieldGrid source={emp.bankInfo} fields={bankFields} accent={sectionMeta.bankInfo.accent} />
       </DataSection>
 

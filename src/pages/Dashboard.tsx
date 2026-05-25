@@ -762,7 +762,15 @@ export default function Dashboard() {
     second: "2-digit",
     hour12: false,
   });
-  const uName = (user as any)?.username || "User";
+  const selfEmployee =
+    employees.find((employee: any) => employee.id === (user as any)?.employeeId) ||
+    employees.find((employee: any) => employee.email === (user as any)?.email);
+  const uName =
+    selfEmployee?.name ||
+    (user as any)?.name ||
+    (user as any)?.full_name ||
+    ((user as any)?.username && !(user as any).username.includes("@") ? (user as any).username : "") ||
+    "User";
 
   // ── Notifications ──
   const notifs = useMemo(() => {
@@ -1055,7 +1063,6 @@ export default function Dashboard() {
             >
               <p style={{ margin: 0, fontSize: 11, color: "#9ca3af" }}>
                 {dateStr} | {timeStr} PKT
-                {(user as any)?.email ? ` | ${(user as any).email}` : ""}
               </p>
               <span
                 style={{
@@ -1309,7 +1316,7 @@ export default function Dashboard() {
                 {c.icon}
               </div>
               <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1 }}>
-                {c.val !== undefined && c.val !== null ? c.val : "N/A"}
+                {c.val !== undefined && c.val !== null ? c.val : "Not provided"}
               </div>
               <div style={{ fontSize: 11, opacity: 0.9, marginTop: 4 }}>
                 {c.label}
@@ -1799,7 +1806,7 @@ export default function Dashboard() {
           <WCard onClick={() => navigate("/leave")}>
             <SHead
               icon={<FileText size={14} color="#f97316" />}
-              title="Leave Breakdown"
+              title="Leave Requests by Type"
               right={
                 pendingLv > 0 ? (
                   <Chip bg="#fef3c7" fg="#d97706">

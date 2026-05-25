@@ -84,14 +84,23 @@ describe("Dashboard", () => {
   });
 
   it("does not show prototype dashboard data for HR Executive users", () => {
+    mockState.employees = [
+      {
+        id: "EMP017",
+        name: "Rabia Aslam",
+        email: "rabia.aslam.emp017@esspl.com.pk",
+        department: "Human Resources",
+      },
+    ];
+
     render(
       <MemoryRouter>
         <Dashboard />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/RA/)).toBeTruthy();
-    expect(screen.getByText(/rabia.aslam.emp017@esspl.com.pk/)).toBeTruthy();
+    expect(screen.getByText(/Rabia Aslam/)).toBeTruthy();
+    expect(screen.queryByText(/rabia.aslam.emp017@esspl.com.pk/)).toBeNull();
     expect(screen.getByText(/HR Executive/)).toBeTruthy();
 
     expect(screen.queryByText("Ahmed Ali")).toBeNull();

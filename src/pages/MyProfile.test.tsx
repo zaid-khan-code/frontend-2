@@ -87,7 +87,7 @@ describe("MyProfile", () => {
           id: "a672fb31-6419-407e-8c7c-021887213f27",
           employee_id: "EMP521",
           allowance_type_id: "14f9753e-eb51-400a-b56f-11e46665a7c2",
-          amount: "22.00",
+          amount: "12220.00",
           is_percentage: false,
           is_current: true,
           is_active: true,
@@ -122,7 +122,7 @@ describe("MyProfile", () => {
         account_title: "Eveniet porro sint ",
         account_number: "44444444444",
         account_type: "salary",
-        is_verified: false,
+        is_verified: true,
       },
       medicalInfo: {
         blood_group: "O-",
@@ -166,10 +166,17 @@ describe("MyProfile", () => {
     });
     expect(screen.getAllByText("IT-Support").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Medical Allowance").length).toBeGreaterThan(0);
+    expect(screen.getByText("12,220 PKR")).toBeTruthy();
+    expect(screen.getByText("Current")).toBeTruthy();
+    expect(screen.getByText("Verified")).toBeTruthy();
     expect(screen.getByText("31 Oct 1990")).toBeTruthy();
     expect(screen.getByText("Voluptas laboriosam")).toBeTruthy();
     expect(screen.getByText("Repellendus Delenit")).toBeTruthy();
-    expect(screen.getAllByText("false").length).toBeGreaterThan(0);
+    expect(screen.queryByText("false")).toBeNull();
+    expect(screen.queryByText("Is Percentage")).toBeNull();
+    expect(screen.queryByText("Is Current")).toBeNull();
+    expect(screen.queryByText("Is Active")).toBeNull();
+    expect(screen.queryByText("Is Verified")).toBeNull();
     expect(screen.queryByText("null")).toBeNull();
     expect(screen.queryByText("Probation End Date")).toBeNull();
     expect(screen.queryByText("Contract End Date")).toBeNull();

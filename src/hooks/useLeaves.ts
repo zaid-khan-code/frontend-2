@@ -88,3 +88,21 @@ export function useMyLeaveBalances() {
     },
   });
 }
+
+export function useLeaveBalances(params?: any) {
+  const cleanParams = Object.fromEntries(
+    Object.entries(params || {}).filter(([, value]) => value !== undefined && value !== null && value !== "")
+  );
+
+  return useQuery({
+    queryKey: ['leave-requests', 'balances', cleanParams],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/leave-requests/balances', { params: cleanParams });
+      const rows = extractList(data);
+      const employeeId = cleanParams.employee_id;
+      return employeeId
+        ? rows.filter((row: any) => !row.employee_id || row.employee_id === employeeId)
+        : rows;
+    },
+  });
+}
