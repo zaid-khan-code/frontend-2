@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
-import { useData } from "../context/DataContext";
 import { getVisibleEmployees } from "../utils/utils";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useDashboardMetrics } from "../hooks/useDashboard";
-import ComingSoonOverlay from "../components/ComingSoonOverlay";
+import { useEmployees } from "../hooks/useEmployees";
+import { useLeaves } from "../hooks/useLeaves";
 import {
   Users,
   UserCheck,
@@ -41,31 +41,7 @@ import {
 } from "recharts";
 import { useCalendarEvents } from "../hooks/useCalendarEvents";
 
-// ─── Static fallback chart data ───────────────────────────────────────────────
-const DEPT_DATA = [
-  { name: "Engineering", value: 35, color: "#6366f1" },
-  { name: "Sales", value: 25, color: "#ec4899" },
-  { name: "Marketing", value: 20, color: "#f97316" },
-  { name: "HR", value: 10, color: "#14b8a6" },
-  { name: "Finance", value: 10, color: "#06b6d4" },
-];
-const ANNOUNCEMENTS = [
-  {
-    title: "Office Closure — Eid ul Fitr",
-    date: "Mar 20, 2026",
-    text: "Office closed March 28–April 1 for Eid ul Fitr celebrations.",
-  },
-  {
-    title: "Annual Performance Review",
-    date: "Mar 15, 2026",
-    text: "FY 2025-26 reviews begin April 5. All managers should prepare evaluations.",
-  },
-  {
-    title: "New Health Insurance Policy",
-    date: "Mar 10, 2026",
-    text: "Updated coverage now includes dental and vision for all full-time employees.",
-  },
-];
+// Live dashboard data only. Empty states are intentional when backend records are unavailable.
 const MONTH_NAMES = [
   "January",
   "February",
@@ -238,6 +214,38 @@ const SHead = ({
     {right && <div style={{ marginLeft: "auto" }}>{right}</div>}
   </div>
 );
+
+const EmptyState = ({ children }: { children: React.ReactNode }) => (
+  <div
+    style={{
+      padding: "28px 12px",
+      textAlign: "center",
+      color: "#94a3b8",
+      fontSize: 11,
+      lineHeight: 1.5,
+    }}
+  >
+    {children}
+  </div>
+);
+
+const initialsFor = (name = "?") =>
+  name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+const roleLabels: Record<string, string> = {
+  super_admin: "Super Admin",
+  head_hr: "Head HR",
+  branch_hr: "Branch HR",
+  department_hr: "Department HR",
+  hr_manager: "HR Manager",
+  hr_executive: "HR Executive",
+  employee: "Employee",
+};
 
 // Mini Calendar component (compact month view + events + birthdays)
 function MiniCalendar({
@@ -579,7 +587,8 @@ function MiniCalendar({
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Dashboard() {
   const { user, activeRole } = useAuth();
-  const { leaveRequests, employees } = useData();
+  const { data: employees = [] } = useEmployees({ page: 1, limit: 1000 });
+  const { data: leaveRequests = [] } = useLeaves();
   const { data: metrics } = useDashboardMetrics("6m");
   const { data: calendarApiEvents = [] } = useCalendarEvents();
   const navigate = useNavigate();
@@ -648,8 +657,9 @@ export default function Dashboard() {
     metrics?.present_today ??
     filteredEmployees?.filter((e: any) => e.status === "active").length ??
     0;
-  const visibleEmployeeIds = new Set(
-    filteredEmployees.map((e: any) => e.id || e.employee_id),
+  const visibleEmployeeIds = useMemo(
+    () => new Set(filteredEmployees.map((e: any) => e.id || e.employee_id)),
+    [filteredEmployees],
   );
   const visibleLeaveRequests = useMemo(
     () =>
@@ -664,60 +674,57 @@ export default function Dashboard() {
   ).length;
 
   const attendanceChartData = useMemo(() => {
-    if (metrics?.attendance_trend) {
-      return metrics.attendance_trend;
-    }
-    const base = Math.max(totalEmp, 8);
-    return MONTH_NAMES.slice(-6).map((month, idx) => {
-      const present = Math.max(base - Math.round(base * 0.1) - (idx % 2), 1);
-      const absent = Math.max(base - present, 0);
-      return { month: month.slice(0, 3), present, absent };
-    });
-  }, [totalEmp, metrics]);
+    return Array.isArray(metrics?.attendance_trend)
+      ? metrics.attendance_trend
+      : [];
+  }, [metrics]);
 
   const growthData = useMemo(() => {
-    if (metrics?.headcount_trend) {
-      return metrics.headcount_trend;
-    }
-    const base = Math.max(totalEmp, 24);
-    return MONTH_NAMES.slice(-6).map((month, idx) => ({
-      month: month.slice(0, 3),
-      count: Math.max(1, base - 2 + idx),
-    }));
-  }, [totalEmp, metrics]);
+    return Array.isArray(metrics?.headcount_trend) ? metrics.headcount_trend : [];
+  }, [metrics]);
 
   const leaveData = useMemo(() => {
-    const totals: Record<string, number> = {
-      Annual: 120,
-      Casual: 80,
-      Sick: 60,
-      Maternity: 30,
-    };
-    const colors: Record<string, string> = {
-      Annual: "#6366f1",
-      Casual: "#f97316",
-      Sick: "#ef4444",
-      Maternity: "#ec4899",
-    };
-
-    const summary: Record<string, number> = {};
+    const summary: Record<string, { used: number; total: number; color: string }> = {};
     visibleLeaveRequests.forEach((l: any) => {
-      summary[l.leaveType] = (summary[l.leaveType] || 0) + l.days;
+      const type = l.leaveType || l.leave_type_name || l.leave_type || "Leave";
+      const start = l.start_date ? new Date(l.start_date) : null;
+      const end = l.end_date ? new Date(l.end_date) : null;
+      const dateRangeDays =
+        start && end
+          ? Math.floor((end.getTime() - start.getTime()) / 86400000) + 1
+          : 0;
+      const days = Number(
+        l.days ?? l.days_requested ?? l.total_days ?? dateRangeDays,
+      );
+      if (!summary[type]) {
+        summary[type] = {
+          used: 0,
+          total: 0,
+          color: AV_COLORS[Object.keys(summary).length % AV_COLORS.length],
+        };
+      }
+      summary[type].used += days;
+      summary[type].total += Number(l.allowed ?? l.balance ?? l.total ?? days);
     });
 
-    return Object.keys(totals).map((type) => ({
+    return Object.entries(summary).map(([type, row]) => ({
       type,
-      used: summary[type] || 0,
-      total: totals[type],
-      color: colors[type],
+      used: row.used,
+      total: row.total || row.used,
+      color: row.color,
     }));
   }, [visibleLeaveRequests]);
+  const leaveTotalUsed = leaveData.reduce((sum, row) => sum + row.used, 0);
 
   const attendPct =
-    totalEmp > 0 ? Math.round((activeEmp / totalEmp) * 100) : 88;
-  const onTimePct = 93;
-  const retainPct = 94;
-  const leavePct = 42;
+    totalEmp > 0 ? Math.round((activeEmp / totalEmp) * 100) : 0;
+  const onTimePct = Number(
+    metrics?.on_time_percent ?? metrics?.on_time_rate ?? 0,
+  );
+  const retainPct = Number(
+    metrics?.retention_percent ?? metrics?.retention_rate ?? 0,
+  );
+  const leavePct = Number(metrics?.leave_utilization_percent ?? 0);
 
   // ── Greeting ──
   const h = now.getHours();
@@ -738,48 +745,32 @@ export default function Dashboard() {
   const uName = (user as any)?.username || "User";
 
   // ── Notifications ──
-  const notifs = [
-    {
-      id: 1,
-      title: "Leave Request Pending",
-      msg: `${pendingLv} requests awaiting approval`,
-      time: "Just now",
-      link: "/leave",
-      read: false,
-    },
-    {
-      id: 2,
-      title: "Incomplete Attendance",
-      msg: "3 employees haven't marked attendance today",
-      time: "2 hrs ago",
-      link: "/attendance",
-      read: false,
-    },
-    {
-      id: 3,
-      title: "Contract Expiry Alert",
-      msg: "Usman Malik's contract expires in 8 days",
-      time: "Yesterday",
-      link: "/employees",
-      read: false,
-    },
-    {
-      id: 4,
-      title: "New Employee Onboarded",
-      msg: "Bilal Ahmed added successfully",
-      time: "Yesterday",
-      link: "/employees",
-      read: true,
-    },
-    {
-      id: 5,
-      title: "Probation Period Ending",
-      msg: "Fatima Raza's probation ends in 12 days",
-      time: "2 days ago",
-      link: "/employees",
-      read: true,
-    },
-  ];
+  const notifs = useMemo(() => {
+    const metricNotifications = Array.isArray(metrics?.notifications)
+      ? metrics.notifications.map((n: any, index: number) => ({
+          id: n.id ?? `metric-${index}`,
+          title: n.title || "Dashboard Alert",
+          msg: n.message || n.msg || "",
+          time: n.time || n.created_at || "",
+          link: n.link || "/dashboard",
+          read: Boolean(n.read),
+        }))
+      : [];
+    const leaveNotification =
+      pendingLv > 0
+        ? [
+            {
+              id: "pending-leaves",
+              title: "Leave Request Pending",
+              msg: `${pendingLv} requests awaiting approval`,
+              time: "Just now",
+              link: "/leave",
+              read: false,
+            },
+          ]
+        : [];
+    return [...leaveNotification, ...metricNotifications];
+  }, [metrics, pendingLv]);
   const unread = notifs.filter((n) => !n.read).length;
 
   // Merge backend calendar events into announcements so the dashboard reflects HR calendar data.
@@ -790,7 +781,7 @@ export default function Dashboard() {
       text: g.visibility ? `Visible to ${g.visibility}` : "",
       id: g.id,
     }));
-    return [...ANNOUNCEMENTS, ...fromDays];
+    return fromDays;
   }, [calendarApiEvents]);
 
   // ── Hero cards ──
@@ -801,8 +792,8 @@ export default function Dashboard() {
       icon: <Users size={20} color="#fff" />,
       val: totalEmp,
       label: "Total Employees",
-      sub: "+12% this quarter",
-      chip: "↑ 2.4%",
+      sub: "From backend employee scope",
+      chip: "Live",
       link: "/employees",
     },
     {
@@ -819,7 +810,7 @@ export default function Dashboard() {
       grad: "linear-gradient(135deg,#b721ff,#21d4fd)",
       glow: "rgba(183,33,255,.35)",
       icon: <CalendarDays size={20} color="#fff" />,
-      val: pendingLv || 2,
+      val: pendingLv,
       label: "Pending Leaves",
       sub: "Need approval",
       chip: "Action Needed",
@@ -837,171 +828,69 @@ export default function Dashboard() {
 
   // ── Pending actions ──
   const actions = useMemo(() => {
-    if (metrics?.pending_actions) {
+    if (Array.isArray(metrics?.pending_actions)) {
       return metrics.pending_actions.map((pa: any) => ({
-        emoji: "📋",
-        text: `Missing fields: ${pa.missing_fields.join(", ")}`,
-        cta: "Fix →",
-        link: `/employees/${pa.employee_id}`,
+        emoji: "!",
+        text: pa.text || `Missing fields: ${(pa.missing_fields || []).join(", ")}`,
+        cta: pa.cta || "Fix",
+        link: pa.link || `/employees/${pa.employee_id}`,
       }));
     }
-    return [
-      {
-        emoji: "📋",
-        text: `${pendingLv || 2} leave requests awaiting approval`,
-        cta: "Review →",
-        link: "/leave",
-      },
-      {
-        emoji: "⏰",
-        text: "Attendance incomplete — 3 employees",
-        cta: "Mark →",
-        link: "/attendance",
-      },
-      {
-        emoji: "🏦",
-        text: "Bank info missing — EMP004, EMP005",
-        cta: "Fix →",
-        link: "/employees",
-      },
-    ];
+    return pendingLv > 0
+      ? [
+          {
+            emoji: "!",
+            text: `${pendingLv} leave requests awaiting approval`,
+            cta: "Review",
+            link: "/leave",
+          },
+        ]
+      : [];
   }, [metrics, pendingLv]);
 
   // ── Urgent alerts ──
   const alerts = useMemo(() => {
-    if (metrics?.urgent_alerts) {
-      return metrics.urgent_alerts.map((ua: any) => ({
-        name: ua.name,
-        sub: `${ua.type.replace("_", " ")} in ${ua.days_remaining} days`,
-        chip: "URGENT",
-        bg: "#fef2f2",
-        fg: "#dc2626",
-      }));
-    }
-    return [
-      {
-        name: "Usman Malik",
-        sub: "Contract expiry in 8 days",
-        chip: "URGENT",
-        bg: "#fef2f2",
-        fg: "#dc2626",
-      },
-      {
-        name: "Fatima Raza",
-        sub: "Probation ends in 12 days",
-        chip: "PROBATION",
-        bg: "#fefce8",
-        fg: "#ca8a04",
-      },
-      {
-        name: "Bilal Ahmed",
-        sub: "Bank info missing",
-        chip: "MISSING",
-        bg: "#eff6ff",
-        fg: "#2563eb",
-      },
-      {
-        name: "Ahmed Ali",
-        sub: "Absent 3 consecutive days",
-        chip: "ABSENT",
-        bg: "#fef2f2",
-        fg: "#dc2626",
-      },
-    ];
+    if (!Array.isArray(metrics?.urgent_alerts)) return [];
+    return metrics.urgent_alerts.map((ua: any) => ({
+      name: ua.name || ua.title || "Alert",
+      sub:
+        ua.sub ||
+        (ua.type && ua.days_remaining !== undefined
+          ? `${String(ua.type).replace("_", " ")} in ${ua.days_remaining} days`
+          : ua.message || ""),
+      chip: ua.chip || "URGENT",
+      bg: ua.bg || "#fef2f2",
+      fg: ua.fg || "#dc2626",
+    }));
   }, [metrics]);
 
   // ── Activity ──
-  const activity = [
-    {
-      ini: "SK",
-      color: "#f97316",
-      text: "Sara Khan's leave approved",
-      time: "2 hrs ago",
-      by: "Super Admin",
-      chip: "Approved",
-      cBg: "#dcfce7",
-      cFg: "#166534",
-    },
-    {
-      ini: "BA",
-      color: "#6366f1",
-      text: "Bilal Ahmed added",
-      time: "Yesterday",
-      by: "HR1",
-      chip: "New Hire",
-      cBg: "#eff6ff",
-      cFg: "#2563eb",
-    },
-    {
-      ini: "UM",
-      color: "#ef4444",
-      text: "Usman's leave rejected",
-      time: "3 days ago",
-      by: "HR1",
-      chip: "Rejected",
-      cBg: "#fef2f2",
-      cFg: "#dc2626",
-    },
-    {
-      ini: "FR",
-      color: "#14b8a6",
-      text: "Fatima's salary updated",
-      time: "4 days ago",
-      by: "Super Admin",
-      chip: "Updated",
-      cBg: "#f0fdf4",
-      cFg: "#166534",
-    },
-  ];
-
-  // ── Top performers ──
-  const topP = useMemo(() => {
-    const fallback = [
-      {
-        name: "Sara Khan",
-        dept: "Sales",
-        score: 98,
-        ini: "SK",
-        color: "#f97316",
-      },
-      {
-        name: "Ali Raza",
-        dept: "Engineering",
-        score: 95,
-        ini: "AR",
-        color: "#6366f1",
-      },
-      {
-        name: "Hina Malik",
-        dept: "HR",
-        score: 92,
-        ini: "HM",
-        color: "#ec4899",
-      },
-      {
-        name: "Bilal Ahmed",
-        dept: "Marketing",
-        score: 90,
-        ini: "BA",
-        color: "#14b8a6",
-      },
-    ];
-    const source = visibleEmployees?.length ? visibleEmployees : employees;
-    if (!source?.length) return fallback;
-    const src = filteredEmployees?.length ? filteredEmployees : employees;
-    return src.slice(0, 4).map((e: any, i: number) => ({
-      name: e.name || "—",
-      dept: e.department || "—",
-      score: 88 + Math.floor((i * 3.5) % 11),
-      ini: (e.name || "?")
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase(),
-      color: AV_COLORS[i % AV_COLORS.length],
+  const activity = useMemo(() => {
+    if (!Array.isArray(metrics?.recent_activity)) return [];
+    return metrics.recent_activity.map((a: any, index: number) => ({
+      ini:
+        a.ini || initialsFor(a.employee_name || a.name || a.text || "Activity"),
+      color: a.color || AV_COLORS[index % AV_COLORS.length],
+      text: a.text || a.message || "Activity recorded",
+      time: a.time || a.created_at || "",
+      by: a.by || a.actor_name || "System",
+      chip: a.chip || a.type || "Update",
+      cBg: a.cBg || "#eff6ff",
+      cFg: a.cFg || "#2563eb",
     }));
-  }, [filteredEmployees, employees]);
+  }, [metrics]);
+
+  // Top performers ──
+  const topP = useMemo(() => {
+    if (!Array.isArray(metrics?.top_performers)) return [];
+    return metrics.top_performers.map((p: any, index: number) => ({
+      name: p.name || p.employee_name || "Employee",
+      dept: p.department || p.department_name || "-",
+      score: Number(p.score ?? p.performance_score ?? 0),
+      ini: initialsFor(p.name || p.employee_name || "Employee"),
+      color: p.color || AV_COLORS[index % AV_COLORS.length],
+    }));
+  }, [metrics]);
 
   // ── Upcoming birthdays (integrated with calendar) ──
   const birthdays = useMemo(() => {
@@ -1128,7 +1017,8 @@ export default function Dashboard() {
               }}
             >
               <p style={{ margin: 0, fontSize: 11, color: "#9ca3af" }}>
-                📅 {dateStr} &nbsp;·&nbsp; 🕐 {timeStr} PKT
+                {dateStr} | {timeStr} PKT
+                {(user as any)?.email ? ` | ${(user as any).email}` : ""}
               </p>
               <span
                 style={{
@@ -1154,11 +1044,7 @@ export default function Dashboard() {
                   whiteSpace: "nowrap",
                 }}
               >
-                {activeRole === "super_admin"
-                  ? "🔐 Super Admin"
-                  : activeRole === "department_hr"
-                    ? "👥 Department HR"
-                    : "⚙️ Department HR"}
+                {roleLabels[activeRole || ""] || "HR"}
               </span>
             </div>
           </div>
@@ -1528,7 +1414,7 @@ export default function Dashboard() {
                     </select>
                   )}
                   <Chip bg="#dcfce7" fg="#166534">
-                    ↗️ +5.2%
+                    Live
                   </Chip>
                 </div>
               }
@@ -1696,7 +1582,9 @@ export default function Dashboard() {
                 <span
                   style={{ fontSize: 12, fontWeight: 800, color: "#10b981" }}
                 >
-                  260 ↑
+                  {growthData.length
+                    ? growthData[growthData.length - 1]?.count
+                    : "Live"}
                 </span>
               }
             />
@@ -1801,7 +1689,7 @@ export default function Dashboard() {
                   <div
                     style={{ fontSize: 14, fontWeight: 800, color: "#1e1b4b" }}
                   >
-                    173
+                    {leaveTotalUsed}
                   </div>
                   <div style={{ fontSize: 8, color: "#9ca3af" }}>TOTAL</div>
                 </div>
@@ -1869,47 +1757,51 @@ export default function Dashboard() {
                 </Chip>
               }
             />
-            {actions.map((a, i) => (
-              <div
-                key={i}
-                className="rh"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 6px",
-                  borderBottom:
-                    i < actions.length - 1 ? "1px solid #f3f4f6" : "none",
-                }}
-              >
-                <span style={{ fontSize: 15 }}>{a.emoji}</span>
-                <span
+            {actions.length === 0 ? (
+              <EmptyState>No live pending actions.</EmptyState>
+            ) : (
+              actions.map((a, i) => (
+                <div
+                  key={i}
+                  className="rh"
                   style={{
-                    flex: 1,
-                    fontSize: 11,
-                    color: "#374151",
-                    lineHeight: 1.4,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "9px 6px",
+                    borderBottom:
+                      i < actions.length - 1 ? "1px solid #f3f4f6" : "none",
                   }}
                 >
-                  {a.text}
-                </span>
-                <button
-                  onClick={() => navigate(a.link)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "#6366f1",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    padding: "2px 0",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {a.cta}
-                </button>
-              </div>
-            ))}
+                  <span style={{ fontSize: 15 }}>{a.emoji}</span>
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: 11,
+                      color: "#374151",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {a.text}
+                  </span>
+                  <button
+                    onClick={() => navigate(a.link)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#6366f1",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      padding: "2px 0",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {a.cta}
+                  </button>
+                </div>
+              ))
+            )}
           </WCard>
 
           <WCard>
@@ -1922,7 +1814,9 @@ export default function Dashboard() {
                 </Chip>
               }
             />
-            {alerts.map((a, i) => (
+            {alerts.length === 0 ? (
+              <EmptyState>No live urgent alerts.</EmptyState>
+            ) : alerts.map((a, i) => (
               <div
                 key={i}
                 className="rh"
@@ -1953,7 +1847,6 @@ export default function Dashboard() {
           </WCard>
 
           <WCard>
-            <ComingSoonOverlay />
             <SHead
               icon={<Award size={14} color="#f59e0b" />}
               title="Top Performers"
@@ -1963,7 +1856,9 @@ export default function Dashboard() {
                 </Chip>
               }
             />
-            {topP.map((p, i) => (
+            {topP.length === 0 ? (
+              <EmptyState>No performance ranking available.</EmptyState>
+            ) : topP.map((p, i) => (
               <div
                 key={i}
                 className="rh"
@@ -2041,7 +1936,9 @@ export default function Dashboard() {
                 </button>
               }
             />
-            {activity.map((a, i) => (
+            {activity.length === 0 ? (
+              <EmptyState>No recent activity available.</EmptyState>
+            ) : activity.map((a, i) => (
               <div
                 key={i}
                 className="rh"
@@ -2073,13 +1970,17 @@ export default function Dashboard() {
               icon={<Megaphone size={14} color="#f59e0b" />}
               title="Announcements"
             />
-            {combinedAnnouncements.map((a: any, i: number) => (
+            {combinedAnnouncements.length === 0 ? (
+              <EmptyState>No calendar announcements available.</EmptyState>
+            ) : combinedAnnouncements.map((a: any, i: number) => (
               <div
                 key={i}
                 style={{
                   padding: "10px 0",
                   borderBottom:
-                    i < ANNOUNCEMENTS.length - 1 ? "1px solid #f3f4f6" : "none",
+                    i < combinedAnnouncements.length - 1
+                      ? "1px solid #f3f4f6"
+                      : "none",
                 }}
               >
                 <div

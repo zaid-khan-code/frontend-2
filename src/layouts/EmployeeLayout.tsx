@@ -7,7 +7,7 @@ import Topbar from '../components/layout/Topbar';
 export default function EmployeeLayout() {
   const { user, activeRole } = useAuth();
   if (!user) return <Navigate to="/login" />;
-  if (activeRole !== 'employee') return <Navigate to="/dashboard" />;
+  if (activeRole === 'super_admin') return <Navigate to="/launchpad" />;
 
   return (
     <div className="app-layout">

@@ -152,6 +152,14 @@ export default function Sidebar() {
     { to: "/audit-log", icon: ScrollText, label: "Audit Log" },
   ];
 
+  const selfServiceLinks: SidebarLink[] = [
+    { to: "/my-dashboard", icon: LayoutDashboard, label: "My Dashboard" },
+    { to: "/my-attendance", icon: CalendarCheck, label: "My Attendance" },
+    { to: "/my-leave", icon: CalendarDays, label: "My Leave" },
+    { to: "/my-penalties", icon: AlertTriangle, label: "My Penalties" },
+    { to: "/my-profile", icon: UserCheck, label: "My Profile" },
+  ];
+
   const liveAttendance = useMemo(() => {
     const total = allAttendanceToday.length || 1;
     const present = allAttendanceToday.filter(
@@ -221,6 +229,27 @@ export default function Sidebar() {
           ),
         )}
       </div>
+
+      {activeRole !== "super_admin" && (
+        <>
+          <div className="sb-div" />
+          <div className="sb-sec">
+            <div className="sb-lbl">My Workspace</div>
+            {selfServiceLinks.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className={({ isActive }) =>
+                  `nav-a ${isActive ? "active" : ""}`
+                }
+              >
+                <link.icon size={14} className="nav-ico" />
+                {link.label}
+              </NavLink>
+            ))}
+          </div>
+        </>
+      )}
 
       {(activeRole === "super_admin" ||
         activeRole === "head_hr" ||

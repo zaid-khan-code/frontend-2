@@ -73,6 +73,15 @@ import {
   RolesPage,
 } from "./pages/settings/AllSettings";
 
+const EMPLOYEE_SELF_SERVICE_ROLES = [
+  "employee",
+  "head_hr",
+  "branch_hr",
+  "department_hr",
+  "hr_manager",
+  "hr_executive",
+];
+
 /**
  * 1. Protected Route Wrapper
  * Checks if user is logged in.
@@ -299,7 +308,7 @@ const App = () => (
             </Route>
 
             {/* --- EMPLOYEE ROUTES (EmployeeLayout) --- */}
-            <Route element={<ProtectedRoute allowedRoles={["employee"]} />}>
+            <Route element={<ProtectedRoute allowedRoles={EMPLOYEE_SELF_SERVICE_ROLES} />}>
               <Route element={<EmployeeLayout />}>
                 <Route path="/my-dashboard" element={<MyDashboard />} />
                 <Route path="/my-attendance" element={<MyAttendance />} />

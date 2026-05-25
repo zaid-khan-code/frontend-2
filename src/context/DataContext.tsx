@@ -166,7 +166,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
     // Only admins and HR roles can fetch the full employee list
-    const canFetchAll = activeRole === 'super_admin' || activeRole === 'head_hr' || activeRole === 'branch_hr' || activeRole === 'department_hr';
+    const canFetchAll =
+      activeRole === 'super_admin' ||
+      activeRole === 'head_hr' ||
+      activeRole === 'branch_hr' ||
+      activeRole === 'department_hr' ||
+      activeRole === 'hr_manager' ||
+      activeRole === 'hr_executive';
     if (!canFetchAll) return;
     let cancelled = false;
     async function loadFromBackend() {

@@ -16,10 +16,15 @@ import{
 } from "lucide-react";
 
 export default function EmployeeSidebar() {
-  const { user, logout } = useAuth();
+  const { user, activeRole, logout } = useAuth();
   const employeeId = user?.employeeId;
   const { data: employee, isLoading: empLoading } = useEmployee(employeeId);
+  const roleWorkspaceLink =
+    activeRole && activeRole !== "employee" && activeRole !== "super_admin"
+      ? [{ to: "/dashboard", icon: LayoutDashboard, label: "Role Dashboard" }]
+      : [];
   const links = [
+    ...roleWorkspaceLink,
     { to: "/my-dashboard", icon: LayoutDashboard, label: "My Dashboard" },
     { to: "/my-attendance", icon: CalendarCheck, label: "My Attendance" },
     { to: "/my-leave", icon: CalendarDays, label: "Apply for Leave" },
