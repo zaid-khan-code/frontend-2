@@ -628,7 +628,7 @@ export default function Employees() {
                       colSpan={8}
                       style={{ textAlign: "center", padding: "48px 20px" }}
                     >
-                      <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
+                      <div style={{ fontSize: 28, marginBottom: 8 }}></div>
                       <div
                         style={{
                           fontSize: 13,

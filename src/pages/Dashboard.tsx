@@ -648,8 +648,28 @@ export default function Dashboard() {
       name,
       value,
       color: AV_COLORS[i % AV_COLORS.length],
-    }));
+    })).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
   }, [filteredEmployees]);
+
+  const topDeptData = useMemo(() => deptData.slice(0, 5), [deptData]);
+  const otherDeptCount = useMemo(
+    () => deptData.slice(5).reduce((sum, dept) => sum + dept.value, 0),
+    [deptData],
+  );
+  const deptChartData = useMemo(
+    () =>
+      otherDeptCount > 0
+        ? [
+            ...topDeptData,
+            { name: "Others", value: otherDeptCount, color: "#e2e8f0" },
+          ]
+        : topDeptData,
+    [topDeptData, otherDeptCount],
+  );
+  const deptTotal = useMemo(
+    () => deptData.reduce((sum, dept) => sum + dept.value, 0),
+    [deptData],
+  );
 
   // ── Real data ──
   const totalEmp = metrics?.total_employees ?? filteredEmployees?.length ?? 0;
@@ -716,13 +736,13 @@ export default function Dashboard() {
   }, [visibleLeaveRequests]);
   const leaveTotalUsed = leaveData.reduce((sum, row) => sum + row.used, 0);
 
-  const attendPct =
-    totalEmp > 0 ? Math.round((activeEmp / totalEmp) * 100) : 0;
+  const attendPct = Number(
+    metrics?.attendance_rate_percent ??
+      metrics?.present_today_percent ??
+      (totalEmp > 0 ? Math.round((activeEmp / totalEmp) * 100) : 0),
+  );
   const onTimePct = Number(
     metrics?.on_time_percent ?? metrics?.on_time_rate ?? 0,
-  );
-  const retainPct = Number(
-    metrics?.retention_percent ?? metrics?.retention_rate ?? 0,
   );
   const leavePct = Number(metrics?.leave_utilization_percent ?? 0);
 
@@ -820,10 +840,27 @@ export default function Dashboard() {
 
   // ── KPIs ──
   const kpis = [
-    { label: "Attendance Rate", pct: attendPct, color: "#10b981", target: 90 },
-    { label: "Leave Utilization", pct: leavePct, color: "#f97316", target: 60 },
-    { label: "On-time Rate", pct: onTimePct, color: "#6366f1", target: 95 },
-    { label: "Staff Retention", pct: retainPct, color: "#ec4899", target: 95 },
+    {
+      label: "Attendance Rate",
+      pct: attendPct,
+      color: "#10b981",
+      target: 90,
+      period: "Month to date",
+    },
+    {
+      label: "Leave Utilization",
+      pct: leavePct,
+      color: "#f97316",
+      target: 60,
+      period: "Current leave year",
+    },
+    {
+      label: "On-time Rate",
+      pct: onTimePct,
+      color: "#6366f1",
+      target: 95,
+      period: "Month to date",
+    },
   ];
 
   // ── Pending actions ──
@@ -982,7 +1019,7 @@ export default function Dashboard() {
                 lineHeight: 1.15,
               }}
             >
-              {uName} 👋
+              {uName} 
               <span
                 style={{
                   display: "inline-flex",
@@ -1328,7 +1365,7 @@ export default function Dashboard() {
                   gap: 3,
                 }}
               >
-                View <span style={{ fontSize: 11 }}>↗️</span>
+                View
               </div>
             </div>
           ))}
@@ -1341,14 +1378,14 @@ export default function Dashboard() {
             title="Key Performance Indicators"
             right={
               <span style={{ fontSize: 10, color: "#9ca3af" }}>
-                Monthly targets
+                Live backend KPIs
               </span>
             }
           />
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4,1fr)",
+              gridTemplateColumns: "repeat(3,1fr)",
               gap: 20,
             }}
           >
@@ -1372,7 +1409,7 @@ export default function Dashboard() {
                 </div>
                 <Prog pct={k.pct} color={k.color} />
                 <div style={{ fontSize: 9, color: "#d1d5db", marginTop: 3 }}>
-                  Target {k.target}%
+                  {k.period} · Target {k.target}%
                 </div>
               </div>
             ))}
@@ -1473,33 +1510,51 @@ export default function Dashboard() {
             <SHead
               icon={<Users size={14} color="#a855f7" />}
               title="Department Distribution"
+              right={
+                deptData.length > 5 ? (
+                  <Chip bg="#f5f3ff" fg="#7c3aed">
+                    Top 5 + Others
+                  </Chip>
+                ) : undefined
+              }
             />
             <p
               style={{ margin: "-10px 0 12px", fontSize: 10, color: "#9ca3af" }}
             >
-              Headcount by department
+              Team mix by headcount
             </p>
-            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            {deptChartData.length === 0 ? (
+              <EmptyState>No department headcount available.</EmptyState>
+            ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "170px 1fr",
+                gap: 18,
+                alignItems: "center",
+                minHeight: 176,
+              }}
+            >
               <div
                 style={{
                   position: "relative",
-                  width: 140,
-                  height: 140,
+                  width: 158,
+                  height: 158,
                   flexShrink: 0,
                 }}
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={deptData}
+                      data={deptChartData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={40}
-                      outerRadius={58}
+                      innerRadius={47}
+                      outerRadius={68}
                       dataKey="value"
                       stroke="none"
                     >
-                      {deptData.map((d, i) => (
+                      {deptChartData.map((d, i) => (
                         <Cell key={i} fill={d.color} />
                       ))}
                     </Pie>
@@ -1517,51 +1572,153 @@ export default function Dashboard() {
                   <div
                     style={{ fontSize: 16, fontWeight: 800, color: "#1e1b4b" }}
                   >
-                    {totalEmp}
+                    {deptTotal || totalEmp}
                   </div>
-                  <div style={{ fontSize: 8, color: "#9ca3af" }}>TOTAL</div>
+                  <div style={{ fontSize: 8, color: "#9ca3af" }}>PEOPLE</div>
                 </div>
               </div>
-              <div style={{ flex: 1 }}>
-                {deptData.map((d, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 7,
-                      padding: "4px 0",
-                      fontSize: 11,
-                      borderBottom: "1px solid #f8fafc",
-                    }}
-                  >
+              <div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+                    gap: 8,
+                  }}
+                >
+                  {topDeptData.map((d, i) => {
+                    const pct = Math.round((d.value / Math.max(deptTotal, 1)) * 100);
+                    return (
+                      <div
+                        key={d.name}
+                        title={`${d.name}: ${d.value}`}
+                        style={{
+                          background: "#f8fafc",
+                          border: "1px solid #eef2f7",
+                          borderRadius: 11,
+                          padding: "9px 10px",
+                          minWidth: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 7,
+                            marginBottom: 7,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: d.color,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span
+                            style={{
+                              flex: 1,
+                              color: "#334155",
+                              fontSize: 10,
+                              fontWeight: 600,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {d.name}
+                          </span>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: "#1e1b4b" }}>
+                            {d.value}
+                          </span>
+                        </div>
+                        <Prog pct={pct} color={d.color} />
+                        <div style={{ fontSize: 8, color: "#94a3b8", marginTop: 4 }}>
+                          {pct}% of team
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {otherDeptCount > 0 && (
                     <div
+                      title={`${deptData.length - 5} more departments`}
                       style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: d.color,
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span style={{ flex: 1, color: "#374151" }}>{d.name}</span>
-                    <span style={{ fontWeight: 700, color: "#1e1b4b" }}>
-                      {d.value}
-                    </span>
-                    <span
-                      style={{
-                        color: "#d1d5db",
-                        fontSize: 10,
-                        width: 26,
-                        textAlign: "right",
+                        background: "#fff",
+                        border: "1px dashed #d8b4fe",
+                        borderRadius: 11,
+                        padding: "9px 10px",
                       }}
                     >
-                      {Math.round((d.value / totalEmp) * 100)}%
-                    </span>
-                  </div>
-                ))}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 7,
+                          marginBottom: 7,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            background: "#e2e8f0",
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          style={{
+                            flex: 1,
+                            color: "#334155",
+                            fontSize: 10,
+                            fontWeight: 600,
+                          }}
+                        >
+                          Others
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: "#1e1b4b" }}>
+                          {otherDeptCount}
+                        </span>
+                      </div>
+                      <Prog
+                        pct={(otherDeptCount / Math.max(deptTotal, 1)) * 100}
+                        color="#94a3b8"
+                      />
+                      <div style={{ fontSize: 8, color: "#94a3b8", marginTop: 4 }}>
+                        {deptData.length - 5} more departments
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
+                    paddingTop: 10,
+                    borderTop: "1px solid #f1f5f9",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ fontSize: 10, color: "#94a3b8" }}>
+                    Showing the largest departments for a cleaner snapshot.
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: "#6366f1",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    View employees →
+                  </span>
+                </div>
               </div>
             </div>
+            )}
           </WCard>
         </div>
 
@@ -2089,7 +2246,7 @@ export default function Dashboard() {
 
             {birthdays.length === 0 ? (
               <div style={{ textAlign: "center", padding: "36px 20px" }}>
-                <div style={{ fontSize: 28 }}>🎉</div>
+                <div style={{ fontSize: 28 }}><Cake size={48} color="var(--p)" /></div>
                 <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8 }}>
                   No birthdays in the next 30 days
                 </div>
@@ -2123,11 +2280,11 @@ export default function Dashboard() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: b.daysUntil === 0 ? 16 : 11,
+                        fontSize: 11,
                         fontWeight: 700,
                       }}
                     >
-                      {b.daysUntil === 0 ? "🎂" : b.ini}
+                      {b.daysUntil === 0 ? <Cake size={16} /> : b.ini}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div

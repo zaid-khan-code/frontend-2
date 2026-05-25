@@ -1,8 +1,23 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import Dashboard from "./Dashboard";
+
+const mockState = vi.hoisted(() => ({
+  employees: [] as any[],
+  metrics: {
+    total_employees: 0,
+    present_today: 0,
+    attendance_trend: [] as any[],
+    headcount_trend: [] as any[],
+    pending_actions: [] as any[],
+    urgent_alerts: [] as any[],
+    recent_activity: [] as any[],
+    top_performers: [] as any[],
+    upcoming_birthdays: [] as any[],
+  },
+}));
 
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
@@ -31,7 +46,11 @@ vi.mock("../context/AuthContext", () => ({
 }));
 
 vi.mock("../hooks/useEmployees", () => ({
-  useEmployees: () => ({ data: [], isLoading: false, isError: false }),
+  useEmployees: () => ({
+    data: mockState.employees,
+    isLoading: false,
+    isError: false,
+  }),
 }));
 
 vi.mock("../hooks/useLeaves", () => ({
@@ -40,7 +59,18 @@ vi.mock("../hooks/useLeaves", () => ({
 
 vi.mock("../hooks/useDashboard", () => ({
   useDashboardMetrics: () => ({
-    data: {
+    data: mockState.metrics,
+  }),
+}));
+
+vi.mock("../hooks/useCalendarEvents", () => ({
+  useCalendarEvents: () => ({ data: [] }),
+}));
+
+describe("Dashboard", () => {
+  beforeEach(() => {
+    mockState.employees = [];
+    mockState.metrics = {
       total_employees: 0,
       present_today: 0,
       attendance_trend: [],
@@ -50,15 +80,9 @@ vi.mock("../hooks/useDashboard", () => ({
       recent_activity: [],
       top_performers: [],
       upcoming_birthdays: [],
-    },
-  }),
-}));
+    };
+  });
 
-vi.mock("../hooks/useCalendarEvents", () => ({
-  useCalendarEvents: () => ({ data: [] }),
-}));
-
-describe("Dashboard", () => {
   it("does not show prototype dashboard data for HR Executive users", () => {
     render(
       <MemoryRouter>
@@ -78,5 +102,77 @@ describe("Dashboard", () => {
     expect(screen.queryByText(/Bank info missing/)).toBeNull();
     expect(screen.getByText("No live pending actions.")).toBeTruthy();
     expect(screen.getByText("No live urgent alerts.")).toBeTruthy();
+    expect(screen.queryByText("Staff Retention")).toBeNull();
+  });
+
+  it("renders only backend-supported KPI cards with clear periods", () => {
+    mockState.metrics = {
+      ...mockState.metrics,
+      attendance_rate_percent: 91,
+      leave_utilization_percent: 25,
+      on_time_percent: 84,
+    };
+
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Attendance Rate")).toBeTruthy();
+    expect(screen.getByText("Leave Utilization")).toBeTruthy();
+    expect(screen.getByText("On-time Rate")).toBeTruthy();
+    expect(screen.getAllByText(/Month to date/)).toHaveLength(2);
+    expect(screen.getByText(/Current leave year/)).toBeTruthy();
+    expect(screen.queryByText("Staff Retention")).toBeNull();
+  });
+
+  it("summarizes department distribution as top departments plus others", () => {
+    mockState.employees = [
+      ...Array.from({ length: 6 }, (_, i) => ({
+        id: `HR${i}`,
+        name: `HR ${i}`,
+        department: "Human Resources",
+      })),
+      ...Array.from({ length: 5 }, (_, i) => ({
+        id: `BE${i}`,
+        name: `Backend ${i}`,
+        department: "Backend Engineering",
+      })),
+      ...Array.from({ length: 4 }, (_, i) => ({
+        id: `FIN${i}`,
+        name: `Finance ${i}`,
+        department: "Finance",
+      })),
+      ...Array.from({ length: 3 }, (_, i) => ({
+        id: `OPS${i}`,
+        name: `Ops ${i}`,
+        department: "Operations",
+      })),
+      ...Array.from({ length: 2 }, (_, i) => ({
+        id: `QA${i}`,
+        name: `QA ${i}`,
+        department: "Software QA",
+      })),
+      { id: "SEC1", name: "Security 1", department: "Security" },
+      { id: "SALES1", name: "Sales 1", department: "Sales" },
+    ];
+    mockState.metrics = {
+      ...mockState.metrics,
+      total_employees: mockState.employees.length,
+    };
+
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Top 5 + Others")).toBeTruthy();
+    expect(screen.getByText("Human Resources")).toBeTruthy();
+    expect(screen.getByText("Backend Engineering")).toBeTruthy();
+    expect(screen.getByText("Others")).toBeTruthy();
+    expect(screen.queryByText("Security")).toBeNull();
+    expect(screen.queryByText("Sales")).toBeNull();
   });
 });

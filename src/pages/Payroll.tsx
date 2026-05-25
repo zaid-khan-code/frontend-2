@@ -81,10 +81,10 @@ function numWords(n: number): string {
 }
 
 const CARD_THEMES = [
-  { bg:"linear-gradient(135deg,#f97316 0%,#ef4444 100%)", shadow:"0 8px 28px rgba(249,115,22,.35)", icon:"💰", label:"NET PAYABLE" },
-  { bg:"linear-gradient(135deg,#06b6d4 0%,#3b82f6 100%)", shadow:"0 8px 28px rgba(6,182,212,.35)",  icon:"📊", label:"TOTAL GROSS" },
-  { bg:"linear-gradient(135deg,#f59e0b 0%,#f97316 100%)", shadow:"0 8px 28px rgba(245,158,11,.35)", icon:"📄", label:"DRAFT RECORDS" },
-  { bg:"linear-gradient(135deg,#10b981 0%,#06b6d4 100%)", shadow:"0 8px 28px rgba(16,185,129,.35)", icon:"🔒", label:"FINALIZED" },
+  { bg:"linear-gradient(135deg,#f97316 0%,#ef4444 100%)", shadow:"0 8px 28px rgba(249,115,22,.35)", icon:"", label:"NET PAYABLE" },
+  { bg:"linear-gradient(135deg,#06b6d4 0%,#3b82f6 100%)", shadow:"0 8px 28px rgba(6,182,212,.35)",  icon:"", label:"TOTAL GROSS" },
+  { bg:"linear-gradient(135deg,#f59e0b 0%,#f97316 100%)", shadow:"0 8px 28px rgba(245,158,11,.35)", icon:"", label:"DRAFT RECORDS" },
+  { bg:"linear-gradient(135deg,#10b981 0%,#06b6d4 100%)", shadow:"0 8px 28px rgba(16,185,129,.35)", icon:"", label:"FINALIZED" },
 ];
 
 function Toast({ msg, show }: { msg: string; show: boolean }) {
@@ -193,20 +193,20 @@ export default function Payroll() {
       return [...prev,rec];
     });
     setShowGen(false);
-    showToast(status==="Draft"?"📄 Saved as Draft":"✅ Payroll Finalized & Locked");
+    showToast(status==="Draft"?"Saved as Draft":"Payroll Finalized & Locked");
   }
 
   function finalizeRecord(empId:string,month:number,year:number) {
     setRecords(prev=>prev.map(r=>
       r.empId===empId&&r.month===month&&r.year===year?{...r,status:"Finalized"}:r
     ));
-    showToast("✅ Payroll Finalized");
+    showToast("Payroll Finalized");
   }
 
   function deleteRecord(empId:string,month:number,year:number) {
     if(!window.confirm("Delete this payroll record?")) return;
     setRecords(prev=>prev.filter(r=>!(r.empId===empId&&r.month===month&&r.year===year)));
-    showToast("🗑 Record deleted");
+    showToast("Record deleted");
   }
 
   /* ── Department-scoped filtering ──
@@ -278,8 +278,8 @@ export default function Payroll() {
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 22px",borderBottom:"1px solid #f3f4f6",position:"sticky",top:0,background:"#fff",zIndex:2}}>
             <div style={{fontWeight:700,fontSize:15,color:"#111827"}}>Pay Slip</div>
             <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>window.print()} style={{height:32,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#374151",fontSize:12,fontWeight:500,padding:"0 14px",cursor:"pointer"}}>🖨 Print</button>
-              <button onClick={()=>setShowSlip(null)} style={{height:32,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#374151",fontSize:12,fontWeight:500,padding:"0 14px",cursor:"pointer"}}>✕ Close</button>
+              <button onClick={()=>window.print()} style={{height:32,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#374151",fontSize:12,fontWeight:500,padding:"0 14px",cursor:"pointer"}}>Print</button>
+              <button onClick={()=>setShowSlip(null)} style={{height:32,borderRadius:8,border:"1px solid #e5e7eb",background:"#f9fafb",color:"#374151",fontSize:12,fontWeight:500,padding:"0 14px",cursor:"pointer"}}>Close</button>
             </div>
           </div>
           <div style={{padding:22}}>
@@ -480,7 +480,7 @@ export default function Payroll() {
             <tbody>
               {filtered.length===0 ? (
                 <tr><td colSpan={10} style={{textAlign:"center",padding:"72px 20px",color:"#9ca3af"}}>
-                  <div style={{fontSize:40,marginBottom:12}}>📋</div>
+                  <div style={{fontSize:40,marginBottom:12}}></div>
                   <div style={{fontWeight:600,color:"#6b7280",fontSize:14,marginBottom:6}}>No payroll records found</div>
                   <div style={{fontSize:12}}>Click "+ Generate Payroll" to create records for this period</div>
                 </td></tr>
