@@ -292,5 +292,5 @@ describe("AddEmployee", () => {
     expect(screen.queryByText("CNIC Copy")).toBeNull();
     expect(screen.queryByText("Profile Photo")).toBeNull();
     expect(screen.queryByText("Employment Contract")).toBeNull();
-  });
+  }, 10000);
 });

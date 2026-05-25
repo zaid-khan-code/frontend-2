@@ -208,7 +208,7 @@ const App = () => (
                 {/* HR Workflow Pages: Branch HR executes, SuperAdmin watches */}
                 <Route
                   element={
-                    <ProtectedRoute allowedRoles={["super_admin", "head_hr"]} />
+                    <ProtectedRoute allowedRoles={["super_admin", "head_hr", "branch_hr"]} />
                   }
                 >
                   <Route
