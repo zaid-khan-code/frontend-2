@@ -129,6 +129,7 @@ export default function Sidebar() {
     { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
     { to: "/penalty", icon: ClipboardList, label: "Penalty" },
     { to: "/penalty-workflow", icon: CheckCircle2, label: "Penalty Submissions" },
+    { to: "/announcements", icon: Zap, label: "Announcements" },
     { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
     { to: "/directory", icon: MapPin, label: "Directory" },
   ];

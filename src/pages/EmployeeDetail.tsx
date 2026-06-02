@@ -30,6 +30,7 @@ import { useAttendanceReport } from "../hooks/useAttendance";
 import { useEmployee } from "../hooks/useEmployees";
 import { useLeaveBalances, useLeaves } from "../hooks/useLeaves";
 import { usePenalties } from "../hooks/usePenalties";
+import { usePenaltyRules } from "../hooks/useConfig";
 import { useRbac } from "../hooks/useRbac";
 import { formatPKR, getStatusColor } from "../services/api";
 
@@ -66,6 +67,14 @@ function formatDate(value: any) {
 
 function formatStatus(value: any) {
   return text(value).replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function daysInclusive(start: any, end: any) {
+  if (!start || !end) return null;
+  const startDate = new Date(String(start).slice(0, 10));
+  const endDate = new Date(String(end).slice(0, 10));
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null;
+  return Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1);
 }
 
 function getWindowMonths(offset: 0 | 6) {
@@ -109,11 +118,11 @@ function normalizeEmployee(raw: any) {
     dateOfJoining: firstValue(raw?.jobInfo?.date_of_joining, raw?.date_of_joining),
     dateOfExit: firstValue(raw?.jobInfo?.date_of_exit, raw?.date_of_exit),
     email: text(firstValue(raw?.accountInfo?.email, raw?.email, raw?.user?.email)),
-    phone: text(firstValue(raw?.accountInfo?.phone, raw?.phone, raw?.emergencyContacts?.contact_1)),
+    phone: text(firstValue(raw?.employeeContact?.primary_phone, raw?.accountInfo?.phone, raw?.phone, raw?.emergencyContacts?.contact_1)),
     emergency1: text(raw?.emergencyContacts?.e_contact_1_full_name),
     emergency2: text(raw?.emergencyContacts?.e_contact_2_full_name),
-    permanentAddress: text(raw?.emergencyContacts?.perment_address),
-    postalAddress: text(raw?.emergencyContacts?.postal_address),
+    permanentAddress: text(firstValue(raw?.employeeContact?.perment_address, raw?.emergencyContacts?.perment_address)),
+    postalAddress: text(firstValue(raw?.employeeContact?.postal_address, raw?.emergencyContacts?.postal_address)),
     bankName: text(raw?.bankInfo?.bank_name),
     bankAccount: text(raw?.bankInfo?.account_number),
     bankVerified: Boolean(raw?.bankInfo?.is_verified),
@@ -121,6 +130,17 @@ function normalizeEmployee(raw: any) {
     allergies: text(raw?.medicalInfo?.allergy_notes),
     chronicConditions: text(raw?.medicalInfo?.chronic_condition_notes),
     medications: text(raw?.medicalInfo?.emergency_medication),
+    genderMedical: text(raw?.medicalInfo?.gender),
+    heightCm: text(raw?.medicalInfo?.height_cm),
+    weightKg: text(raw?.medicalInfo?.weight_kg),
+    hasDisability: raw?.medicalInfo?.has_disability,
+    disabilityType: text(raw?.medicalInfo?.disability_type),
+    disabilityDescription: text(raw?.medicalInfo?.disability_description),
+    hasChronicCondition: raw?.medicalInfo?.has_chronic_condition,
+    hasKnownAllergies: raw?.medicalInfo?.has_known_allergies,
+    fitnessStatus: text(raw?.medicalInfo?.fitness_status),
+    lastMedicalExamDate: raw?.medicalInfo?.last_medical_exam_date,
+    nextMedicalExamDate: raw?.medicalInfo?.next_medical_exam_date,
     salary: numberValue(raw?.salaryInfo?.base_salary),
     currency: text(raw?.salaryInfo?.currency || "PKR"),
   };
@@ -191,6 +211,10 @@ export default function EmployeeDetail() {
   const [actionsOpen, setActionsOpen] = useState(false);
   const [windowOffset, setWindowOffset] = useState<0 | 6>(0);
   const [resendModalOpen, setResendModalOpen] = useState(false);
+  const [penaltyModalOpen, setPenaltyModalOpen] = useState(false);
+  const [penaltyRuleId, setPenaltyRuleId] = useState("");
+  const [penaltyDate, setPenaltyDate] = useState(new Date().toISOString().slice(0, 10));
+  const [penaltyReason, setPenaltyReason] = useState("");
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const { data: rawEmployee, isLoading, resendCredentials, isResendingCredentials } = useEmployee(id);
   const employee = useMemo(() => (rawEmployee ? normalizeEmployee(rawEmployee) : null), [rawEmployee]);
@@ -205,7 +229,8 @@ export default function EmployeeDetail() {
   );
   const { data: leaveRows = [], isLoading: leavesLoading } = useLeaves(employeeId ? { employee_id: employeeId } : undefined);
   const { data: leaveBalances = [], isLoading: balancesLoading } = useLeaveBalances(employeeId ? { employee_id: employeeId, year: new Date().getFullYear() } : undefined);
-  const { data: penaltyRows = [], isLoading: penaltiesLoading, isError: penaltiesError } = usePenalties(employeeId ? { employee_id: employeeId } : undefined);
+  const { data: penaltyRows = [], isLoading: penaltiesLoading, isError: penaltiesError, propose: proposePenalty } = usePenalties(employeeId ? { employee_id: employeeId } : undefined);
+  const { data: penaltyRules = [] } = usePenaltyRules();
 
   const attendanceChart = months.map((month) => {
     const row = reportRows.find((item: any) => {
@@ -241,6 +266,27 @@ export default function EmployeeDetail() {
     }
   };
 
+  const handleAddPenalty = async () => {
+    if (!employeeId || !penaltyRuleId || !penaltyDate || !penaltyReason.trim()) {
+      showToast("Employee, penalty rule, date, and reason are mandatory.", "error");
+      return;
+    }
+    try {
+      await proposePenalty({
+        employee_id: employeeId,
+        rule_id: penaltyRuleId,
+        date: penaltyDate,
+        reason: penaltyReason.trim(),
+      });
+      setPenaltyModalOpen(false);
+      setPenaltyRuleId("");
+      setPenaltyReason("");
+      showToast("Penalty submitted for review.");
+    } catch (error: any) {
+      showToast(error?.response?.data?.error?.message || "Unable to submit penalty.", "error");
+    }
+  };
+
   if (isLoading) {
     return <div style={{ padding: 50, textAlign: "center" }}>Loading employee profile...</div>;
   }
@@ -259,7 +305,7 @@ export default function EmployeeDetail() {
   const quickActions = [
     { label: "Open attendance sheet", action: () => navigate("/attendance") },
     { label: "Open leave management", action: () => navigate("/leave") },
-    { label: "Open payroll", action: () => navigate("/payroll") },
+    { label: "Add penalty", action: () => setPenaltyModalOpen(true) },
     ...(can("resend_credentials") ? [{ label: "Resend credentials", action: handleResendCredentials }] : []),
   ];
 
@@ -378,9 +424,20 @@ export default function EmployeeDetail() {
               <FieldGrid
                 items={[
                   ["Blood Group", employee.bloodGroup],
+                  ["Gender", employee.genderMedical],
+                  ["Height", employee.heightCm],
+                  ["Weight", employee.weightKg],
+                  ["Disability", employee.hasDisability ? "Yes" : "No"],
+                  ["Disability Type", employee.disabilityType],
+                  ["Disability Description", employee.disabilityDescription],
+                  ["Chronic Condition", employee.hasChronicCondition ? "Yes" : "No"],
                   ["Allergies", employee.allergies],
+                  ["Known Allergies", employee.hasKnownAllergies ? "Yes" : "No"],
                   ["Chronic Conditions", employee.chronicConditions],
                   ["Medication", employee.medications],
+                  ["Fitness Status", employee.fitnessStatus],
+                  ["Last Medical Exam", formatDate(employee.lastMedicalExamDate)],
+                  ["Next Medical Exam", formatDate(employee.nextMedicalExamDate)],
                 ]}
               />
             </InfoCard>
@@ -433,7 +490,7 @@ export default function EmployeeDetail() {
                   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
                   return (
                     <div key={balance.leave_type_id || balance.id || index} style={{ padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "linear-gradient(135deg, rgba(236,253,245,.82), rgba(255,255,255,.9))" }}>
-                      <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)", marginBottom: 6 }}>{text(balance.name || balance.leave_type || balance.type)}</div>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)", marginBottom: 6 }}>{text(balance.leave_type_name || balance.leave_type?.name || balance.leave_type || balance.type || balance.name)}</div>
                       <div className="mono" style={{ fontSize: 18, fontWeight: 950, color: "var(--green)" }}>{remaining} remaining</div>
                       <div style={{ marginTop: 10, height: 7, borderRadius: 999, background: "rgba(15,23,42,.08)", overflow: "hidden" }}>
                         <div style={{ width: `${pct}%`, height: "100%", background: "var(--green)" }} />
@@ -464,16 +521,20 @@ export default function EmployeeDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {leaveRows.map((leave: any, index: number) => (
+                    {leaveRows.map((leave: any, index: number) => {
+                      const from = leave.from || leave.start_date || leave.date_from;
+                      const to = leave.to || leave.end_date || leave.date_to;
+                      const calculatedDays = daysInclusive(from, to);
+                      return (
                       <tr key={leave.id || index}>
                         <td>{text(leave.leave_type?.name || leave.leave_type_name || leave.leave_type || leave.type)}</td>
-                        <td className="mono">{formatDate(leave.from || leave.start_date || leave.date_from)}</td>
-                        <td className="mono">{formatDate(leave.to || leave.end_date || leave.date_to)}</td>
-                        <td className="mono">{text(leave.days || leave.total_days || leave.duration)}</td>
+                        <td className="mono">{formatDate(from)}</td>
+                        <td className="mono">{formatDate(to)}</td>
+                        <td className="mono">{text(leave.days || leave.total_days || leave.duration || calculatedDays)}</td>
                         <td>{text(leave.reason || leave.notes)}</td>
                         <td><span className={`pill ${getStatusColor(leave.status)}`}>{formatStatus(leave.status)}</span></td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>
@@ -549,6 +610,35 @@ export default function EmployeeDetail() {
         <p style={{ fontSize: 13, marginBottom: 12 }}>Share this password with the employee securely. It will not be sent automatically.</p>
         <div className="mono" style={{ padding: 12, background: "var(--hover)", borderRadius: 8, fontWeight: 800 }}>
           {tempPassword || "Not provided"}
+        </div>
+      </Modal>
+      <Modal open={penaltyModalOpen} onClose={() => setPenaltyModalOpen(false)} title={`Add Penalty - ${employee.name}`}>
+        <div className="form-group">
+          <label className="form-label">Employee</label>
+          <input className="input" value={`${employee.name} (${employee.id})`} disabled />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Penalty Rule *</label>
+          <select className="input select-input" value={penaltyRuleId} onChange={(event) => setPenaltyRuleId(event.target.value)}>
+            <option value="">Select penalty rule...</option>
+            {penaltyRules.filter((rule: any) => rule.is_active !== false).map((rule: any) => (
+              <option key={rule.id} value={rule.id}>
+                {rule.name} - {formatPKR(numberValue(rule.amount_pkr))}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Penalty Date *</label>
+          <input className="input" type="date" value={penaltyDate} onChange={(event) => setPenaltyDate(event.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Reason *</label>
+          <textarea className="input" rows={3} value={penaltyReason} onChange={(event) => setPenaltyReason(event.target.value)} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+          <button className="btn btn-secondary" onClick={() => setPenaltyModalOpen(false)}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleAddPenalty}>Submit for Review</button>
         </div>
       </Modal>
     </div>

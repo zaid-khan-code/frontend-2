@@ -38,6 +38,7 @@ function isEmployeeProfile(payload: any) {
     payload.name ||
     payload.father_name ||
     payload.salaryInfo ||
+    payload.employeeContact ||
     payload.emergencyContacts ||
     payload.bankInfo ||
     payload.medicalInfo ||
@@ -86,9 +87,14 @@ const allowanceFields = [
   "amount",
 ];
 
-const emergencyFields = [
+const employeeContactFields = [
+  "primary_phone",
+  "alternate_phone",
   "perment_address",
   "postal_address",
+];
+
+const emergencyFields = [
   "e_contact_1_relation",
   "e_contact_1_full_name",
   "e_contact_1_phone",
@@ -357,6 +363,12 @@ const sectionMeta: Record<
     accent: "#b45309",
     tint: "rgba(245,158,11,.14)",
     Icon: WalletCards,
+  },
+  employeeContact: {
+    label: "Employee Contact",
+    accent: "#2563eb",
+    tint: "rgba(37,99,235,.1)",
+    Icon: Phone,
   },
   emergencyContacts: {
     label: "Emergency Contacts",
@@ -629,12 +641,13 @@ export default function MyProfile() {
   const isLoading =
     !emp && (isSelfLoading || (!!resolvedEmployeeId && isEmployeeLoading));
   const isError =
-    !emp && (isSelfError || (!!resolvedEmployeeId && isEmployeeError));
+    !emp && ((!resolvedEmployeeId && isSelfError) || (!!resolvedEmployeeId && isEmployeeError));
 
   if (isLoading) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
-        <Loader2 className="spinner" size={24} />
+        <Loader2 className="spinner" size={28} />
+        <div style={{ marginTop: 10, fontSize: 13, color: "var(--t3)" }}>Loading your profile...</div>
       </div>
     );
   }
@@ -727,6 +740,14 @@ export default function MyProfile() {
             []
           </div>
         )}
+      </DataSection>
+
+      <DataSection title="employeeContact">
+        <FieldGrid
+          source={emp.employeeContact}
+          fields={employeeContactFields}
+          accent={sectionMeta.employeeContact.accent}
+        />
       </DataSection>
 
       <DataSection title="emergencyContacts">

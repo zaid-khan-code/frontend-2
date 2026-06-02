@@ -282,7 +282,7 @@ settingsNavigationGroups.push({
   links: [
     { to: "/settings/directory", label: "Directory Management" },
     { to: "/settings/calendar-events", label: "Calendar Events" },
-    { to: "/settings/announcements", label: "Announcements" },
+    { to: "/announcements/manage", label: "Announcements" },
   ],
 });
 

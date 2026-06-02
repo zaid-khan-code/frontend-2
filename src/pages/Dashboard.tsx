@@ -771,6 +771,10 @@ export default function Dashboard() {
     employees.find((employee: any) => employee.id === (user as any)?.employeeId) ||
     employees.find((employee: any) => employee.email === (user as any)?.email);
   const uName =
+    metrics?.employee?.name ||
+    metrics?.profile?.name ||
+    metrics?.full_name ||
+    metrics?.employee_name ||
     selfEmployee?.name ||
     (user as any)?.name ||
     (user as any)?.full_name ||
@@ -844,7 +848,7 @@ export default function Dashboard() {
       glow: "rgba(183,33,255,.35)",
       icon: <CalendarDays size={20} color="#fff" />,
       val: pendingLv,
-      label: "Pending Leaves",
+      label: "Pending Leave Requests",
       sub: "Need approval",
       chip: "Action Needed",
       link: "/leave",
@@ -1815,7 +1819,7 @@ export default function Dashboard() {
               right={
                 pendingLv > 0 ? (
                   <Chip bg="#fef3c7" fg="#d97706">
-                    {pendingLv} Pending
+                    {pendingLv} Pending Requests
                   </Chip>
                 ) : undefined
               }
@@ -1860,7 +1864,7 @@ export default function Dashboard() {
                   >
                     {leaveTotalUsed}
                   </div>
-                  <div style={{ fontSize: 8, color: "#9ca3af" }}>TOTAL</div>
+                  <div style={{ fontSize: 8, color: "#9ca3af" }}>TOTAL REQUESTS</div>
                 </div>
               </div>
               <div style={{ flex: 1 }}>

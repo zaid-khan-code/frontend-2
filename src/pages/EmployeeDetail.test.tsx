@@ -92,6 +92,10 @@ vi.mock("../hooks/usePenalties", () => ({
   usePenalties: (params: any) => usePenaltiesMock(params),
 }));
 
+vi.mock("../hooks/useConfig", () => ({
+  usePenaltyRules: () => ({ data: [{ id: "rule-1", name: "Late Arrival", amount_pkr: 1000, is_active: true }] }),
+}));
+
 function renderEmployeeDetail() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -123,6 +127,7 @@ describe("EmployeeDetail", () => {
       data: [{ id: "PN1", rule_name: "Late Arrival", amount_pkr: 1000, date: "2026-05-03", status: "approved" }],
       isLoading: false,
       isError: false,
+      propose: vi.fn(),
     });
   });
 

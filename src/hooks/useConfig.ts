@@ -17,8 +17,12 @@ function normalizeConfigList<T>(payload: any, entityName: string): T[] {
 }
 
 // Generic hook factory for basic config entities
-export function createConfigHook<T>(entityName: string) {
-  const queryKey = ["config", entityName];
+export function createConfigHook<T>(
+  entityName: string,
+  options: { includeInactive?: boolean } = {},
+) {
+  const queryParams = options.includeInactive ? { include_inactive: true } : undefined;
+  const queryKey = ["config", entityName, queryParams || {}];
 
   return function useEntityConfig() {
     const queryClient = useQueryClient();
@@ -26,7 +30,9 @@ export function createConfigHook<T>(entityName: string) {
     const query = useQuery({
       queryKey,
       queryFn: async () => {
-        const { data } = await apiClient.get(`/config/${entityName}`);
+        const { data } = queryParams
+          ? await apiClient.get(`/config/${entityName}`, { params: queryParams })
+          : await apiClient.get(`/config/${entityName}`);
         return normalizeConfigList<T>(data, entityName);
       },
     });
@@ -37,7 +43,7 @@ export function createConfigHook<T>(entityName: string) {
         return data.data;
       },
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey });
+        queryClient.invalidateQueries({ queryKey: ["config", entityName] });
       },
     });
 
@@ -56,7 +62,7 @@ export function createConfigHook<T>(entityName: string) {
         return data.data;
       },
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey });
+        queryClient.invalidateQueries({ queryKey: ["config", entityName] });
       },
     });
 
@@ -132,14 +138,17 @@ export const useShifts = createConfigHook<any>("shifts");
 export const useLeaveTypes = createConfigHook<any>("leave-types");
 export const useLeavePolicies = createConfigHook<any>("leave-policies");
 export const useLeaveCapacity = createConfigHook<any>("leave-capacity");
-export function usePenaltyRules() {
+export function usePenaltyRules(options: { includeInactive?: boolean } = {}) {
   const queryClient = useQueryClient();
-  const queryKey = ["penalty-rules"];
+  const queryParams = options.includeInactive ? { include_inactive: true } : undefined;
+  const queryKey = ["penalty-rules", queryParams || {}];
 
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      const { data } = await apiClient.get("/penalty-rules");
+      const { data } = queryParams
+        ? await apiClient.get("/penalty-rules", { params: queryParams })
+        : await apiClient.get("/penalty-rules");
       return normalizeConfigList<any>(data, "penalty-rules");
     },
   });
@@ -150,7 +159,7 @@ export function usePenaltyRules() {
       return data.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["penalty-rules"] });
     },
   });
 
@@ -166,7 +175,7 @@ export function usePenaltyRules() {
       return data.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["penalty-rules"] });
     },
   });
 

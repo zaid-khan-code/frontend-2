@@ -215,6 +215,16 @@ const App = () => (
                 <Route path="/penalty" element={<PenaltyLedger />} />
                 <Route path="/penalty-ledger" element={<Navigate to="/penalty" replace />} />
                 <Route path="/announcements" element={<AnnouncementsFeed />} />
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["super_admin", "head_hr", "hr_manager", "branch_hr", "department_hr", "hr_executive"]}
+                      requiredPermissions={["announcements:write"]}
+                    />
+                  }
+                >
+                  <Route path="/announcements/manage" element={<AnnouncementsSettings />} />
+                </Route>
                 <Route path="/calendar" element={<Calendar />} />
 
                 {/* HR Workflow Pages: Branch HR executes, SuperAdmin watches */}
@@ -305,11 +315,6 @@ const App = () => (
                   path="/settings/calendar-events"
                   element={<CalendarEventsSettings />}
                 />
-                <Route
-                  path="/settings/announcements"
-                  element={<AnnouncementsSettings />}
-                />
-
                 {/* SuperAdmin + Head HR Only */}
                 <Route
                   element={
@@ -337,6 +342,8 @@ const App = () => (
                 />
                 <Route path="/my-leave" element={<MyLeave />} />
                 <Route path="/my-penalties" element={<MyPenalties />} />
+                <Route path="/my-calendar" element={<Calendar />} />
+                <Route path="/my-announcements" element={<AnnouncementsFeed />} />
                 <Route path="/my-profile" element={<MyProfile />} />
                 <Route
                   path="/my-widgets"

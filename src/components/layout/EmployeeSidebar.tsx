@@ -12,6 +12,8 @@ import{
   Zap,
   AlertTriangle,
   Users,
+  CalendarRange,
+  Megaphone,
 } from "lucide-react";
 
 export default function EmployeeSidebar() {
@@ -28,6 +30,8 @@ export default function EmployeeSidebar() {
     { to: "/my-attendance", icon: CalendarCheck, label: "My Attendance" },
     { to: "/my-leave", icon: CalendarDays, label: "Apply for Leave" },
     { to: "/my-penalties", icon: AlertTriangle, label: "My Penalties" },
+    { to: "/my-calendar", icon: CalendarRange, label: "Calendar Events" },
+    { to: "/my-announcements", icon: Megaphone, label: "Announcements" },
     { to: "/my-directory", icon: Users, label: "Directory" },
     { to: "/my-profile", icon: User, label: "My Profile" },
   ];

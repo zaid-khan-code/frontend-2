@@ -13,6 +13,10 @@ export type Announcement = {
   updated_at?: string;
   created_by_name?: string;
   updated_by_name?: string;
+  target_department_id?: string | null;
+  target_designation_id?: string | null;
+  target_department_name?: string | null;
+  target_designation_name?: string | null;
 };
 
 export type AnnouncementPayload = {
@@ -20,6 +24,8 @@ export type AnnouncementPayload = {
   body: string;
   audience: AnnouncementAudience;
   is_active?: boolean;
+  target_department_id?: string | null;
+  target_designation_id?: string | null;
 };
 
 function normalizeAnnouncementList(payload: any): Announcement[] {

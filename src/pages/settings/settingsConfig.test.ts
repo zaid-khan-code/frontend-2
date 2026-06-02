@@ -57,6 +57,10 @@ describe("settings configuration registry", () => {
       label: "Calendar Events",
     });
     expect(settingsNavigationGroups.flatMap((group) => group.links)).toContainEqual({
+      to: "/announcements/manage",
+      label: "Announcements",
+    });
+    expect(settingsNavigationGroups.flatMap((group) => group.links)).not.toContainEqual({
       to: "/settings/announcements",
       label: "Announcements",
     });

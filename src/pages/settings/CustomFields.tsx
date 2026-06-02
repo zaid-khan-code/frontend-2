@@ -80,7 +80,7 @@ export default function CustomFields() {
       <div className="tabs">{tabs.map(t => <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t.charAt(0).toUpperCase() + t.slice(1)}</button>)}</div>
       <div className="card">
         {fields.length === 0 ? <div className="empty-state"><p>No custom fields added for this section</p></div> :
-          <table><thead><tr><th>Label</th><th>Type</th><th>Required</th><th>Active</th><th>Actions</th></tr></thead>
+          <table><thead><tr><th>Label</th><th>Type</th><th>Mandatory</th><th>Active</th><th>Actions</th></tr></thead>
           <tbody>{fields.map((f: any, i: number) => <tr key={i}>
             <td style={{ fontWeight: 600 }}>{f.label}</td><td>{f.type}</td>
             <td><span className={`pill ${f.required ? 'pill-amber' : 'pill-steel'}`}>{f.required ? 'Yes' : 'No'}</span></td>
@@ -101,7 +101,7 @@ export default function CustomFields() {
         <div className="form-group"><label className="form-label">Section</label><select className="input select-input" value={fieldSection} onChange={e => { setFieldSection(e.target.value); setTab(e.target.value); }}>{SECTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}</select></div>
         {fieldType === 'Dropdown' && <div className="form-group"><label className="form-label">Options (comma-separated)</label><input className="input" value={fieldOptions} onChange={e => setFieldOptions(e.target.value)} placeholder="Option 1, Option 2, Option 3" /></div>}
         <div className="form-group"><label className="form-label">Display Order</label><input className="input" type="number" value={fieldOrder} onChange={e => setFieldOrder(+e.target.value)} /></div>
-        <div className="form-group"><label style={{ fontSize: 12, cursor: 'pointer' }}><input type="checkbox" checked={fieldRequired} onChange={e => setFieldRequired(e.target.checked)} /> Required</label></div>
+        <div className="form-group"><label style={{ fontSize: 12, cursor: 'pointer' }}><input type="checkbox" checked={fieldRequired} onChange={e => setFieldRequired(e.target.checked)} /> Mandatory</label></div>
       </Modal>
       <ConfirmDialog open={deleteIdx !== null} title="Delete Field" message="Are you sure you want to delete this custom field?" onConfirm={handleDelete} onCancel={() => setDeleteIdx(null)} />
     </div>

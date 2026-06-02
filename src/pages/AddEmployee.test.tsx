@@ -7,6 +7,7 @@ import AddEmployee from "./AddEmployee";
 
 const createEmployeeMock = vi.hoisted(() => vi.fn());
 const useDesignationsMock = vi.hoisted(() => vi.fn());
+const rolesMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../context/DataContext", () => ({
   useData: () => ({}),
@@ -36,7 +37,7 @@ vi.mock("../hooks/useConfig", () => ({
       { id: "allowance-2", name: "Fuel Allowance" },
     ],
   }),
-  useRoles: () => ({ data: [] }),
+  useRoles: rolesMock,
 }));
 
 function renderAddEmployee() {
@@ -56,6 +57,13 @@ function renderAddEmployee() {
 describe("AddEmployee", () => {
   beforeEach(() => {
     createEmployeeMock.mockReset();
+    rolesMock.mockReset();
+    rolesMock.mockReturnValue({
+      data: [
+        { id: "role-super", role_name: "super_admin", description: "Super Admin" },
+        { id: "role-employee", role_name: "employee", description: "Employee" },
+      ],
+    });
     useDesignationsMock.mockReset();
     useDesignationsMock.mockReturnValue({
       data: [{ id: "desig-1", title: "Frontend Engineer", department_id: "dept-1" }],
@@ -140,16 +148,31 @@ describe("AddEmployee", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Contact safety net")).toBeTruthy();
+      expect(screen.getByLabelText(/primary phone/i)).toBeTruthy();
+    });
+    expect(screen.getByLabelText(/alternate phone/i)).toBeTruthy();
+    expect(screen.getByText("Permanent Address")).toBeTruthy();
+    expect(screen.getAllByLabelText(/province \/ region/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText(/city/i).length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByLabelText(/primary phone/i), {
+      target: { value: "3001234567" },
+    });
+    fireEvent.change(screen.getAllByLabelText(/province \/ region/i)[0], {
+      target: { value: "Punjab" },
+    });
+    fireEvent.change(screen.getAllByLabelText(/city/i)[0], {
+      target: { value: "Lahore" },
+    });
+    fireEvent.click(screen.getByLabelText(/same as permanent address/i));
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByLabelText(/contact name/i)[0]).toBeTruthy();
     });
     expect(screen.getAllByText("Primary emergency contact").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Backup contact").length).toBeGreaterThan(0);
-    expect(screen.getByText("Address and reachability")).toBeTruthy();
-    expect(screen.getByLabelText(/primary phone/i)).toBeTruthy();
-    expect(screen.getAllByLabelText("Country Code")[0]).toHaveProperty(
-      "disabled",
-      true,
-    );
+    expect(screen.getAllByLabelText("Country Code")[0]).toHaveProperty("disabled", true);
   }, 10000);
 
   it("renders bank, medical, salary, allowances, and account steps", async () => {
@@ -202,10 +225,25 @@ describe("AddEmployee", () => {
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Contact safety net")).toBeTruthy();
+      expect(screen.getByLabelText(/primary phone/i)).toBeTruthy();
     });
     fireEvent.change(screen.getByLabelText(/primary phone/i), {
       target: { value: "3001234567" },
+    });
+    fireEvent.change(screen.getAllByLabelText(/province \/ region/i)[0], {
+      target: { value: "Punjab" },
+    });
+    fireEvent.change(screen.getAllByLabelText(/city/i)[0], {
+      target: { value: "Lahore" },
+    });
+    fireEvent.change(screen.getAllByLabelText(/house \/ street \/ landmark/i)[0], {
+      target: { value: "House 12, Main Boulevard" },
+    });
+    fireEvent.click(screen.getByLabelText(/same as permanent address/i));
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByLabelText(/contact name/i)[0]).toBeTruthy();
     });
     fireEvent.change(screen.getAllByLabelText(/contact name/i)[0], {
       target: { value: "Sara Ahmed" },
@@ -287,10 +325,39 @@ describe("AddEmployee", () => {
     await waitFor(() => {
       expect(screen.getByText("Account access")).toBeTruthy();
     });
-    expect(screen.getByLabelText(/employee email/i)).toBeTruthy();
+    const emailInput = screen.getByLabelText(/employee email/i) as HTMLInputElement;
+    expect(emailInput.value).toBe("bilal.ahmed.saeed.ahmed.emp002@esspl.com.pk");
+    fireEvent.change(emailInput, { target: { value: "custom.employee@esspl.com.pk" } });
+    expect(emailInput.value).toBe("custom.employee@esspl.com.pk");
+    expect(screen.getByRole("option", { name: "Employee" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Super Admin" })).toBeNull();
     expect(screen.queryByText("Required Attachments")).toBeNull();
     expect(screen.queryByText("CNIC Copy")).toBeNull();
     expect(screen.queryByText("Profile Photo")).toBeNull();
     expect(screen.queryByText("Employment Contract")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /save employee/i }));
+    await waitFor(() => {
+      expect(createEmployeeMock).toHaveBeenCalled();
+    });
+    const payload = createEmployeeMock.mock.calls[0][0];
+    expect(payload.employeeContact).toMatchObject({
+      primary_phone: "3001234567",
+      alternate_phone: null,
+      same_as_permanent: true,
+      permanent_address: {
+        country: "Pakistan",
+        province: "Punjab",
+        city: "Lahore",
+        street: "House 12, Main Boulevard",
+      },
+      postal_address: null,
+    });
+    expect(payload.emergencyContacts).toMatchObject({
+      e_contact_1_full_name: "Sara Ahmed",
+      e_contact_1_phone: "3007654321",
+    });
+    expect(payload.emergencyContacts.contact_1).toBeUndefined();
+    expect(payload.emergencyContacts.perment_address).toBeUndefined();
   }, 20000);
 });

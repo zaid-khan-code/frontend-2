@@ -1,12 +1,10 @@
-import React, { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import React, { useMemo, useRef, useState } from "react";
+import { CheckCircle2, Pencil, Plus, Power } from "lucide-react";
 import Modal from "../../components/common/Modal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useToastContext } from "../../context/ToastContext";
 import {
   createConfigHook,
-  useDepartments,
-  useLeaveTypes,
   usePenaltyRules,
 } from "../../hooks/useConfig";
 import {
@@ -27,14 +25,17 @@ type ConfigHookResult = {
 const genericConfigHooks = Object.fromEntries(
   settingsDefinitions.map((definition) => [
     definition.entity,
-    createConfigHook<any>(definition.entity),
+    createConfigHook<any>(definition.entity, { includeInactive: true }),
   ]),
 ) as Record<string, () => ConfigHookResult>;
 
 const configHooks = {
   ...genericConfigHooks,
-  "penalty-rules": usePenaltyRules,
+  "penalty-rules": () => usePenaltyRules({ includeInactive: true }),
 } as Record<string, () => ConfigHookResult>;
+
+const useSettingsDepartments = createConfigHook<any>("departments", { includeInactive: true });
+const useSettingsLeaveTypes = createConfigHook<any>("leave-types", { includeInactive: true });
 
 function displayName(row: any, keys: string[]) {
   for (const key of keys) {
@@ -114,13 +115,15 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
   const { showToast } = useToastContext();
   const useEntity = configHooks[definition.entity];
   const { data = [], isLoading, isError, create, update } = useEntity();
-  const { data: departments = [] } = useDepartments();
-  const { data: leaveTypes = [] } = useLeaveTypes();
+  const { data: departments = [] } = useSettingsDepartments();
+  const { data: leaveTypes = [] } = useSettingsLeaveTypes();
   const [modalMode, setModalMode] = useState<"add" | "edit" | null>(null);
-  const [editIndex, setEditIndex] = useState<number | null>(null);
-  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  const [editRow, setEditRow] = useState<any | null>(null);
+  const [statusRow, setStatusRow] = useState<any | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const lookupMaps = useMemo(
     () => ({
@@ -130,6 +133,16 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
     [departments, leaveTypes],
   );
 
+  const displayRows = useMemo(
+    () => [...data].sort((left, right) => {
+      const leftStatus = left?.is_active === false ? 1 : 0;
+      const rightStatus = right?.is_active === false ? 1 : 0;
+      if (leftStatus !== rightStatus) return leftStatus - rightStatus;
+      return displayName(left, definition.nameKeys).localeCompare(displayName(right, definition.nameKeys));
+    }),
+    [data, definition.nameKeys],
+  );
+
   const openAdd = () => {
     const initial: Record<string, string> = {};
     for (const field of definition.fields) {
@@ -137,12 +150,12 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
       else initial[field.key] = "";
     }
     setForm(initial);
-    setEditIndex(null);
+    setFieldErrors({});
+    setEditRow(null);
     setModalMode("add");
   };
 
-  const openEdit = (index: number) => {
-    const row = data[index];
+  const openEdit = (row: any) => {
     const initial: Record<string, string> = {};
     for (const field of definition.fields) {
       const value = row?.[field.key];
@@ -150,22 +163,31 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
       else initial[field.key] = value == null ? "" : String(value);
     }
     setForm(initial);
-    setEditIndex(index);
+    setFieldErrors({});
+    setEditRow(row);
     setModalMode("edit");
   };
 
   const buildPayload = () => {
     const payload: Record<string, any> = {};
+    const errors: Record<string, string> = {};
     for (const field of definition.fields) {
       if (!Object.prototype.hasOwnProperty.call(form, field.key)) continue;
       const value = form[field.key];
       if (field.required && value === "") {
-        throw new Error(`${field.label} is required.`);
+        errors[field.key] = `${field.label} is mandatory.`;
+        continue;
       }
       if (!field.required && value === "" && !field.includeBlank && field.key !== "is_active") {
         continue;
       }
       payload[field.key] = normalizeFormValue(field, value);
+    }
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
+      const firstKey = Object.keys(errors)[0];
+      window.setTimeout(() => fieldRefs.current[firstKey]?.focus(), 0);
+      throw new Error("Please complete the highlighted mandatory fields.");
     }
     return payload;
   };
@@ -174,15 +196,15 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
     try {
       setSaving(true);
       const payload = buildPayload();
-      if (modalMode === "edit" && editIndex !== null) {
-        await update({ id: data[editIndex].id, updates: payload });
+      if (modalMode === "edit" && editRow) {
+        await update({ id: editRow.id, updates: payload });
         showToast(`${definition.title} updated`);
       } else {
         await create(payload);
         showToast(`${definition.title} added`);
       }
       setModalMode(null);
-      setEditIndex(null);
+      setEditRow(null);
     } catch (error: any) {
       showToast(error?.message || "Unable to save setting", "error");
     } finally {
@@ -190,16 +212,17 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
     }
   };
 
-  const softDelete = async () => {
-    if (deleteIndex === null) return;
+  const confirmStatusToggle = async () => {
+    if (!statusRow) return;
+    const row = statusRow;
+    const nextActive = row.is_active === false;
     try {
-      const row = data[deleteIndex];
-      await update({ id: row.id, updates: { is_active: false } });
-      showToast(`${definition.title} marked inactive`);
+      await update({ id: row.id, updates: { is_active: nextActive } });
+      showToast(`${displayName(row, definition.nameKeys)} ${nextActive ? "activated" : "deactivated"}`);
     } catch {
-      showToast("Unable to update item", "error");
+      showToast("Unable to update status", "error");
     } finally {
-      setDeleteIndex(null);
+      setStatusRow(null);
     }
   };
 
@@ -230,7 +253,7 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
           <div style={{ padding: 36, textAlign: "center", color: "var(--t3)" }}>Loading settings...</div>
         ) : isError ? (
           <div style={{ padding: 36, textAlign: "center", color: "#dc2626" }}>Unable to load this configuration.</div>
-        ) : data.length === 0 ? (
+        ) : displayRows.length === 0 ? (
           <div style={{ padding: 36, textAlign: "center", color: "var(--t3)" }}>No records configured yet.</div>
         ) : (
           <table>
@@ -243,7 +266,7 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
               </tr>
             </thead>
             <tbody>
-              {data.map((row, index) => (
+              {displayRows.map((row, index) => (
                 <tr key={row.id || index}>
                   {definition.columns.map((column) => (
                     <td key={column.key}>
@@ -252,12 +275,23 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
                   ))}
                   <td>
                     <div style={{ display: "flex", gap: 4 }}>
-                      <button className="ico-btn" style={{ width: 28, height: 28 }} onClick={() => openEdit(index)}>
+                      <button className="ico-btn" style={{ width: 28, height: 28 }} onClick={() => openEdit(row)}>
                         <Pencil size={13} />
                       </button>
                       {"is_active" in row && (
-                        <button className="ico-btn" style={{ width: 28, height: 28 }} onClick={() => setDeleteIndex(index)}>
-                          <Trash2 size={13} />
+                        <button
+                          className="ico-btn"
+                          aria-label={`${row.is_active === false ? "Activate" : "Deactivate"} ${displayName(row, definition.nameKeys)}`}
+                          title={row.is_active === false ? "Activate" : "Deactivate"}
+                          style={{
+                            width: 32,
+                            height: 28,
+                            color: row.is_active === false ? "#16a34a" : "#dc2626",
+                            background: row.is_active === false ? "#dcfce7" : "#fee2e2",
+                          }}
+                          onClick={() => setStatusRow(row)}
+                        >
+                          {row.is_active === false ? <CheckCircle2 size={14} /> : <Power size={14} />}
                         </button>
                       )}
                     </div>
@@ -280,7 +314,7 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
           </>
         }
       >
-        {definition.fields.map((field) => {
+        {definition.fields.filter((field) => field.key !== "is_active").map((field) => {
           const options = fieldOptions(field, dependencyRows);
           return (
             <div className="form-group" key={field.key}>
@@ -290,14 +324,23 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
               {field.type === "select" ? (
                 <select
                   className="input select-input"
+                  ref={(node) => {
+                    fieldRefs.current[field.key] = node;
+                  }}
+                  aria-invalid={Boolean(fieldErrors[field.key])}
                   value={form[field.key] ?? ""}
-                  onChange={(event) => setForm((prev) => ({ ...prev, [field.key]: event.target.value }))}
+                  onChange={(event) => {
+                    setForm((prev) => ({ ...prev, [field.key]: event.target.value }));
+                    setFieldErrors((prev) => ({ ...prev, [field.key]: "" }));
+                  }}
                 >
-                  {(field.includeBlank || !field.required) && (
-                    <option value="">
+                  {(field.includeBlank || !field.required || field.required) && (
+                    <option value="" style={field.required ? { display: "none" } : undefined}>
                       {definition.entity === "leave-policies" && field.key === "department_id"
                         ? "Company-wide (all departments)"
-                        : "None"}
+                        : field.required
+                          ? `Select ${field.label.toLowerCase()}`
+                          : "None"}
                     </option>
                   )}
                   {options.map((option) => (
@@ -307,17 +350,36 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
               ) : field.type === "textarea" ? (
                 <textarea
                   className="input"
+                  ref={(node) => {
+                    fieldRefs.current[field.key] = node;
+                  }}
+                  aria-invalid={Boolean(fieldErrors[field.key])}
                   style={{ minHeight: 76, paddingTop: 10 }}
                   value={form[field.key] ?? ""}
-                  onChange={(event) => setForm((prev) => ({ ...prev, [field.key]: event.target.value }))}
+                  onChange={(event) => {
+                    setForm((prev) => ({ ...prev, [field.key]: event.target.value }));
+                    setFieldErrors((prev) => ({ ...prev, [field.key]: "" }));
+                  }}
                 />
               ) : (
                 <input
                   className="input"
+                  ref={(node) => {
+                    fieldRefs.current[field.key] = node;
+                  }}
+                  aria-invalid={Boolean(fieldErrors[field.key])}
                   type={field.type || "text"}
                   value={form[field.key] ?? ""}
-                  onChange={(event) => setForm((prev) => ({ ...prev, [field.key]: event.target.value }))}
+                  onChange={(event) => {
+                    setForm((prev) => ({ ...prev, [field.key]: event.target.value }));
+                    setFieldErrors((prev) => ({ ...prev, [field.key]: "" }));
+                  }}
                 />
+              )}
+              {fieldErrors[field.key] && (
+                <div style={{ marginTop: 5, fontSize: 11, color: "#dc2626", fontWeight: 700 }}>
+                  {fieldErrors[field.key]}
+                </div>
               )}
             </div>
           );
@@ -325,11 +387,15 @@ function ConfigEntityPage({ definition }: { definition: SettingsDefinition }) {
       </Modal>
 
       <ConfirmDialog
-        open={deleteIndex !== null}
-        title="Mark Inactive"
-        message="This will keep the record for history but hide it from regular employee-facing flows."
-        onConfirm={softDelete}
-        onCancel={() => setDeleteIndex(null)}
+        open={statusRow !== null}
+        title={statusRow?.is_active === false ? "Activate Record" : "Deactivate Record"}
+        message={
+          statusRow
+            ? `You are ${statusRow.is_active === false ? "activating" : "deactivating"} ${displayName(statusRow, definition.nameKeys)}. Are you sure?`
+            : ""
+        }
+        onConfirm={confirmStatusToggle}
+        onCancel={() => setStatusRow(null)}
       />
     </div>
   );

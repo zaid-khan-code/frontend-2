@@ -76,4 +76,35 @@ describe("Leave", () => {
       expect(apiClient.get).toHaveBeenCalled();
     });
   });
+
+  it("does not expose a raw reviewer UUID when no readable approver name is returned", async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === "/leave-requests/balances") return Promise.resolve({ data: { data: [] } });
+      if (url === "/config/departments") return Promise.resolve({ data: { data: [] } });
+      return Promise.resolve({
+        data: {
+          data: [
+            {
+              id: "leave-1",
+              employee_id: "EMP016",
+              employee_name: "Kamran Rafiq",
+              leave_type: "Annual Leave",
+              start_date: "2026-03-13",
+              end_date: "2026-03-18",
+              reason: "Family commitment",
+              status: "approved",
+              reviewed_by: "39b623d6-e275-45d2-b340-92a4df5f8d1f",
+              created_at: "2026-03-01",
+            },
+          ],
+        },
+      });
+    });
+
+    renderLeave();
+
+    expect(await screen.findByText("Kamran Rafiq")).toBeTruthy();
+    expect(screen.getByText("Not provided")).toBeTruthy();
+    expect(screen.queryByText("39b623d6-e275-45d2-b340-92a4df5f8d1f")).toBeNull();
+  });
 });

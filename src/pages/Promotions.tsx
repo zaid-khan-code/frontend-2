@@ -148,7 +148,7 @@ export default function Promotions() {
 
   // savePromo — logic unchanged
   const savePromo = () => {
-    if (!newDesig || !newSalary) { showToast('Please fill all required fields'); return; }
+    if (!newDesig || !newSalary) { showToast('Please fill all mandatory fields'); return; }
     const nSalary = parseInt(newSalary);
     const newRecord = {
       id: 'PR' + String(promotions.length + 1).padStart(3, '0'),
