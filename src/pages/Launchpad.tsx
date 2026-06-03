@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarCheck, LayoutGrid, Megaphone, ShieldCheck, Users, Wallet } from "lucide-react";
+import { CalendarCheck, CalendarRange, LayoutGrid, Megaphone, ShieldCheck, Users, Wallet, AlertTriangle, MapPin } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 type ModuleCard = {
@@ -48,6 +48,27 @@ const modules: ModuleCard[] = [
     to: "/announcements",
     icon: Megaphone,
     roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "hr_manager", "hr_executive", "employee"],
+  },
+  {
+    title: "Calendar Events",
+    description: "View holidays, events, and birthday markers",
+    to: "/calendar",
+    icon: CalendarRange,
+    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "hr_manager", "hr_executive", "employee"],
+  },
+  {
+    title: "Directory",
+    description: "Find employees and contact people quickly",
+    to: "/directory",
+    icon: MapPin,
+    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "hr_manager", "hr_executive", "employee"],
+  },
+  {
+    title: "Penalty",
+    description: "Apply and review employee penalties",
+    to: "/penalty",
+    icon: AlertTriangle,
+    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "hr_manager", "hr_executive"],
   },
   {
     title: "Penalty Workflow",

@@ -500,7 +500,7 @@ export default function Attendance() {
 
   const handleSave = async () => {
     if (!sheetLocationId) {
-      showToast("Location ID is required before saving attendance.", "error");
+      showToast("Location ID is mandatory before saving attendance.", "error");
       return;
     }
     try {
@@ -525,7 +525,7 @@ export default function Attendance() {
 
   const handleSubmit = async () => {
     if (!sheetLocationId) {
-      showToast("Location ID is required before submitting to HO.", "error");
+      showToast("Location ID is mandatory before submitting to HO.", "error");
       return;
     }
     try {
@@ -541,7 +541,7 @@ export default function Attendance() {
 
   const handleRequestUnlock = async () => {
     if (!sheetLocationId || !unlockReason.trim()) {
-      showToast("Location ID and unlock reason are required.", "error");
+      showToast("Location ID and unlock reason are mandatory.", "error");
       return;
     }
     try {
@@ -558,7 +558,7 @@ export default function Attendance() {
 
   const handleApproveUnlock = async () => {
     if (!sheetLocationId || !unlockReason.trim()) {
-      showToast("Location ID and approval reason are required.", "error");
+      showToast("Location ID and approval reason are mandatory.", "error");
       return;
     }
     try {

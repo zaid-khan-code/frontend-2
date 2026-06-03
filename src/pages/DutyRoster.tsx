@@ -647,7 +647,7 @@ const DutyRosterPage: React.FC = () => {
                             <span style={{fontSize:11,color:'#9ca3af',marginLeft:10,fontFamily:'monospace'}}>{s.startTime} – {s.endTime}</span>
                           </div>
                           <div style={{display:'flex',alignItems:'center',gap:8}}>
-                            <span style={{fontSize:10,color:'#6b7280'}}>Required: <strong>{s.requiredStaff}</strong></span>
+                            <span style={{fontSize:10,color:'#6b7280'}}>Mandatory staff: <strong>{s.requiredStaff}</strong></span>
                             <span style={{fontSize:10,background:'#eff6ff',color:'#2563eb',padding:'2px 8px',borderRadius:20,fontWeight:600}}>{s.location}</span>
                           </div>
                         </div>

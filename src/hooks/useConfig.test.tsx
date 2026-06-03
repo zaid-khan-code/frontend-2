@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "../services/apiClient";
-import { useDepartments } from "./useConfig";
+import { createConfigHook, useDepartments } from "./useConfig";
 
 vi.mock("../services/apiClient", () => ({
   apiClient: {
@@ -25,6 +25,21 @@ function renderWithClient(ui: React.ReactNode) {
 
 function DepartmentProbe() {
   const { data } = useDepartments();
+  return (
+    <div>
+      {data.map((department: any) => (
+        <span key={department.id}>
+          {department.department_name || department.name}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const useManagedDepartments = createConfigHook<any>("departments", { includeInactive: true });
+
+function ManagedDepartmentProbe() {
+  const { data } = useManagedDepartments();
   return (
     <div>
       {data.map((department: any) => (
@@ -59,6 +74,29 @@ describe("useConfig", () => {
 
     expect(await screen.findByText("Information Technology")).toBeTruthy();
     expect(apiClient.get).toHaveBeenCalledWith("/config/departments");
+  });
+
+  it("requests inactive records only when a management hook asks for them", async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: {
+        success: true,
+        data: [
+          {
+            id: "dept-3",
+            department_code: "OLD",
+            department_name: "Legacy Department",
+            is_active: false,
+          },
+        ],
+      },
+    });
+
+    renderWithClient(<ManagedDepartmentProbe />);
+
+    expect(await screen.findByText("Legacy Department")).toBeTruthy();
+    expect(apiClient.get).toHaveBeenCalledWith("/config/departments", {
+      params: { include_inactive: true },
+    });
   });
 
   it("normalizes nested config list responses defensively", async () => {

@@ -27,6 +27,14 @@ function formatDateOnly(value?: string) {
       }).format(date);
 }
 
+function daysBetweenInclusive(start?: string, end?: string) {
+  if (!start || !end) return null;
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null;
+  return Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1);
+}
+
 function normalizeBalance(row: any, index: number) {
   const total = Number(row.total ?? row.balance ?? row.allowed ?? row.allocated ?? 0);
   const used = Number(row.used ?? row.consumed ?? 0);
@@ -42,13 +50,16 @@ function normalizeBalance(row: any, index: number) {
 }
 
 function normalizeLeave(row: any) {
+  const from = row.start_date || row.from || row.date_from;
+  const to = row.effective_end_date || row.end_by_force || row.end_date || row.to || row.date_to;
   return {
     id: row.id,
-    type: row.leave_type?.name || row.leave_type_name || row.leaveType || row.type || '-',
-    from: row.start_date || row.from || row.date_from,
-    to: row.end_date || row.to || row.date_to,
-    days: row.days || row.total_days || row.duration || '-',
-    reason: row.reason || row.notes || '-',
+    type: row.leave_type?.name || row.leave_type_name || row.leave_type || row.leaveType || row.type || row.name || 'Leave',
+    from,
+    to,
+    days: row.days || row.total_days || row.duration || daysBetweenInclusive(from, to) || '-',
+    reason: row.reason || row.notes || 'Not provided',
+    reviewNote: row.review_note || row.rejection_reason || row.reject_reason || row.reviewed_note || '',
     appliedOn: row.applied_on || row.created_at || row.requested_at,
     status: row.status || '-',
   };
@@ -105,7 +116,7 @@ export default function MyLeave() {
       return;
     }
     if (!fromDate || !toDate || !reason) {
-      showToast('Please fill all required fields.', 'error');
+      showToast('Please fill all mandatory fields.', 'error');
       return;
     }
     if (overBalance) {
@@ -186,7 +197,7 @@ export default function MyLeave() {
         ) : (
           <table>
             <thead>
-              <tr><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Applied</th><th>Status</th></tr>
+              <tr><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Review Note</th><th>Applied</th><th>Status</th></tr>
             </thead>
             <tbody>
               {leaves.map((l: any, i: number) => (
@@ -196,6 +207,7 @@ export default function MyLeave() {
                   <td className="mono">{formatDateOnly(l.to)}</td>
                   <td className="mono">{l.days}</td>
                   <td>{l.reason}</td>
+                  <td>{l.reviewNote || 'Not provided'}</td>
                   <td className="mono">{formatDateOnly(l.appliedOn)}</td>
                   <td><span className={`pill ${getStatusColor(l.status)}`}>{l.status}</span></td>
                 </tr>

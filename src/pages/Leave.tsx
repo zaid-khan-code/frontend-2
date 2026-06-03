@@ -34,6 +34,19 @@ function statusLabel(value?: string) {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function readableApprover(...values: any[]) {
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed && !isUuid(trimmed)) return trimmed;
+  }
+  return "";
+}
+
 export default function Leave() {
   const { data: serverLeaves = [], create: createLeave, approve: approveLeave, reject: rejectLeave, earlyReturn: earlyReturnLeave } = useLeaves();
   const { data: balances = [] } = useLeaveBalances();
@@ -69,7 +82,7 @@ export default function Leave() {
         reason: leave.reason || "Not provided",
         appliedOn: leave.created_at,
         status: statusLabel(leave.status),
-        approvedBy: leave.reviewed_by_name || leave.approved_by_name || leave.actioned_by_name || leave.reviewed_by || "",
+        approvedBy: readableApprover(leave.reviewed_by_name, leave.approved_by_name, leave.actioned_by_name, leave.reviewed_by),
       };
     });
   }, [serverLeaves]);
@@ -90,7 +103,7 @@ export default function Leave() {
 
   async function submitNew() {
     if (!newEmp || !newType || !newFrom || !newTo || !newReason.trim()) {
-      showToast("Please fill all required fields.", "error");
+      showToast("Please fill all mandatory fields.", "error");
       return;
     }
     setSaving(true);
@@ -129,13 +142,22 @@ export default function Leave() {
   }
 
   async function confirmReject() {
-    if (!rejectModal || !rejectComment.trim()) {
-      showToast("Please provide a reason for rejection.", "error");
+    const reason = rejectComment.trim();
+    if (!rejectModal || !reason) {
+      showToast("Rejection reason is mandatory.", "error");
+      return;
+    }
+    if (reason.split(/\s+/).filter(Boolean).length < 2) {
+      showToast("Rejection reason must be more than one word.", "error");
+      return;
+    }
+    if (reason.length > 256) {
+      showToast("Rejection reason must be 256 characters or fewer.", "error");
       return;
     }
     setSaving(true);
     try {
-      await rejectLeave({ id: rejectModal.id, reason: rejectComment.trim() });
+      await rejectLeave({ id: rejectModal.id, reason });
       setRejectModal(null);
       setRejectComment("");
       showToast("Leave rejected.");
@@ -163,9 +185,9 @@ export default function Leave() {
 
   const statCards = [
     { label: "Total Requests", value: counts.total, icon: CalendarDays, color: "linear-gradient(135deg,#6366f1,#8b5cf6)" },
-    { label: "Pending", value: counts.pending, icon: Clock, color: "linear-gradient(135deg,#f97316,#fbbf24)" },
-    { label: "Approved", value: counts.approved, icon: Check, color: "linear-gradient(135deg,#10b981,#34d399)" },
-    { label: "Rejected", value: counts.rejected, icon: X, color: "linear-gradient(135deg,#ec4899,#f43f5e)" },
+    { label: "Pending Requests", value: counts.pending, icon: Clock, color: "linear-gradient(135deg,#f97316,#fbbf24)" },
+    { label: "Approved Requests", value: counts.approved, icon: Check, color: "linear-gradient(135deg,#10b981,#34d399)" },
+    { label: "Rejected Requests", value: counts.rejected, icon: X, color: "linear-gradient(135deg,#ec4899,#f43f5e)" },
     { label: "On Leave Today", value: counts.onLeaveToday, icon: Users, color: "linear-gradient(135deg,#14b8a6,#06b6d4)" },
   ];
 
@@ -351,8 +373,11 @@ export default function Leave() {
           <strong>{rejectModal?.empName}</strong> - {rejectModal?.leaveType} ({formatDate(rejectModal?.from)} to {formatDate(rejectModal?.to)})
         </div>
         <div className="form-group">
-          <label className="form-label">Reason for Rejection *</label>
-          <textarea className="input" rows={3} value={rejectComment} onChange={(event) => setRejectComment(event.target.value)} />
+          <label className="form-label">Rejection Reason *</label>
+          <textarea className="input" rows={3} maxLength={256} value={rejectComment} onChange={(event) => setRejectComment(event.target.value)} />
+          <div style={{ marginTop: 5, fontSize: 11, color: "var(--t3)" }}>
+            Mandatory. Use more than one word, maximum 256 characters.
+          </div>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <button className="btn btn-secondary" onClick={() => setRejectModal(null)}>Cancel</button>

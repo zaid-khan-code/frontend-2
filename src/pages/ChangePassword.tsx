@@ -43,7 +43,7 @@ export default function ChangePassword() {
 
   const validate = () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      return "All fields are required.";
+      return "All fields are mandatory.";
     }
     if (newPassword !== confirmPassword) {
       return "New password and confirm password must match.";

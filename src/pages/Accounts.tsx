@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { Plus, ShieldCheck, ShieldOff, Users, UserCheck, UserX, KeyRound } from 'lucide-react';
+import { ShieldCheck, ShieldOff, Users, UserCheck, UserX, KeyRound } from 'lucide-react';
 import Modal from '../components/common/Modal';
 import { useToastContext } from '../context/ToastContext';
 
@@ -210,7 +210,7 @@ export default function Accounts() {
 
   // ── Logic untouched ───────────────────────────────────────────────────────
   const handleAdd = () => {
-    if (!username || !password) { showToast('Username and password required', 'error'); return; }
+    if (!username || !password) { showToast('Username and password are mandatory', 'error'); return; }
     if (password !== confirmPw)  { showToast('Passwords do not match', 'error'); return; }
     setSaving(true);
     setTimeout(() => {
@@ -257,9 +257,6 @@ export default function Accounts() {
               <span style={{ color:'#6366f1', fontWeight:700 }}>{total} account{total !== 1 ? 's' : ''}</span>
             </p>
           </div>
-          <button className="acc-btn acc-btn-primary" onClick={() => setModal(true)}>
-            <Plus size={13} /> Add HR Account
-          </button>
         </div>
 
         {/* ── Stat Cards ── */}
@@ -288,7 +285,6 @@ export default function Accounts() {
               <thead>
                 <tr>
                   <th>User</th>
-                  <th>Account ID</th>
                   <th>Role</th>
                   <th>Linked Employee</th>
                   <th>Status</th>
@@ -299,11 +295,11 @@ export default function Accounts() {
               <tbody>
                 {hrAccounts.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={6}>
                       <div className="acc-empty">
                         <div style={{ fontSize:28, marginBottom:8 }}>🔐</div>
                         <div style={{ fontSize:13, fontWeight:700, color:'#374151', marginBottom:4 }}>No accounts yet</div>
-                        <div style={{ fontSize:11, color:'#9ca3af' }}>Click "Add HR Account" to create the first user</div>
+                        <div style={{ fontSize:11, color:'#9ca3af' }}>Accounts are created during employee creation or promotion workflows.</div>
                       </div>
                     </td>
                   </tr>
@@ -333,14 +329,11 @@ export default function Accounts() {
                         </div>
                       </td>
 
-                      {/* ID chip */}
-                      <td><span className="acc-id-chip">{a.id}</span></td>
-
                       {/* Role pill */}
                       <td>
                         {isSuper
-                          ? <span className="acc-pill acc-pill-super">★ Super Admin</span>
-                          : <span className="acc-pill acc-pill-hr">⚙ HR</span>
+                          ? <span className="acc-pill acc-pill-super">Super Admin</span>
+                          : <span className="acc-pill acc-pill-hr">{a.role || 'HR'}</span>
                         }
                       </td>
 
@@ -397,7 +390,7 @@ export default function Accounts() {
         <Modal
           open={modal}
           onClose={() => setModal(false)}
-          title="Add HR Account"
+          title="Create Account"
           footer={
             <>
               <button className="acc-btn acc-btn-secondary" onClick={() => setModal(false)}>Cancel</button>

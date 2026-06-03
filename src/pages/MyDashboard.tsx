@@ -196,6 +196,7 @@ export default function MyDashboard() {
     metrics?.shift_name ||
     metrics?.employee?.shift_name ||
     metrics?.profile?.shift_name ||
+    latestAttendance?.shift_name ||
     "Assigned Shift";
   const shiftStart =
     metrics?.shift_start_time ||
@@ -211,8 +212,10 @@ export default function MyDashboard() {
     metrics?.department_name ||
     metrics?.employee?.department_name ||
     metrics?.profile?.department_name ||
+    user?.department_name ||
+    user?.department ||
     user?.departments?.[0] ||
-    "Unassigned";
+    "Not assigned";
   const formatTimeOnly = (value?: string) => {
     if (!value) return "-";
     const text = String(value);
@@ -589,13 +592,6 @@ export default function MyDashboard() {
               to="/my-directory"
             >
               <User size={13} /> Company Directory
-            </Link>
-            <Link
-              className="btn btn-ghost"
-              style={{ justifyContent: "flex-start" }}
-              to="/my-profile"
-            >
-              <User size={13} /> Update Profile
             </Link>
             <Link
               className="btn btn-ghost"
