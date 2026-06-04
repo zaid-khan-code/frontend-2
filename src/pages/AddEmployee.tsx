@@ -99,6 +99,72 @@ const S = `
   .add-select-sm{}
   .add-select:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);background-color:#fff;}
   .add-err{color:#ef4444;font-size:10px;margin-top:3px;}
+  .location-combo{position:relative;}
+  .location-dropdown{
+    position:absolute;
+    top:100%;
+    left:0;
+    right:0;
+    z-index:99;
+    margin-top:4px;
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:10px;
+    box-shadow:0 10px 25px rgba(30,27,75,0.12);
+    max-height:200px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    padding:4px;
+  }
+  .location-dropdown-option{
+    width:100%;
+    border:none;
+    background:transparent;
+    text-align:left;
+    padding:8px 12px;
+    font-size:12px;
+    color:#374151;
+    cursor:pointer;
+    border-radius:6px;
+    transition:all .15s;
+  }
+  .location-dropdown-option:hover, .location-dropdown-option.focused{
+    background:#f5f3ff;
+    color:#4f46e5;
+  }
+  .location-dropdown-add{
+    border-top:1px solid #f1f5f9;
+    margin-top:4px;
+    padding-top:4px;
+  }
+  .location-dropdown-add-btn{
+    width:100%;
+    border:1px dashed #c7d2fe;
+    background:#f5f7ff;
+    color:#4f46e5;
+    border-radius:8px;
+    padding:8px 12px;
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+    text-align:left;
+    transition:all .15s;
+  }
+  .location-dropdown-add-btn:hover, .location-dropdown-add-btn.focused{
+    background:#e0e7ff;
+    border-color:#6366f1;
+  }
+  .location-dropdown-add-btn:disabled{
+    opacity:0.6;
+    cursor:not-allowed;
+  }
+  .location-dropdown-empty{
+    padding:8px 12px;
+    font-size:12px;
+    color:#9ca3af;
+    text-align:center;
+  }
 
   /* Step content animation */
   .step-slide-r{animation:slideR .3s ease both;}
@@ -294,11 +360,230 @@ import {
   useJobStatuses,
   useWorkModes,
   useWorkLocations,
+  useLocations,
   useShifts,
   useAllowanceTypes,
   useRoles,
 } from "../hooks/useConfig";
 import { useEmployees } from "../hooks/useEmployees";
+
+type LocationKind = "province" | "district" | "city" | "town";
+
+function locationName(option: any) {
+  return String(option?.name || option?.location_name || option?.label || option?.value || "").trim();
+}
+
+interface LocationComboProps {
+  id: string;
+  label: string;
+  kind: LocationKind;
+  value: string;
+  province?: string;
+  mandatory?: boolean;
+  disabled?: boolean;
+  error?: string;
+  options: any[];
+  create: (payload: any) => Promise<any>;
+  onChange: (value: string) => void;
+  onCreated?: () => void;
+}
+
+function LocationCombo({
+  id,
+  label,
+  kind,
+  value,
+  province,
+  mandatory: isMandatory,
+  disabled,
+  error,
+  options,
+  create,
+  onChange,
+  onCreated,
+}: LocationComboProps) {
+  const { showToast } = useToastContext();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+
+  const trimmedValue = value.trim();
+  const visibleOptions = options
+    .map(locationName)
+    .filter(Boolean)
+    .filter((name, index, list) => list.findIndex((item) => item.toLowerCase() === name.toLowerCase()) === index)
+    .filter((name) => !trimmedValue || name.toLowerCase().includes(trimmedValue.toLowerCase()))
+    .slice(0, 8);
+
+  const hasExactOption = options
+    .map(locationName)
+    .some((name) => name.toLowerCase() === trimmedValue.toLowerCase());
+
+  const canAdd = Boolean(
+    trimmedValue &&
+      !hasExactOption &&
+      !disabled &&
+      !isAdding &&
+      (kind === "province" || province)
+  );
+
+  const addOption = async () => {
+    if (!canAdd) return;
+
+    // Special Character Validation
+    if (!/^[a-zA-Z\s\-]+$/.test(trimmedValue)) {
+      showToast(`${label.replace(/\s*\*$/, "")} name can only contain letters, spaces, and hyphens.`, "error");
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      await create({
+        kind,
+        country: "Pakistan",
+        province: kind === "province" ? null : province,
+        name: trimmedValue,
+        is_active: true,
+      });
+      onChange(trimmedValue);
+      showToast(`${label.replace(/\s*\*$/, "")} "${trimmedValue}" added successfully`, "success");
+      onCreated?.();
+      setIsOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      const backendError = err?.response?.data?.error;
+      const message = backendError?.message || err?.message || "";
+      if (/exist|duplicate/i.test(message)) {
+        showToast(`This ${label.toLowerCase().replace(/\s*\*$/, "")} already exists.`, "error");
+      } else {
+        showToast(`Failed to add ${label.toLowerCase().replace(/\s*\*$/, "")}: ${message || "unknown error"}.`, "error");
+      }
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleSelect = (name: string) => {
+    onChange(name);
+    setIsOpen(false);
+  };
+
+  // Reset focus index when input or open state changes
+  useEffect(() => {
+    setFocusedIndex(-1);
+  }, [value, isOpen]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    if (e.key === "Escape") {
+      setIsOpen(false);
+      e.preventDefault();
+    } else if (e.key === "ArrowDown") {
+      if (!isOpen) {
+        setIsOpen(true);
+      } else {
+        const totalItems = visibleOptions.length + (canAdd ? 1 : 0);
+        if (totalItems > 0) {
+          setFocusedIndex((prev) => (prev + 1) % totalItems);
+        }
+      }
+      e.preventDefault();
+    } else if (e.key === "ArrowUp") {
+      if (isOpen) {
+        const totalItems = visibleOptions.length + (canAdd ? 1 : 0);
+        if (totalItems > 0) {
+          setFocusedIndex((prev) => (prev - 1 + totalItems) % totalItems);
+        }
+      }
+      e.preventDefault();
+    } else if (e.key === "Enter") {
+      if (isOpen) {
+        if (focusedIndex >= 0 && focusedIndex < visibleOptions.length) {
+          handleSelect(visibleOptions[focusedIndex]);
+          e.preventDefault();
+        } else if (canAdd && (focusedIndex === visibleOptions.length || (focusedIndex === -1 && visibleOptions.length === 0))) {
+          addOption();
+          e.preventDefault();
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="add-form-group location-combo">
+      <label className="add-label" htmlFor={id}>
+        {label} {isMandatory && <span>*</span>}
+      </label>
+      <input
+        id={id}
+        className={`add-input${error ? " error" : ""}`}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setIsOpen(true);
+        }}
+        onFocus={() => {
+          if (!disabled) setIsOpen(true);
+        }}
+        onBlur={() => {
+          // Small delay so click event on option triggers before dropdown closes
+          setTimeout(() => {
+            setIsOpen(false);
+          }, 150);
+        }}
+        onKeyDown={handleKeyDown}
+        disabled={disabled || isAdding}
+        autoComplete="off"
+        placeholder={
+          kind === "province"
+            ? "Select province"
+            : province
+            ? `Search ${label.toLowerCase()}`
+            : "Select province first"
+        }
+      />
+      {isOpen && !disabled && (
+        <div
+          className="location-dropdown"
+          role="listbox"
+          aria-label={`${label} options`}
+          onMouseDown={(e) => e.preventDefault()} // Keeps input focused when clicking items
+        >
+          {visibleOptions.map((name, index) => (
+            <button
+              key={`${id}-${name}`}
+              type="button"
+              className={`location-dropdown-option${
+                focusedIndex === index ? " focused" : ""
+              }`}
+              onClick={() => handleSelect(name)}
+            >
+              {name}
+            </button>
+          ))}
+          {visibleOptions.length === 0 && !canAdd && (
+            <div className="location-dropdown-empty">No results found</div>
+          )}
+          {canAdd && (
+            <div className="location-dropdown-add">
+              <button
+                type="button"
+                className={`location-dropdown-add-btn${
+                  focusedIndex === visibleOptions.length ? " focused" : ""
+                }`}
+                onClick={addOption}
+                disabled={isAdding}
+              >
+                {isAdding ? "Adding..." : `Add ${label.replace(/\s*\*$/, "")} ${trimmedValue}`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      {error && <div className="add-err">{error}</div>}
+    </div>
+  );
+}
 
 export default function AddEmployee() {
   const navigate = useNavigate();
@@ -312,6 +597,7 @@ export default function AddEmployee() {
   const { data: shiftsData = [] } = useShifts();
   const { data: allowanceTypeData = [] } = useAllowanceTypes();
   const { data: roleData = [] } = useRoles();
+  const { data: provinceOptions = [], create: createProvince } = useLocations({ kind: "province" });
 
   const getOptionId = (d: any) =>
     d.id ?? d.uuid ?? d.code ?? d.value ?? d.key ?? d.slug ?? d.name;
@@ -451,6 +737,12 @@ export default function AddEmployee() {
   const [postStreet, setPostStreet] = useState("");
   const [postPostalCode, setPostPostalCode] = useState("");
   const [sameAddress, setSameAddress] = useState(false);
+  const { data: permDistrictOptions = [], create: createPermDistrict } = useLocations({ kind: "district", province: permProvince });
+  const { data: permCityOptions = [], create: createPermCity } = useLocations({ kind: "city", province: permProvince });
+  const { data: permTownOptions = [], create: createPermTown } = useLocations({ kind: "town", province: permProvince });
+  const { data: postDistrictOptions = [], create: createPostDistrict } = useLocations({ kind: "district", province: sameAddress ? permProvince : postProvince });
+  const { data: postCityOptions = [], create: createPostCity } = useLocations({ kind: "city", province: sameAddress ? permProvince : postProvince });
+  const { data: postTownOptions = [], create: createPostTown } = useLocations({ kind: "town", province: sameAddress ? permProvince : postProvince });
   const [bankName, setBankName] = useState("");
   const [bankAccount, setBankAccount] = useState("");
   const [bankIban, setBankIban] = useState("");
@@ -508,15 +800,18 @@ export default function AddEmployee() {
     if (!name || !father || emp === "emp") return "";
     return `${name}.${father}.${emp}@esspl.com.pk`;
   };
-  const pakistanProvinceOptions = [
-    "Punjab",
-    "Sindh",
-    "Khyber Pakhtunkhwa",
-    "Balochistan",
-    "Islamabad Capital Territory",
-    "Gilgit-Baltistan",
-    "Azad Jammu and Kashmir",
-  ];
+  const handlePermanentProvinceChange = (value: string) => {
+    setPermProvince(value);
+    setPermDistrict("");
+    setPermCity("");
+    setPermTown("");
+  };
+  const handlePostalProvinceChange = (value: string) => {
+    setPostProvince(value);
+    setPostDistrict("");
+    setPostCity("");
+    setPostTown("");
+  };
   const buildAddress = ({
     country,
     province,
@@ -764,7 +1059,13 @@ export default function AddEmployee() {
       if (!bankName || !bankName.trim()) e.bankName = mandatory("Bank name");
       if (!bankAccountTitle || bankAccountTitle.trim().length < 2)
         e.bankAccountTitle = mandatory("Account title");
-      if (!bankIban || bankIban.trim().length < 10) e.bankIban = mandatory("IBAN");
+      if (!bankIban || !bankIban.trim()) {
+        e.bankIban = mandatory("IBAN");
+      } else if (bankIban.trim().length < 10) {
+        e.bankIban = "IBAN must be at least 10 characters.";
+      } else if (bankIban.trim().length > 34) {
+        e.bankIban = "IBAN cannot exceed 34 characters.";
+      }
     }
     if (currentStep === 3) {
       if (gender && !["male", "female", "other"].includes(gender)) {
@@ -833,7 +1134,13 @@ export default function AddEmployee() {
     if (!bankName || !bankName.trim()) e.bankName = mandatory("Bank name");
     if (!bankAccountTitle || bankAccountTitle.trim().length < 2)
       e.bankAccountTitle = mandatory("Account title");
-    if (!bankIban || bankIban.trim().length < 10) e.bankIban = mandatory("IBAN");
+    if (!bankIban || !bankIban.trim()) {
+      e.bankIban = mandatory("IBAN");
+    } else if (bankIban.trim().length < 10) {
+      e.bankIban = "IBAN must be at least 10 characters.";
+    } else if (bankIban.trim().length > 34) {
+      e.bankIban = "IBAN cannot exceed 34 characters.";
+    }
     const selectedAllowanceTypes = new Map<string, number>();
     allowances.forEach((row, idx) => {
       if (!row.allowance_type_id) {
@@ -1609,37 +1916,56 @@ export default function AddEmployee() {
                     <div className="wizard-field-grid-3">
                       <div className="add-form-group">
                         <label className="add-label" htmlFor="perm-country">Country</label>
-                        <input id="perm-country" className="add-input" value={permCountry} onChange={(e) => setPermCountry(e.target.value)} />
+                        <input id="perm-country" className="add-input" value={permCountry} onChange={() => setPermCountry("Pakistan")} disabled />
                       </div>
-                      <div className="add-form-group">
-                        <label className="add-label" htmlFor="perm-province">Province / Region <span>*</span></label>
-                        <select id="perm-province" className={`add-select${errors.permProvince ? " error" : ""}`} value={permProvince} onChange={(e) => setPermProvince(e.target.value)}>
-                          <option value="">Select province</option>
-                          {pakistanProvinceOptions.map((province) => (
-                            <option key={province} value={province}>{province}</option>
-                          ))}
-                        </select>
-                        {errors.permProvince && (
-                          <div className="add-err">{errors.permProvince}</div>
-                        )}
-                      </div>
-                      <div className="add-form-group">
-                        <label className="add-label" htmlFor="perm-district">District</label>
-                        <input id="perm-district" className="add-input" value={permDistrict} onChange={(e) => setPermDistrict(e.target.value)} />
-                      </div>
+                      <LocationCombo
+                        id="perm-province"
+                        label="Province / Region"
+                        kind="province"
+                        value={permProvince}
+                        options={provinceOptions}
+                        create={createProvince}
+                        onChange={handlePermanentProvinceChange}
+                        mandatory
+                        error={errors.permProvince}
+                      />
+                      <LocationCombo
+                        id="perm-district"
+                        label="District"
+                        kind="district"
+                        value={permDistrict}
+                        province={permProvince}
+                        options={permProvince ? permDistrictOptions : []}
+                        create={createPermDistrict}
+                        onChange={setPermDistrict}
+                        disabled={!permProvince}
+                      />
                     </div>
                     <div className="wizard-field-grid-3">
-                      <div className="add-form-group">
-                        <label className="add-label" htmlFor="perm-city">City <span>*</span></label>
-                        <input id="perm-city" className={`add-input${errors.permCity ? " error" : ""}`} value={permCity} onChange={(e) => setPermCity(e.target.value)} />
-                        {errors.permCity && (
-                          <div className="add-err">{errors.permCity}</div>
-                        )}
-                      </div>
-                      <div className="add-form-group">
-                        <label className="add-label" htmlFor="perm-town">Town / Area</label>
-                        <input id="perm-town" className="add-input" value={permTown} onChange={(e) => setPermTown(e.target.value)} />
-                      </div>
+                      <LocationCombo
+                        id="perm-city"
+                        label="City"
+                        kind="city"
+                        value={permCity}
+                        province={permProvince}
+                        options={permProvince ? permCityOptions : []}
+                        create={createPermCity}
+                        onChange={setPermCity}
+                        mandatory
+                        disabled={!permProvince}
+                        error={errors.permCity}
+                      />
+                      <LocationCombo
+                        id="perm-town"
+                        label="Town / Area"
+                        kind="town"
+                        value={permTown}
+                        province={permProvince}
+                        options={permProvince ? permTownOptions : []}
+                        create={createPermTown}
+                        onChange={setPermTown}
+                        disabled={!permProvince}
+                      />
                       <div className="add-form-group">
                         <label className="add-label" htmlFor="perm-postal-code">Postal Code</label>
                         <input id="perm-postal-code" className="add-input" value={permPostalCode} onChange={(e) => handleNumberChange(e.target.value, setPermPostalCode)} />
@@ -1679,37 +2005,57 @@ export default function AddEmployee() {
                     <div className="wizard-field-grid-3">
                       <div className="add-form-group">
                         <label className="add-label" htmlFor="post-country">Country</label>
-                        <input id="post-country" className="add-input" value={sameAddress ? permCountry : postCountry} onChange={(e) => setPostCountry(e.target.value)} disabled={sameAddress} />
+                        <input id="post-country" className="add-input" value={sameAddress ? permCountry : postCountry} onChange={() => setPostCountry("Pakistan")} disabled />
                       </div>
-                      <div className="add-form-group">
-                        <label className="add-label" htmlFor="post-province">Province / Region <span>*</span></label>
-                        <select id="post-province" className={`add-select${errors.postProvince ? " error" : ""}`} value={sameAddress ? permProvince : postProvince} onChange={(e) => setPostProvince(e.target.value)} disabled={sameAddress}>
-                          <option value="">Select province</option>
-                          {pakistanProvinceOptions.map((province) => (
-                            <option key={province} value={province}>{province}</option>
-                          ))}
-                        </select>
-                        {errors.postProvince && !sameAddress && (
-                          <div className="add-err">{errors.postProvince}</div>
-                        )}
-                      </div>
-                      <div className="add-form-group">
-                        <label className="add-label" htmlFor="post-district">District</label>
-                        <input id="post-district" className="add-input" value={sameAddress ? permDistrict : postDistrict} onChange={(e) => setPostDistrict(e.target.value)} disabled={sameAddress} />
-                      </div>
+                      <LocationCombo
+                        id="post-province"
+                        label="Province / Region"
+                        kind="province"
+                        value={sameAddress ? permProvince : postProvince}
+                        options={provinceOptions}
+                        create={createProvince}
+                        onChange={handlePostalProvinceChange}
+                        mandatory
+                        disabled={sameAddress}
+                        error={!sameAddress ? errors.postProvince : undefined}
+                      />
+                      <LocationCombo
+                        id="post-district"
+                        label="District"
+                        kind="district"
+                        value={sameAddress ? permDistrict : postDistrict}
+                        province={sameAddress ? permProvince : postProvince}
+                        options={!sameAddress && postProvince ? postDistrictOptions : []}
+                        create={createPostDistrict}
+                        onChange={setPostDistrict}
+                        disabled={sameAddress || !postProvince}
+                      />
                     </div>
                     <div className="wizard-field-grid-3">
-                      <div className="add-form-group">
-                        <label className="add-label" htmlFor="post-city">City <span>*</span></label>
-                        <input id="post-city" className={`add-input${errors.postCity ? " error" : ""}`} value={sameAddress ? permCity : postCity} onChange={(e) => setPostCity(e.target.value)} disabled={sameAddress} />
-                        {errors.postCity && !sameAddress && (
-                          <div className="add-err">{errors.postCity}</div>
-                        )}
-                      </div>
-                      <div className="add-form-group">
-                        <label className="add-label" htmlFor="post-town">Town / Area</label>
-                        <input id="post-town" className="add-input" value={sameAddress ? permTown : postTown} onChange={(e) => setPostTown(e.target.value)} disabled={sameAddress} />
-                      </div>
+                      <LocationCombo
+                        id="post-city"
+                        label="City"
+                        kind="city"
+                        value={sameAddress ? permCity : postCity}
+                        province={sameAddress ? permProvince : postProvince}
+                        options={!sameAddress && postProvince ? postCityOptions : []}
+                        create={createPostCity}
+                        onChange={setPostCity}
+                        mandatory
+                        disabled={sameAddress || !postProvince}
+                        error={!sameAddress ? errors.postCity : undefined}
+                      />
+                      <LocationCombo
+                        id="post-town"
+                        label="Town / Area"
+                        kind="town"
+                        value={sameAddress ? permTown : postTown}
+                        province={sameAddress ? permProvince : postProvince}
+                        options={!sameAddress && postProvince ? postTownOptions : []}
+                        create={createPostTown}
+                        onChange={setPostTown}
+                        disabled={sameAddress || !postProvince}
+                      />
                       <div className="add-form-group">
                         <label className="add-label" htmlFor="post-postal-code">Postal Code</label>
                         <input id="post-postal-code" className="add-input" value={sameAddress ? permPostalCode : postPostalCode} onChange={(e) => handleNumberChange(e.target.value, setPostPostalCode)} disabled={sameAddress} />
@@ -2050,7 +2396,10 @@ export default function AddEmployee() {
                   className={`add-input mono${errors.bankIban ? " error" : ""}`}
                   placeholder="PK00XXXX0000..."
                   value={bankIban}
-                  onChange={(e) => setBankIban(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.length <= 34) setBankIban(val);
+                  }}
                 />
                 {errors.bankIban && (
                   <div className="add-err">{errors.bankIban}</div>
@@ -2099,19 +2448,6 @@ export default function AddEmployee() {
             </div>
             <div className="add-form-row">
               <div className="add-form-group">
-                <label className="add-label" htmlFor="account-number">
-                  Account Number
-                </label>
-                <input
-                  id="account-number"
-                  className="add-input mono"
-                  placeholder="Numbers only"
-                  value={bankAccount}
-                  onChange={(e) =>
-                    handleNumberChange(e.target.value, setBankAccount)
-                  }
-                />
-              </div>
             </div>
             <div className="add-form-group">
               <label className="add-label" htmlFor="payment-mode">

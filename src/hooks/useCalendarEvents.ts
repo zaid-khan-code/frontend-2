@@ -14,9 +14,15 @@ export interface CalendarEvent {
   id: string;
   title: string;
   date: string;
+  start_date: string;
+  end_date: string;
   dateKey: string;
   type: CalendarEventType;
   visibility?: string;
+  target_department_ids?: string[];
+  target_designation_ids?: string[];
+  target_department_names?: string[];
+  target_designation_names?: string[];
 }
 
 export interface CalendarEventFilters {
@@ -33,9 +39,13 @@ export interface CalendarEventFilters {
 
 export interface CalendarEventPayload {
   title: string;
-  date: string;
+  date?: string;
+  start_date: string;
+  end_date: string;
   type: string;
   visibility: string;
+  target_department_ids?: string[];
+  target_designation_ids?: string[];
 }
 
 function cleanParams(params?: CalendarEventFilters) {
@@ -89,15 +99,22 @@ function normalizeType(value?: string): CalendarEventType {
 export function normalizeCalendarEvents(payload: any): CalendarEvent[] {
   return extractList(payload)
     .map((event: any, index: number) => {
-      const rawDate = event.date || event.event_date || event.starts_at || event.created_at;
-      const dateKey = toCalendarDateKey(rawDate);
+      const rawStartDate = event.start_date || event.date || event.event_date || event.starts_at || event.created_at;
+      const rawEndDate = event.end_date || event.date || rawStartDate;
+      const dateKey = toCalendarDateKey(rawStartDate);
       return {
         id: String(event.id || event.calendar_event_id || `${dateKey}-${index}`),
         title: String(event.title || event.name || "Calendar event"),
-        date: rawDate || dateKey,
+        date: rawStartDate || dateKey,
+        start_date: rawStartDate || dateKey,
+        end_date: rawEndDate || rawStartDate || dateKey,
         dateKey,
         type: normalizeType(event.type),
         visibility: event.visibility,
+        target_department_ids: Array.isArray(event.target_department_ids) ? event.target_department_ids : [],
+        target_designation_ids: Array.isArray(event.target_designation_ids) ? event.target_designation_ids : [],
+        target_department_names: Array.isArray(event.target_department_names) ? event.target_department_names : [],
+        target_designation_names: Array.isArray(event.target_designation_names) ? event.target_designation_names : [],
       };
     })
     .filter((event) => event.dateKey);

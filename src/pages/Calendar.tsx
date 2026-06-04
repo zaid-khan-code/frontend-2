@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Search, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
-import { CalendarEvent, CalendarEventFilters, useCalendarEvents } from "../hooks/useCalendarEvents";
+import { CalendarEvent, CalendarEventFilters, toCalendarDateKey, useCalendarEvents } from "../hooks/useCalendarEvents";
 
 const eventTypeColors: Record<string, string> = {
   holiday: "#ef4444",
@@ -41,6 +41,19 @@ function formatDate(value: string) {
   });
 }
 
+function eventCoversDate(event: CalendarEvent, dateKey: string) {
+  const startKey = toCalendarDateKey(event.start_date || event.date);
+  const endKey = toCalendarDateKey(event.end_date || event.start_date || event.date);
+  return Boolean(startKey && endKey && startKey <= dateKey && dateKey <= endKey);
+}
+
+function formatEventDateRange(event: CalendarEvent) {
+  const startKey = toCalendarDateKey(event.start_date || event.date);
+  const endKey = toCalendarDateKey(event.end_date || event.start_date || event.date);
+  if (!endKey || startKey === endKey) return formatDate(event.start_date || event.date);
+  return `${formatDate(event.start_date || event.date)} to ${formatDate(event.end_date)}`;
+}
+
 function getDaysInMonth(date: Date, events: CalendarEvent[]) {
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -62,7 +75,7 @@ function getDaysInMonth(date: Date, events: CalendarEvent[]) {
     days.push({
       date: new Date(year, month, day),
       isCurrentMonth: true,
-      events: events.filter((event) => event.dateKey === dateKey),
+      events: events.filter((event) => eventCoversDate(event, dateKey)),
     });
   }
 
@@ -110,14 +123,14 @@ export default function Calendar() {
   const { data: events = [], isLoading, isError } = useCalendarEvents(filters);
 
   const sortedEvents = useMemo(
-    () => [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    () => [...events].sort((a, b) => new Date(a.start_date || a.date).getTime() - new Date(b.start_date || b.date).getTime()),
     [events],
   );
 
   const visibleEvents = sortedEvents.slice(0, 50);
   const days = getDaysInMonth(currentDate, sortedEvents);
   const selectedDateEvents = selectedDate
-    ? sortedEvents.filter((event) => event.dateKey === selectedDate)
+    ? sortedEvents.filter((event) => eventCoversDate(event, selectedDate))
     : [];
 
   const navigateMonth = (direction: "prev" | "next") => {
@@ -257,7 +270,7 @@ export default function Calendar() {
                     <span style={{ width: 9, height: 9, borderRadius: "50%", background: eventTypeColors[event.type] || eventTypeColors.other, marginTop: 5, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <strong style={{ fontSize: 13, color: "var(--t1)" }}>{event.title}</strong>
-                      <div className="mono" style={{ fontSize: 11, color: "var(--t3)" }}>{formatDate(event.date)}</div>
+                      <div className="mono" style={{ fontSize: 11, color: "var(--t3)" }}>{formatEventDateRange(event)}</div>
                     </div>
                   </div>
                   <div>

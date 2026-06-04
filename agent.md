@@ -93,3 +93,11 @@ Enterprise approach:
 - Calendar event management may live in a management route, but employee calendar views should remain read-only.
 - Payroll is Coming Soon until backend payroll is complete.
 - Profile changes by employees should be handled in a future "Request Profile Change" workflow, not direct self-editing.
+
+## Recent Work Summary
+
+- Fixed `/leave` Approved By display for HR and Super Admin with readable reviewer fallback values.
+- Added multi-department and multi-designation chips for Announcements and Calendar Events.
+- Calendar Events now support from/to date ranges in backend, frontend forms, and calendar rendering.
+- Announcement and Calendar Event popup modals were widened and reorganized for easier HR editing.
+- Add Employee address fields now use Pakistan-only searchable location dropdowns with live add for province, district, city, and town/area.

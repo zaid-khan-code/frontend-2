@@ -8,6 +8,8 @@ import AddEmployee from "./AddEmployee";
 const createEmployeeMock = vi.hoisted(() => vi.fn());
 const useDesignationsMock = vi.hoisted(() => vi.fn());
 const rolesMock = vi.hoisted(() => vi.fn());
+const useLocationsMock = vi.hoisted(() => vi.fn());
+const createLocationMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../context/DataContext", () => ({
   useData: () => ({}),
@@ -38,6 +40,7 @@ vi.mock("../hooks/useConfig", () => ({
     ],
   }),
   useRoles: rolesMock,
+  useLocations: useLocationsMock,
 }));
 
 function renderAddEmployee() {
@@ -67,6 +70,27 @@ describe("AddEmployee", () => {
     useDesignationsMock.mockReset();
     useDesignationsMock.mockReturnValue({
       data: [{ id: "desig-1", title: "Frontend Engineer", department_id: "dept-1" }],
+    });
+    createLocationMock.mockReset();
+    createLocationMock.mockResolvedValue({ id: "new-city", kind: "city", province: "Punjab", name: "Sahiwal" });
+    useLocationsMock.mockImplementation((filters?: any) => {
+      const locations = [
+        { id: "province-punjab", kind: "province", name: "Punjab", country: "Pakistan" },
+        { id: "province-sindh", kind: "province", name: "Sindh", country: "Pakistan" },
+        { id: "city-lahore", kind: "city", province: "Punjab", name: "Lahore" },
+        { id: "city-faisalabad", kind: "city", province: "Punjab", name: "Faisalabad" },
+        { id: "city-karachi", kind: "city", province: "Sindh", name: "Karachi" },
+        { id: "town-gulberg", kind: "town", province: "Punjab", name: "Gulberg" },
+      ];
+      return {
+        data: locations.filter((location) => {
+          if (filters?.kind && location.kind !== filters.kind) return false;
+          if (filters?.province && location.province !== filters.province) return false;
+          return true;
+        }),
+        create: createLocationMock,
+        isLoading: false,
+      };
     });
   });
 
@@ -360,4 +384,111 @@ describe("AddEmployee", () => {
     expect(payload.emergencyContacts.contact_1).toBeUndefined();
     expect(payload.emergencyContacts.perment_address).toBeUndefined();
   }, 20000);
+
+  it("filters Pakistan city choices by selected province and can add a new city while creating an employee", async () => {
+    renderAddEmployee();
+
+    fireEvent.change(screen.getByLabelText(/employee id/i), { target: { value: "003" } });
+    fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Amina Ali" } });
+    fireEvent.change(screen.getByLabelText(/father name/i), { target: { value: "Farhan Ali" } });
+    fireEvent.change(screen.getByLabelText(/cnic/i), { target: { value: "4210112345673" } });
+    fireEvent.change(screen.getByLabelText(/date of birth/i), { target: { value: "1997-03-11" } });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => expect(screen.getByText("Workforce placement")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText(/department/i), { target: { value: "dept-1" } });
+    fireEvent.change(screen.getByLabelText(/designation/i), { target: { value: "desig-1" } });
+    fireEvent.change(screen.getByLabelText(/employment type/i), { target: { value: "type-1" } });
+    fireEvent.change(screen.getByLabelText(/job status/i), { target: { value: "status-1" } });
+    fireEvent.change(screen.getByLabelText(/shift/i), { target: { value: "shift-1" } });
+    fireEvent.change(screen.getByLabelText(/work location/i), { target: { value: "loc-1" } });
+    fireEvent.change(screen.getByLabelText(/work mode/i), { target: { value: "mode-1" } });
+    fireEvent.change(screen.getByLabelText(/date of joining/i), { target: { value: "2026-05-23" } });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => expect(screen.getByLabelText(/primary phone/i)).toBeTruthy());
+    fireEvent.change(screen.getByLabelText(/primary phone/i), { target: { value: "3001234567" } });
+    fireEvent.change(screen.getAllByLabelText(/province \/ region/i)[0], { target: { value: "Punjab" } });
+
+    const cityInput = screen.getAllByLabelText(/city/i)[0] as HTMLInputElement;
+    fireEvent.focus(cityInput);
+    expect(screen.getAllByText("Lahore").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Karachi")).toBeNull();
+
+    fireEvent.change(cityInput, { target: { value: "Sahiwal" } });
+    fireEvent.click(screen.getByRole("button", { name: /add city sahiwal/i }));
+
+    await waitFor(() => {
+      expect(createLocationMock).toHaveBeenCalledWith({
+        kind: "city",
+        country: "Pakistan",
+        province: "Punjab",
+        name: "Sahiwal",
+        is_active: true,
+      });
+    });
+  }, 15000);
+
+  it("rejects special characters in location adding and handles duplicate error", async () => {
+    renderAddEmployee();
+
+    fireEvent.change(screen.getByLabelText(/employee id/i), { target: { value: "004" } });
+    fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Sajid Ali" } });
+    fireEvent.change(screen.getByLabelText(/father name/i), { target: { value: "Ali Ahmed" } });
+    fireEvent.change(screen.getByLabelText(/cnic/i), { target: { value: "4210112345674" } });
+    fireEvent.change(screen.getByLabelText(/date of birth/i), { target: { value: "1995-04-12" } });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => expect(screen.getByText("Workforce placement")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText(/department/i), { target: { value: "dept-1" } });
+    fireEvent.change(screen.getByLabelText(/designation/i), { target: { value: "desig-1" } });
+    fireEvent.change(screen.getByLabelText(/employment type/i), { target: { value: "type-1" } });
+    fireEvent.change(screen.getByLabelText(/job status/i), { target: { value: "status-1" } });
+    fireEvent.change(screen.getByLabelText(/shift/i), { target: { value: "shift-1" } });
+    fireEvent.change(screen.getByLabelText(/work location/i), { target: { value: "loc-1" } });
+    fireEvent.change(screen.getByLabelText(/work mode/i), { target: { value: "mode-1" } });
+    fireEvent.change(screen.getByLabelText(/date of joining/i), { target: { value: "2026-05-23" } });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => expect(screen.getByLabelText(/primary phone/i)).toBeTruthy());
+
+    // 1. Check special characters validation
+    const provinceInput = screen.getAllByLabelText(/province \/ region/i)[0] as HTMLInputElement;
+    fireEvent.change(provinceInput, { target: { value: "Punjab@123" } });
+    
+    // Ensure the add button is shown
+    const addBtn = screen.getByRole("button", { name: /add province \/ region punjab@123/i });
+    expect(addBtn).toBeTruthy();
+
+    fireEvent.click(addBtn);
+
+    // It should NOT call the createLocationMock because of special character validation
+    expect(createLocationMock).not.toHaveBeenCalled();
+
+    // 2. Check duplicate error handling
+    createLocationMock.mockRejectedValueOnce({
+      response: {
+        data: {
+          error: {
+            code: "DUPLICATE_LOCATION",
+            message: "Location already exists"
+          }
+        }
+      }
+    });
+
+    fireEvent.change(provinceInput, { target: { value: "Balochistan" } });
+    const addBtnValid = screen.getByRole("button", { name: /add province \/ region balochistan/i });
+    fireEvent.click(addBtnValid);
+
+    await waitFor(() => {
+      expect(createLocationMock).toHaveBeenCalledWith({
+        kind: "province",
+        country: "Pakistan",
+        province: null,
+        name: "Balochistan",
+        is_active: true,
+      });
+    });
+  }, 15000);
 });

@@ -15,8 +15,12 @@ export type Announcement = {
   updated_by_name?: string;
   target_department_id?: string | null;
   target_designation_id?: string | null;
+  target_department_ids?: string[];
+  target_designation_ids?: string[];
   target_department_name?: string | null;
   target_designation_name?: string | null;
+  target_department_names?: string[];
+  target_designation_names?: string[];
 };
 
 export type AnnouncementPayload = {
@@ -26,6 +30,8 @@ export type AnnouncementPayload = {
   is_active?: boolean;
   target_department_id?: string | null;
   target_designation_id?: string | null;
+  target_department_ids?: string[];
+  target_designation_ids?: string[];
 };
 
 function normalizeAnnouncementList(payload: any): Announcement[] {

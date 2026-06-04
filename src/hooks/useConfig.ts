@@ -134,6 +134,43 @@ export const useEmploymentTypes = createConfigHook<any>("employment-types");
 export const useJobStatuses = createConfigHook<any>("job-statuses");
 export const useWorkModes = createConfigHook<any>("work-modes");
 export const useWorkLocations = createConfigHook<any>("work-locations");
+export function useLocations(filters: { kind?: string; province?: string; country?: string } = {}) {
+  const queryClient = useQueryClient();
+  const requestParams = Object.fromEntries(
+    Object.entries({ country: "Pakistan", ...filters }).filter(([, value]) => value),
+  );
+  const queryKey = ["config", "locations", requestParams];
+
+  const query = useQuery({
+    queryKey,
+    queryFn: async () => {
+      const { data } = await apiClient.get("/config/locations", {
+        params: requestParams,
+      });
+      return normalizeConfigList<any>(data, "locations");
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (newItem: Partial<any>) => {
+      const { data } = await apiClient.post("/config/locations", {
+        country: "Pakistan",
+        ...newItem,
+      });
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["config", "locations"] });
+    },
+  });
+
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    create: createMutation.mutateAsync,
+  };
+}
 export const useShifts = createConfigHook<any>("shifts");
 export const useLeaveTypes = createConfigHook<any>("leave-types");
 export const useLeavePolicies = createConfigHook<any>("leave-policies");
