@@ -2397,8 +2397,7 @@ export default function AddEmployee() {
                   placeholder="PK00XXXX0000..."
                   value={bankIban}
                   onChange={(e) => {
-                    const val = e.target.value;
-                    if (val.length <= 34) setBankIban(val);
+                    setBankIban(e.target.value.slice(0, 34));
                   }}
                 />
                 {errors.bankIban && (
@@ -2448,6 +2447,20 @@ export default function AddEmployee() {
             </div>
             <div className="add-form-row">
               <div className="add-form-group">
+                <label className="add-label" htmlFor="account-number">
+                  Account Number
+                </label>
+                <input
+                  id="account-number"
+                  className="add-input mono"
+                  placeholder="Numbers only"
+                  value={bankAccount}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "");
+                    setBankAccount(digits.slice(0, 30));
+                  }}
+                />
+              </div>
             </div>
             <div className="add-form-group">
               <label className="add-label" htmlFor="payment-mode">

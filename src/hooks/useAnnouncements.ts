@@ -1,13 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../services/apiClient";
 
-export type AnnouncementAudience = "all" | "hr" | "employee";
-
 export type Announcement = {
   id: string;
   title: string;
   body: string;
-  audience: AnnouncementAudience;
+  expiry_date?: string | null;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
@@ -26,7 +24,7 @@ export type Announcement = {
 export type AnnouncementPayload = {
   title: string;
   body: string;
-  audience: AnnouncementAudience;
+  expiry_date?: string | null;
   is_active?: boolean;
   target_department_id?: string | null;
   target_designation_id?: string | null;

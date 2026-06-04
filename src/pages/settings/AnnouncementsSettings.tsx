@@ -9,12 +9,12 @@ import TargetAudienceChips from "./TargetAudienceChips";
 const initialForm: AnnouncementPayload = {
   title: "",
   body: "",
-  audience: "all",
   target_department_id: null,
   target_designation_id: null,
   target_department_ids: [],
   target_designation_ids: [],
   is_active: true,
+  expiry_date: "",
 };
 
 export default function AnnouncementsSettings() {
@@ -48,7 +48,6 @@ export default function AnnouncementsSettings() {
     setForm({
       title: announcement.title,
       body: announcement.body,
-      audience: announcement.audience || "all",
       target_department_id: announcement.target_department_id || null,
       target_designation_id: announcement.target_designation_id || null,
       target_department_ids: announcement.target_department_ids?.length
@@ -62,6 +61,7 @@ export default function AnnouncementsSettings() {
           ? [announcement.target_designation_id]
           : [],
       is_active: announcement.is_active,
+      expiry_date: announcement.expiry_date ? announcement.expiry_date.slice(0, 10) : "",
     });
     setModalOpen(true);
   };
@@ -70,10 +70,10 @@ export default function AnnouncementsSettings() {
     const payload = {
       title: form.title.trim(),
       body: form.body.trim(),
-      audience: form.audience,
       target_department_ids: selectedDepartmentIds,
       target_designation_ids: selectedDesignationIds,
       is_active: Boolean(form.is_active),
+      expiry_date: form.expiry_date ? form.expiry_date : null,
     };
     if (!payload.title || !payload.body) {
       showToast("Please enter announcement title and message.", "error");
@@ -100,7 +100,7 @@ export default function AnnouncementsSettings() {
       <div className="pg-head">
         <div>
           <div className="pg-greet">Announcements Configuration</div>
-          <div className="pg-sub">Publish announcements and target them by audience, department, or designation.</div>
+          <div className="pg-sub">Publish announcements and target them by department or designation.</div>
         </div>
         <button className="btn btn-primary" onClick={openCreate}>
           <Plus size={13} /> Add Announcement
@@ -117,9 +117,9 @@ export default function AnnouncementsSettings() {
             <thead>
               <tr>
                 <th>Title</th>
-                <th>Audience</th>
                 <th>Department Target</th>
                 <th>Designation Target</th>
+                <th>Expires</th>
                 <th>Status</th>
                 <th>Updated</th>
                 <th>Actions</th>
@@ -129,7 +129,6 @@ export default function AnnouncementsSettings() {
               {announcements.map((announcement) => (
                 <tr key={announcement.id}>
                   <td style={{ fontWeight: 700 }}>{announcement.title}</td>
-                  <td>{announcement.audience}</td>
                   <td>
                     {announcement.target_department_names?.length
                       ? announcement.target_department_names.join(", ")
@@ -143,6 +142,9 @@ export default function AnnouncementsSettings() {
                       : announcement.target_designation_ids?.length
                         ? announcement.target_designation_ids.map((id) => designationNames.get(String(id)) || id).join(", ")
                         : announcement.target_designation_name || announcement.target_designation_id || "All designations"}
+                  </td>
+                  <td>
+                    {announcement.expiry_date ? announcement.expiry_date.slice(0, 10) : "Never"}
                   </td>
                   <td><span className={`pill ${announcement.is_active ? "pill-green" : "pill-red"}`}>{announcement.is_active ? "Active" : "Inactive"}</span></td>
                   <td className="mono">{announcement.updated_at ? announcement.updated_at.slice(0, 10) : "Not provided"}</td>
@@ -160,33 +162,31 @@ export default function AnnouncementsSettings() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingAnnouncement ? "Edit Announcement" : "Add Announcement"} wide>
         <div style={{ display: "grid", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, alignItems: "start" }}>
             <label className="form-group" style={{ margin: 0 }}>
               <span className="form-label">Title</span>
               <input className="input" value={form.title} onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))} />
             </label>
             <label className="form-group" style={{ margin: 0 }}>
-              <span className="form-label">Audience</span>
-              <select className="input select-input" value={form.audience} onChange={(event) => setForm((prev) => ({ ...prev, audience: event.target.value as any }))}>
-                <option value="all">All</option>
-                <option value="hr">HR</option>
-                <option value="employee">Employee</option>
-              </select>
+              <span className="form-label">Expiry Date</span>
+              <input className="input" type="date" value={form.expiry_date || ""} onChange={(event) => setForm((prev) => ({ ...prev, expiry_date: event.target.value }))} />
             </label>
-            <label className="form-group" style={{ margin: 0 }}>
-              <span className="form-label">Status</span>
-              <select className="input select-input" value={String(form.is_active)} onChange={(event) => setForm((prev) => ({ ...prev, is_active: event.target.value === "true" }))}>
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
-              </select>
-            </label>
+            {editingAnnouncement && (
+              <label className="form-group" style={{ margin: 0 }}>
+                <span className="form-label">Status</span>
+                <select className="input select-input" value={String(form.is_active)} onChange={(event) => setForm((prev) => ({ ...prev, is_active: event.target.value === "true" }))}>
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </label>
+            )}
           </div>
           <label className="form-group" style={{ margin: 0 }}>
             <span className="form-label">Message</span>
             <textarea className="input" rows={7} value={form.body} onChange={(event) => setForm((prev) => ({ ...prev, body: event.target.value }))} />
           </label>
           <div style={{ borderTop: "1px solid var(--br)", paddingTop: 14 }}>
-          <div style={{ fontWeight: 800, fontSize: 13, color: "var(--t1)", marginBottom: 10 }}>Target Audience</div>
+          <div style={{ fontWeight: 800, fontSize: 13, color: "var(--t1)", marginBottom: 10 }}>Select Visibility</div>
           <TargetAudienceChips
             departments={departments}
             designations={designations}

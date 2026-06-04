@@ -18,7 +18,6 @@ export interface CalendarEvent {
   end_date: string;
   dateKey: string;
   type: CalendarEventType;
-  visibility?: string;
   target_department_ids?: string[];
   target_designation_ids?: string[];
   target_department_names?: string[];
@@ -31,7 +30,6 @@ export interface CalendarEventFilters {
   from?: string;
   to?: string;
   type?: string;
-  visibility?: string;
   search?: string;
   sort?: string;
   order?: "asc" | "desc" | string;
@@ -43,7 +41,6 @@ export interface CalendarEventPayload {
   start_date: string;
   end_date: string;
   type: string;
-  visibility: string;
   target_department_ids?: string[];
   target_designation_ids?: string[];
 }
@@ -110,7 +107,6 @@ export function normalizeCalendarEvents(payload: any): CalendarEvent[] {
         end_date: rawEndDate || rawStartDate || dateKey,
         dateKey,
         type: normalizeType(event.type),
-        visibility: event.visibility,
         target_department_ids: Array.isArray(event.target_department_ids) ? event.target_department_ids : [],
         target_designation_ids: Array.isArray(event.target_designation_ids) ? event.target_designation_ids : [],
         target_department_names: Array.isArray(event.target_department_names) ? event.target_department_names : [],

@@ -815,7 +815,7 @@ export default function Dashboard() {
     const fromDays = calendarApiEvents.map((g: any) => ({
       title: g.title || g.type,
       date: g.date,
-      text: g.visibility ? `Visible to ${g.visibility}` : "",
+      text: "",
       id: g.id,
     }));
     return fromDays;

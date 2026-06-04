@@ -88,4 +88,22 @@ describe("AnnouncementsSettings", () => {
       }));
     });
   });
+
+  it("saves announcement with an expiry date", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByText("Add Announcement"));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Short lived" } });
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Expires tomorrow." } });
+    fireEvent.change(screen.getByLabelText("Expiry Date"), { target: { value: "2026-06-05" } });
+    fireEvent.click(screen.getByText("Save Announcement"));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith("/announcements", expect.objectContaining({
+        title: "Short lived",
+        body: "Expires tomorrow.",
+        expiry_date: "2026-06-05",
+      }));
+    });
+  });
 });

@@ -11,7 +11,6 @@ const initialForm: CalendarEventPayload = {
   start_date: new Date().toISOString().slice(0, 10),
   end_date: new Date().toISOString().slice(0, 10),
   type: "holiday",
-  visibility: "all",
   target_department_ids: [],
   target_designation_ids: [],
 };
@@ -59,7 +58,6 @@ export default function CalendarEventsSettings() {
       start_date: startDate,
       end_date: endDate,
       type: event.type,
-      visibility: event.visibility || "all",
       target_department_ids: event.target_department_ids || [],
       target_designation_ids: event.target_designation_ids || [],
     });
@@ -72,12 +70,11 @@ export default function CalendarEventsSettings() {
       start_date: form.start_date,
       end_date: form.end_date,
       type: form.type,
-      visibility: form.visibility,
       target_department_ids: selectedDepartmentIds,
       target_designation_ids: selectedDesignationIds,
     };
-    if (!payload.title || !payload.start_date || !payload.end_date || !payload.type || !payload.visibility) {
-      showToast("Please fill title, from date, to date, type, and visibility.", "error");
+    if (!payload.title || !payload.start_date || !payload.end_date || !payload.type) {
+      showToast("Please fill title, from date, to date, and type.", "error");
       return;
     }
     if (payload.end_date < payload.start_date) {
@@ -125,7 +122,6 @@ export default function CalendarEventsSettings() {
                 <th>From</th>
                 <th>To</th>
                 <th>Type</th>
-                <th>Visibility</th>
                 <th>Departments</th>
                 <th>Designations</th>
                 <th>Actions</th>
@@ -138,7 +134,6 @@ export default function CalendarEventsSettings() {
                   <td className="mono">{toInputDate(event.start_date || event.date)}</td>
                   <td className="mono">{toInputDate(event.end_date || event.start_date || event.date)}</td>
                   <td><span className="pill pill-blue">{event.type}</span></td>
-                  <td>{event.visibility || "all"}</td>
                   <td>
                     {event.target_department_names?.length
                       ? event.target_department_names.join(", ")
@@ -172,14 +167,6 @@ export default function CalendarEventsSettings() {
               <span className="form-label">Title</span>
               <input className="input" value={form.title} onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))} />
             </label>
-            <label className="form-group" style={{ margin: 0 }}>
-              <span className="form-label">Visibility</span>
-              <select className="input select-input" value={form.visibility} onChange={(event) => setForm((prev) => ({ ...prev, visibility: event.target.value as any }))}>
-                <option value="all">All</option>
-                <option value="hr">HR</option>
-                <option value="employee">Employee</option>
-              </select>
-            </label>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
             <label className="form-group" style={{ margin: 0 }}>
@@ -204,7 +191,7 @@ export default function CalendarEventsSettings() {
             </label>
           </div>
           <div style={{ borderTop: "1px solid var(--br)", paddingTop: 14 }}>
-            <div style={{ fontWeight: 800, fontSize: 13, color: "var(--t1)", marginBottom: 10 }}>Target Audience</div>
+            <div style={{ fontWeight: 800, fontSize: 13, color: "var(--t1)", marginBottom: 10 }}>Select Visibility</div>
           <TargetAudienceChips
             departments={departments}
             designations={designations}

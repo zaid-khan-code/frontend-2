@@ -99,7 +99,6 @@ export default function Calendar() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [type, setType] = useState("");
-  const [visibility, setVisibility] = useState("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("");
   const [order, setOrder] = useState<"asc" | "desc" | "">("");
@@ -113,12 +112,11 @@ export default function Calendar() {
       next.to = to;
     }
     next.type = type;
-    next.visibility = visibility;
     next.search = search.trim();
     next.sort = sort;
     next.order = order;
     return next;
-  }, [from, order, rangeMode, search, sort, to, type, visibility, year]);
+  }, [from, order, rangeMode, search, sort, to, type, year]);
 
   const { data: events = [], isLoading, isError } = useCalendarEvents(filters);
 
@@ -157,7 +155,7 @@ export default function Calendar() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1.2fr repeat(5, minmax(120px, 1fr))",
+            gridTemplateColumns: "1.2fr repeat(4, minmax(120px, 1fr))",
             gap: 10,
             alignItems: "end",
           }}
@@ -194,15 +192,6 @@ export default function Calendar() {
               <option value="deadline">Deadline</option>
               <option value="training">Training</option>
               <option value="emergency">Emergency</option>
-            </select>
-          </label>
-          <label className="form-group" style={{ margin: 0 }}>
-            <span className="form-label">Visibility</span>
-            <select className="input select-input" value={visibility} onChange={(event) => setVisibility(event.target.value)}>
-              <option value="">Any</option>
-              <option value="all">All</option>
-              <option value="hr">HR</option>
-              <option value="employee">Employee</option>
             </select>
           </label>
           <label className="form-group" style={{ margin: 0 }}>
@@ -276,7 +265,6 @@ export default function Calendar() {
                   <div>
                     <span className="pill" style={{ background: `${eventTypeColors[event.type] || eventTypeColors.other}20`, color: eventTypeColors[event.type] || eventTypeColors.other, textTransform: "capitalize" }}>
                       {event.type}
-                      {event.visibility ? ` - ${event.visibility}` : ""}
                     </span>
                   </div>
                 </div>

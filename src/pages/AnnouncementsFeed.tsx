@@ -63,10 +63,9 @@ export default function AnnouncementsFeed() {
                   <div>
                     <h3 style={{ margin: 0, fontSize: 17, color: "var(--t1)" }}>{post.title}</h3>
                     <div style={{ marginTop: 4, fontSize: 11, color: "var(--t3)" }}>
-                      Published {formatDate(post.created_at)} for {post.audience}
+                      Published {formatDate(post.created_at)}
                     </div>
                   </div>
-                  <span className="pill pill-blue">{post.audience}</span>
                 </div>
                 <p style={{ color: "var(--t2)", lineHeight: 1.6, margin: "12px 0 0" }}>{post.body}</p>
               </article>

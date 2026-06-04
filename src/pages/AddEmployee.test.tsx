@@ -491,4 +491,64 @@ describe("AddEmployee", () => {
       });
     });
   }, 15000);
+
+  it("validates IBAN character limits and account number constraints in the frontend bank account step", async () => {
+    renderAddEmployee();
+
+    fireEvent.change(screen.getByLabelText(/employee id/i), { target: { value: "005" } });
+    fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Kamran Khan" } });
+    fireEvent.change(screen.getByLabelText(/father name/i), { target: { value: "Sher Khan" } });
+    fireEvent.change(screen.getByLabelText(/cnic/i), { target: { value: "4210112345675" } });
+    fireEvent.change(screen.getByLabelText(/date of birth/i), { target: { value: "1993-08-14" } });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => expect(screen.getByText("Workforce placement")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText(/department/i), { target: { value: "dept-1" } });
+    fireEvent.change(screen.getByLabelText(/designation/i), { target: { value: "desig-1" } });
+    fireEvent.change(screen.getByLabelText(/employment type/i), { target: { value: "type-1" } });
+    fireEvent.change(screen.getByLabelText(/job status/i), { target: { value: "status-1" } });
+    fireEvent.change(screen.getByLabelText(/shift/i), { target: { value: "shift-1" } });
+    fireEvent.change(screen.getByLabelText(/work location/i), { target: { value: "loc-1" } });
+    fireEvent.change(screen.getByLabelText(/work mode/i), { target: { value: "mode-1" } });
+    fireEvent.change(screen.getByLabelText(/date of joining/i), { target: { value: "2026-05-23" } });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => expect(screen.getByLabelText(/primary phone/i)).toBeTruthy());
+    fireEvent.change(screen.getByLabelText(/primary phone/i), { target: { value: "3001234567" } });
+    fireEvent.change(screen.getAllByLabelText(/province \/ region/i)[0], { target: { value: "Punjab" } });
+    fireEvent.change(screen.getAllByLabelText(/city/i)[0], { target: { value: "Lahore" } });
+    fireEvent.click(screen.getByLabelText(/same as permanent address/i));
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => expect(screen.getAllByLabelText(/contact name/i)[0]).toBeTruthy());
+    fireEvent.change(screen.getAllByLabelText(/contact name/i)[0], { target: { value: "Rehana Khan" } });
+    fireEvent.change(screen.getAllByLabelText(/^contact phone/i)[0], { target: { value: "3007654321" } });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => expect(screen.getByText("Bank account profile")).toBeTruthy());
+
+    const bankNameInput = screen.getByLabelText(/bank name/i);
+    const titleInput = screen.getByLabelText(/account title/i);
+    const ibanInput = screen.getByLabelText(/iban/i) as HTMLInputElement;
+    const accountNumberInput = screen.getByLabelText(/account number/i) as HTMLInputElement;
+
+    fireEvent.change(bankNameInput, { target: { value: "Alfalah" } });
+    fireEvent.change(titleInput, { target: { value: "Kamran Khan" } });
+
+    // 1. Check minimum IBAN length validation
+    fireEvent.change(ibanInput, { target: { value: "PK12" } });
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("IBAN must be at least 10 characters.")).toBeTruthy();
+    });
+
+    // 2. Check maximum IBAN length cap on input (34 characters)
+    fireEvent.change(ibanInput, { target: { value: "PK12345678901234567890123456789012345" } }); // 37 chars
+    expect(ibanInput.value).toBe("PK12345678901234567890123456789012"); // 34 characters
+
+    // 3. Check account number input cap of 30 digits
+    fireEvent.change(accountNumberInput, { target: { value: "12345678901234567890123456789012345" } }); // 35 digits
+    expect(accountNumberInput.value).toBe("123456789012345678901234567890"); // 30 digits
+  }, 15000);
 });
