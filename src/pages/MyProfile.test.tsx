@@ -20,6 +20,7 @@ vi.mock("../context/ToastContext", () => ({
 
 vi.mock("../services/apiClient", () => ({
   apiClient: {
+    defaults: { baseURL: "http://localhost:3001/api" },
     get: vi.fn(),
     patch: vi.fn(),
   },
@@ -47,6 +48,7 @@ describe("MyProfile", () => {
       id: "090ab08c-3735-4545-9138-551b15362833",
       employee_id: "EMP521",
       name: "Muhammad ZAid Khan",
+      profile_photo_url: "/uploads/employees/EMP521/profile/photo.png",
       father_name: "Asif Khan Khaol",
       cnic: "55555-5555555-5",
       date_of_birth: "2011-10-14",
@@ -157,6 +159,21 @@ describe("MyProfile", () => {
         data: {
           data: employeeProfile,
         },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          data: [
+            {
+              id: "att-1",
+              kind: "document",
+              document_type: "CNIC",
+              original_filename: "cnic.pdf",
+              url: "/uploads/employees/EMP123/documents/cnic.pdf",
+              size_bytes: 2048,
+              created_at: "2026-05-01",
+            },
+          ],
+        },
       });
 
     renderMyProfile();
@@ -164,6 +181,9 @@ describe("MyProfile", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Muhammad ZAid Khan").length).toBeGreaterThan(0);
     });
+    expect((screen.getByAltText("Muhammad ZAid Khan profile") as HTMLImageElement).src).toBe(
+      "http://localhost:3001/uploads/employees/EMP521/profile/photo.png",
+    );
     expect(screen.getAllByText("IT-Support").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Medical Allowance").length).toBeGreaterThan(0);
     expect(screen.getByText("12,220 PKR")).toBeTruthy();
@@ -172,6 +192,8 @@ describe("MyProfile", () => {
     expect(screen.getByText("31 Oct 1990")).toBeTruthy();
     expect(screen.getByText("Voluptas laboriosam")).toBeTruthy();
     expect(screen.getByText("Repellendus Delenit")).toBeTruthy();
+    expect(screen.getByText("Employee Documents")).toBeTruthy();
+    expect(screen.getByText("cnic.pdf")).toBeTruthy();
     expect(screen.queryByText("false")).toBeNull();
     expect(screen.queryByText("Is Percentage")).toBeNull();
     expect(screen.queryByText("Is Current")).toBeNull();
@@ -189,5 +211,6 @@ describe("MyProfile", () => {
     expect(screen.queryByText("Payment Mode")).toBeNull();
     expect(apiClient.get).toHaveBeenCalledWith("/dashboard/me");
     expect(apiClient.get).toHaveBeenCalledWith("/employees/EMP123");
+    expect(apiClient.get).toHaveBeenCalledWith("/employees/EMP123/attachments");
   });
 });

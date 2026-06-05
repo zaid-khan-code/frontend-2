@@ -190,8 +190,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (res.data?.success) {
-        const token = res.data.token;
-        const udata = res.data.user || {};
+        const loginData = res.data.data || res.data;
+        const token = loginData.token;
+        const udata = loginData.user || {};
         let roleName = udata.role_name || udata.role || "employee";
         const mustChangePassword = !!udata.must_change_password;
 

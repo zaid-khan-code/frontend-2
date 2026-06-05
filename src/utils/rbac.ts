@@ -22,6 +22,8 @@ export type Action =
   | "edit_employee"
   | "delete_employee"
   | "resend_credentials"
+  | "view_employee_attachments"
+  | "upload_employee_attachments"
   | "view_own_profile"
   | "access_dashboard"
   | "access_attendance"
@@ -37,6 +39,8 @@ export const ACTION_PERMISSION_MAP: Partial<Record<Action, string>> = {
   edit_employee: "employees:write",
   delete_employee: "employees:write",
   resend_credentials: "employees:write",
+  view_employee_attachments: "employee_attachments:read",
+  upload_employee_attachments: "employee_attachments:upload",
   access_dashboard: "dashboard:read",
   access_attendance: "attendance:read",
   access_leave: "leave:read",
@@ -52,6 +56,8 @@ const rolePermissions: Record<Role, Action[]> = {
     "edit_employee",
     "delete_employee",
     "resend_credentials",
+    "view_employee_attachments",
+    "upload_employee_attachments",
     "view_own_profile",
     "access_dashboard",
     "access_attendance",
@@ -65,6 +71,8 @@ const rolePermissions: Record<Role, Action[]> = {
     "create_employee",
     "edit_employee",
     "resend_credentials",
+    "view_employee_attachments",
+    "upload_employee_attachments",
     "view_own_profile",
     "access_dashboard",
     "access_attendance",
@@ -75,6 +83,8 @@ const rolePermissions: Record<Role, Action[]> = {
   ],
   hr_executive: [
     "view_all_employees",
+    "view_employee_attachments",
+    "upload_employee_attachments",
     "view_own_profile",
     "access_dashboard",
     "access_attendance",

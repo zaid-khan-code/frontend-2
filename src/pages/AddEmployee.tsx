@@ -699,7 +699,7 @@ export default function AddEmployee() {
   };
   const formatEmployeeId = (val: string) => {
     const raw = val.toUpperCase().replace(/[^A-Z0-9]/g, "");
-    const digits = raw.replace(/[^0-9]/g, "").slice(0, 3);
+    const digits = raw.replace(/[^0-9]/g, "").slice(0, 4);
     if (!digits) return "EMP";
     return `EMP${digits}`;
   };
@@ -988,10 +988,10 @@ export default function AddEmployee() {
     if (currentStep === 0) {
       if (!employeeIdInput.trim() || employeeIdInput === "EMP") {
         e.employeeIdInput = mandatory("Employee ID");
-      } else if (!/^EMP\d{3}$/.test(employeeIdInput)) {
-        e.employeeIdInput = "Use EMP000 format";
+      } else if (!/^EMP\d{4}$/.test(employeeIdInput)) {
+        e.employeeIdInput = "Use EMP0001 format";
       } else if (Number(employeeIdInput.slice(3)) < 1) {
-        e.employeeIdInput = "Use 001-999";
+        e.employeeIdInput = "Use 0001-9999";
       }
       if (!fullName.trim()) e.fullName = mandatory("Full name");
       if (!fatherName.trim()) e.fatherName = mandatory("Father name");
@@ -1090,10 +1090,10 @@ export default function AddEmployee() {
 
     if (!normalizedEmployeeId.trim() || normalizedEmployeeId === "EMP") {
       e.employeeIdInput = mandatory("Employee ID");
-    } else if (!/^EMP\d{3}$/.test(normalizedEmployeeId)) {
-      e.employeeIdInput = "Use EMP000 format";
+    } else if (!/^EMP\d{4}$/.test(normalizedEmployeeId)) {
+      e.employeeIdInput = "Use EMP0001 format";
     } else if (Number(normalizedEmployeeId.slice(3)) < 1) {
-      e.employeeIdInput = "Use 001-999";
+      e.employeeIdInput = "Use 0001-9999";
     }
     if (!fullName.trim()) e.fullName = mandatory("Full name");
     if (!fatherName.trim()) e.fatherName = mandatory("Father name");
@@ -1503,7 +1503,7 @@ export default function AddEmployee() {
       .map((part) => part[0]?.toUpperCase())
       .join("") || "NE";
   const hasValidEmployeeId =
-    /^EMP\d{3}$/.test(employeeIdInput) && Number(employeeIdInput.slice(3)) > 0;
+    /^EMP\d{4}$/.test(employeeIdInput) && Number(employeeIdInput.slice(3)) > 0;
   const personalChecklist = [
     { label: "Employee ID", done: hasValidEmployeeId },
     { label: "Full name", done: Boolean(fullName.trim()) },
@@ -1651,7 +1651,7 @@ export default function AddEmployee() {
                         <input
                           id="employee-id"
                           className={`add-input mono${errors.employeeIdInput ? " error" : ""}`}
-                          placeholder="EMP001"
+                          placeholder="EMP0001"
                           value={employeeIdInput}
                           onChange={(e) =>
                             setEmployeeIdInput(formatEmployeeId(e.target.value))
@@ -1659,7 +1659,7 @@ export default function AddEmployee() {
                         />
                         <div className="add-hint">
                           Type numbers or the full code. It will normalize to
-                          EMP001 format.
+                          EMP0001 format.
                         </div>
                         {errors.employeeIdInput && (
                           <div className="add-err">

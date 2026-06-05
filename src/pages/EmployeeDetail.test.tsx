@@ -8,6 +8,7 @@ import EmployeeDetail from "./EmployeeDetail";
 const useAttendanceReportMock = vi.hoisted(() => vi.fn());
 const useLeaveBalancesMock = vi.hoisted(() => vi.fn());
 const usePenaltiesMock = vi.hoisted(() => vi.fn());
+const useEmployeeAttachmentsMock = vi.hoisted(() => vi.fn());
 
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
@@ -92,6 +93,10 @@ vi.mock("../hooks/usePenalties", () => ({
   usePenalties: (params: any) => usePenaltiesMock(params),
 }));
 
+vi.mock("../hooks/useEmployeeAttachments", () => ({
+  useEmployeeAttachments: (employeeId: string) => useEmployeeAttachmentsMock(employeeId),
+}));
+
 vi.mock("../hooks/useConfig", () => ({
   usePenaltyRules: () => ({ data: [{ id: "rule-1", name: "Late Arrival", amount_pkr: 1000, is_active: true }] }),
 }));
@@ -129,6 +134,12 @@ describe("EmployeeDetail", () => {
       isError: false,
       propose: vi.fn(),
     });
+    useEmployeeAttachmentsMock.mockReturnValue({
+      data: [{ id: "att-1", document_type: "CNIC", original_filename: "cnic.pdf", size_bytes: 2048, created_at: "2026-05-01", url: "/uploads/employees/EMP001/documents/cnic.pdf" }],
+      isLoading: false,
+      upload: vi.fn(),
+      isUploading: false,
+    });
   });
 
   it("shows live profile sections and uses Not provided instead of N/A", () => {
@@ -138,6 +149,57 @@ describe("EmployeeDetail", () => {
     expect(screen.getAllByText("Administration").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Not provided").length).toBeGreaterThan(0);
     expect(screen.queryByText("N/A")).toBeNull();
+  });
+
+  it("uses the uploaded profile photo when one exists", () => {
+    useEmployeeAttachmentsMock.mockReturnValue({
+      data: [
+        {
+          id: "photo-1",
+          kind: "profile_photo",
+          document_type: "Profile Photo",
+          original_filename: "profile.png",
+          mime_type: "image/png",
+          size_bytes: 4096,
+          created_at: "2026-05-03",
+          url: "/uploads/employees/EMP001/profile/profile.png",
+        },
+      ],
+      isLoading: false,
+      upload: vi.fn(),
+      isUploading: false,
+    });
+
+    renderEmployeeDetail();
+
+    const image = screen.getByAltText("Adeel Rahman profile") as HTMLImageElement;
+    expect(image.src).toBe("http://localhost:3001/uploads/employees/EMP001/profile/profile.png");
+    expect(screen.queryByText("AR")).toBeNull();
+  });
+
+  it("falls back to initials when the uploaded profile photo cannot load", () => {
+    useEmployeeAttachmentsMock.mockReturnValue({
+      data: [
+        {
+          id: "photo-1",
+          kind: "profile_photo",
+          document_type: "Profile Photo",
+          original_filename: "profile.png",
+          mime_type: "image/png",
+          size_bytes: 4096,
+          created_at: "2026-05-03",
+          url: "/uploads/employees/EMP001/profile/missing.png",
+        },
+      ],
+      isLoading: false,
+      upload: vi.fn(),
+      isUploading: false,
+    });
+
+    renderEmployeeDetail();
+
+    fireEvent.error(screen.getByAltText("Adeel Rahman profile"));
+    expect(screen.getByText("AR")).toBeTruthy();
   });
 
   it("loads employee attendance in six-month windows", () => {
@@ -160,5 +222,9 @@ describe("EmployeeDetail", () => {
     fireEvent.click(screen.getByText("Penalties"));
     expect(usePenaltiesMock).toHaveBeenCalledWith({ employee_id: "EMP001" });
     expect(screen.getByText("Late Arrival")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Documents"));
+    expect(useEmployeeAttachmentsMock).toHaveBeenCalledWith("EMP001");
+    expect(screen.getByText("cnic.pdf")).toBeTruthy();
   });
 });

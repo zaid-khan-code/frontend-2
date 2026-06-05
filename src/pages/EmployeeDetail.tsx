@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   AlertTriangle,
@@ -12,6 +12,7 @@ import {
   Mail,
   MapPin,
   Phone,
+  Upload,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
@@ -32,9 +33,12 @@ import { useLeaveBalances, useLeaves } from "../hooks/useLeaves";
 import { usePenalties } from "../hooks/usePenalties";
 import { usePenaltyRules } from "../hooks/useConfig";
 import { useRbac } from "../hooks/useRbac";
+import { useEmployeeAttachments } from "../hooks/useEmployeeAttachments";
+import { apiClient } from "../services/apiClient";
 import { formatPKR, getStatusColor } from "../services/api";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const API_ORIGIN = String(apiClient.defaults.baseURL || "http://localhost:3001/api").replace(/\/api\/?$/, "");
 
 function firstValue(...values: any[]) {
   return values.find((value) => value !== undefined && value !== null && value !== "");
@@ -100,6 +104,14 @@ function getInitials(name: string, fallback: string) {
     .toUpperCase();
 }
 
+function attachmentUrl(item: any) {
+  const rawUrl = firstValue(item?.url, item?.file_path);
+  if (!rawUrl) return "";
+  const url = String(rawUrl);
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${API_ORIGIN}${url.startsWith("/") ? url : `/${url}`}`;
+}
+
 function normalizeEmployee(raw: any) {
   return {
     id: text(firstValue(raw?.employee_id, raw?.id)),
@@ -143,6 +155,7 @@ function normalizeEmployee(raw: any) {
     nextMedicalExamDate: raw?.medicalInfo?.next_medical_exam_date,
     salary: numberValue(raw?.salaryInfo?.base_salary),
     currency: text(raw?.salaryInfo?.currency || "PKR"),
+    profilePhotoUrl: firstValue(raw?.profilePhotoUrl, raw?.profile_photo_url, raw?.profile_photo, raw?.photo_url),
   };
 }
 
@@ -216,9 +229,23 @@ export default function EmployeeDetail() {
   const [penaltyDate, setPenaltyDate] = useState(new Date().toISOString().slice(0, 10));
   const [penaltyReason, setPenaltyReason] = useState("");
   const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [attachmentKind, setAttachmentKind] = useState("document");
+  const [documentType, setDocumentType] = useState("General");
+  const [profilePhotoFailed, setProfilePhotoFailed] = useState(false);
   const { data: rawEmployee, isLoading, resendCredentials, isResendingCredentials } = useEmployee(id);
   const employee = useMemo(() => (rawEmployee ? normalizeEmployee(rawEmployee) : null), [rawEmployee]);
   const employeeId = employee?.id || id || "";
+  const canViewAttachments = can("view_employee_attachments");
+  const canUploadAttachments = can("upload_employee_attachments");
+  const { data: attachments = [], isLoading: attachmentsLoading, upload: uploadAttachment, isUploading: isUploadingAttachment } = useEmployeeAttachments(canViewAttachments ? employeeId : undefined);
+  const profilePhotoUrl = useMemo(() => {
+    const photo = attachments.find((item: any) => item?.kind === "profile_photo" && String(item?.mime_type || "").startsWith("image/"));
+    return attachmentUrl(photo) || attachmentUrl({ url: employee?.profilePhotoUrl });
+  }, [attachments, employee?.profilePhotoUrl]);
+
+  useEffect(() => {
+    setProfilePhotoFailed(false);
+  }, [profilePhotoUrl]);
 
   const months = useMemo(() => getWindowMonths(windowOffset), [windowOffset]);
   const latestMonth = months[months.length - 1];
@@ -287,6 +314,22 @@ export default function EmployeeDetail() {
     }
   };
 
+  const handleAttachmentFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      await uploadAttachment({
+        file,
+        kind: attachmentKind,
+        documentType: attachmentKind === "profile_photo" ? "Profile Photo" : documentType,
+      });
+      showToast("Attachment uploaded successfully.");
+    } catch (error: any) {
+      showToast(error?.response?.data?.error?.message || "Failed to upload attachment.", "error");
+    }
+  };
+
   if (isLoading) {
     return <div style={{ padding: 50, textAlign: "center" }}>Loading employee profile...</div>;
   }
@@ -300,8 +343,9 @@ export default function EmployeeDetail() {
     );
   }
 
-  const tabs = ["Profile", "Attendance", "Leave", "Penalties", "Settings"];
+  const tabs = ["Profile", "Attendance", "Leave", "Penalties", ...(canViewAttachments ? ["Documents"] : []), "Settings"];
   const initials = getInitials(employee.name, employee.id);
+  const showProfilePhoto = Boolean(profilePhotoUrl && !profilePhotoFailed);
   const quickActions = [
     { label: "Open attendance sheet", action: () => navigate("/attendance") },
     { label: "Open leave management", action: () => navigate("/leave") },
@@ -322,9 +366,27 @@ export default function EmployeeDetail() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ width: 62, height: 62, borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(135deg, var(--p), var(--teal))", color: "white", fontSize: 18, fontWeight: 950 }}>
-            {initials}
-          </div>
+          {showProfilePhoto ? (
+            <img
+              src={profilePhotoUrl}
+              alt={`${employee.name} profile`}
+              onError={() => setProfilePhotoFailed(true)}
+              style={{
+                width: 62,
+                height: 62,
+                borderRadius: "50%",
+                objectFit: "cover",
+                background: "linear-gradient(135deg, var(--p), var(--teal))",
+                border: "2px solid rgba(255,255,255,.9)",
+                boxShadow: "0 10px 22px rgba(15,23,42,.16)",
+                flex: "0 0 auto",
+              }}
+            />
+          ) : (
+            <div style={{ width: 62, height: 62, borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(135deg, var(--p), var(--teal))", color: "white", fontSize: 18, fontWeight: 950, flex: "0 0 auto" }}>
+              {initials}
+            </div>
+          )}
           <div style={{ flex: 1, minWidth: 260 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <h1 style={{ margin: 0, fontSize: 26, lineHeight: 1.1, color: "var(--t1)" }}>{employee.name}</h1>
@@ -583,6 +645,60 @@ export default function EmployeeDetail() {
             </div>
           ) : (
             <EmptyState>No penalties recorded.</EmptyState>
+          )}
+        </InfoCard>
+      )}
+
+      {tab === "documents" && canViewAttachments && (
+        <InfoCard title="Documents & Profile Photo" icon={<FileText size={15} />}>
+          {canUploadAttachments && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+              <select className="input select-input" style={{ maxWidth: 190 }} value={attachmentKind} onChange={(event) => setAttachmentKind(event.target.value)}>
+                <option value="document">Document</option>
+                <option value="profile_photo">Profile Photo</option>
+              </select>
+              {attachmentKind === "document" && (
+                <input className="input" style={{ maxWidth: 220 }} value={documentType} onChange={(event) => setDocumentType(event.target.value)} placeholder="Document type" />
+              )}
+              <label className="btn btn-primary" style={{ cursor: "pointer" }}>
+                <Upload size={13} /> {isUploadingAttachment ? "Uploading..." : "Upload File"}
+                <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.docx" style={{ display: "none" }} onChange={handleAttachmentFile} disabled={isUploadingAttachment} />
+              </label>
+            </div>
+          )}
+          {attachmentsLoading ? (
+            <EmptyState>Loading attachments...</EmptyState>
+          ) : attachments.length ? (
+            <div style={{ overflowX: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>File</th>
+                    <th>Size</th>
+                    <th>Uploaded</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attachments.map((item: any) => (
+                    <tr key={item.id}>
+                      <td>{item.document_type || item.kind}</td>
+                      <td>{item.original_filename}</td>
+                      <td>{Math.ceil(Number(item.size_bytes || 0) / 1024)} KB</td>
+                      <td>{formatDate(item.created_at)}</td>
+                      <td>
+                        <a className="btn btn-secondary btn-sm" href={`${API_ORIGIN}${item.url || item.file_path}`} target="_blank" rel="noreferrer">
+                          View
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState>No attachments uploaded yet.</EmptyState>
           )}
         </InfoCard>
       )}

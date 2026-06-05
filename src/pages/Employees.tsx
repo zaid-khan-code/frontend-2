@@ -11,10 +11,12 @@ import {
   ChevronDown,
   ArrowUpDown,
   UserX,
+  Upload,
 } from "lucide-react";
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import { useToastContext } from "../context/ToastContext";
 import { useRbac } from "../hooks/useRbac";
+import { apiClient } from "../services/apiClient";
 
 // ─── Global CSS ───────────────────────────────────────────────────────────────
 const CSS = `
@@ -46,6 +48,7 @@ const CSS = `
     color:#fff; display:flex; align-items:center; justify-content:center;
     font-size:11px; font-weight:700; flex-shrink:0;
   }
+  .emp-avatar-img { object-fit:cover; border:1px solid #eef2ff; }
   .emp-pill {
     display:inline-flex; align-items:center; padding:3px 9px; border-radius:20px;
     font-size:9px; font-weight:700; white-space:nowrap;
@@ -71,6 +74,7 @@ const CSS = `
   .emp-btn-danger  { background:#fee2e2; color:#dc2626; }
   .emp-btn-ghost   { background:#f3f4f6; color:#374151; border:1.5px solid #e5e7eb; }
   .emp-btn-ghost:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+  .emp-btn-secondary { background:#eef2ff; color:#4338ca; border:1.5px solid #c7d2fe; }
   .emp-btn-pg      { height:30px; min-width:30px; padding:0 10px; border-radius:8px; font-size:11px; }
   .emp-btn-pg-active { background:#6366f1; color:#fff; box-shadow:0 2px 8px rgba(99,102,241,.3); }
   .emp-skel { background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%); background-size:200% 100%; animation:pulse 1.2s ease-in-out infinite; }
@@ -90,6 +94,14 @@ const getInitials = (name: string) =>
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+const API_ORIGIN = String(apiClient.defaults.baseURL || "http://localhost:3001/api").replace(/\/api\/?$/, "");
+
+function imageUrl(value?: string) {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${API_ORIGIN}${value.startsWith("/") ? value : `/${value}`}`;
+}
 
 const formatJoinDate = (value?: string) => {
   if (!value) return "-";
@@ -113,6 +125,32 @@ const avatarGradients = [
 ];
 const nameGrad = (name: string) =>
   avatarGradients[name.charCodeAt(0) % avatarGradients.length];
+
+function EmployeeAvatar({ employee }: { employee: any }) {
+  const [failed, setFailed] = useState(false);
+  const photoUrl = imageUrl(employee.profilePhotoUrl || employee.profile_photo_url);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [photoUrl]);
+
+  if (photoUrl && !failed) {
+    return (
+      <img
+        className="emp-avatar emp-avatar-img"
+        src={photoUrl}
+        alt={`${employee.name} profile`}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="emp-avatar" style={{ background: nameGrad(employee.name || "?") }}>
+      {employee.avatar || getInitials(employee.name || employee.id || "?")}
+    </div>
+  );
+}
 
 // ── Status pill mapping ──
 const pillClass = (status: string) => {
@@ -371,17 +409,30 @@ export default function Employees() {
               </span>
             </p>
           </div>
-          <button
-            className="emp-btn emp-btn-primary"
-            onClick={() =>
-              canCreate
-                ? navigate("/employees/add")
-                : showToast("Insufficient permissions", "error")
-            }
-            disabled={!canCreate}
-          >
-            <Plus size={13} /> Create Employee
-          </button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              className="emp-btn emp-btn-secondary"
+              onClick={() =>
+                canCreate
+                  ? navigate("/employees/bulk-upload")
+                  : showToast("Insufficient permissions", "error")
+              }
+              disabled={!canCreate}
+            >
+              <Upload size={13} /> Bulk Upload
+            </button>
+            <button
+              className="emp-btn emp-btn-primary"
+              onClick={() =>
+                canCreate
+                  ? navigate("/employees/add")
+                  : showToast("Insufficient permissions", "error")
+              }
+              disabled={!canCreate}
+            >
+              <Plus size={13} /> Create Employee
+            </button>
+          </div>
         </div>
 
         {(activeRole === "head_hr" ||
@@ -693,12 +744,7 @@ export default function Employees() {
                             gap: 10,
                           }}
                         >
-                          <div
-                            className="emp-avatar"
-                            style={{ background: nameGrad(e.name) }}
-                          >
-                            {e.avatar || getInitials(e.name)}
-                          </div>
+                          <EmployeeAvatar employee={e} />
                           <div>
                             <div
                               style={{

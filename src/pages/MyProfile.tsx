@@ -2,16 +2,27 @@ import React from "react";
 import { useAuth } from "../context/AuthContext";
 import { useEmployee } from "../hooks/useEmployees";
 import { useEmployeeSelfMetrics } from "../hooks/useDashboard";
+import { useEmployeeAttachments } from "../hooks/useEmployeeAttachments";
+import { apiClient } from "../services/apiClient";
 import {
   BadgeDollarSign,
   BriefcaseBusiness,
   HeartPulse,
   Landmark,
   Loader2,
+  FileText,
   Phone,
   UserRound,
   WalletCards,
 } from "lucide-react";
+
+const API_ORIGIN = String(apiClient.defaults.baseURL || "http://localhost:3001/api").replace(/\/api\/?$/, "");
+
+function imageUrl(value?: string) {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${API_ORIGIN}${value.startsWith("/") ? value : `/${value}`}`;
+}
 
 function getSelfProfile(payload: any) {
   if (!payload || typeof payload !== "object") return payload;
@@ -388,6 +399,12 @@ const sectionMeta: Record<
     tint: "rgba(8,145,178,.11)",
     Icon: HeartPulse,
   },
+  attachments: {
+    label: "Employee Documents",
+    accent: "#4338ca",
+    tint: "rgba(67,56,202,.1)",
+    Icon: FileText,
+  },
 };
 
 function DataSection({
@@ -461,6 +478,7 @@ function DataSection({
 }
 
 function ProfileHero({ employee }: { employee: any }) {
+  const [profilePhotoFailed, setProfilePhotoFailed] = React.useState(false);
   const initials = String(employee.name || employee.employee_id || "?")
     .trim()
     .split(/\s+/)
@@ -468,6 +486,11 @@ function ProfileHero({ employee }: { employee: any }) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  const profilePhotoUrl = imageUrl(employee.profilePhotoUrl || employee.profile_photo_url);
+
+  React.useEffect(() => {
+    setProfilePhotoFailed(false);
+  }, [profilePhotoUrl]);
 
   const meta = [
     ["Employee ID", employee.employee_id],
@@ -496,22 +519,41 @@ function ProfileHero({ employee }: { employee: any }) {
           flexWrap: "wrap",
         }}
       >
-        <div
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: "50%",
-            display: "grid",
-            placeItems: "center",
-            background: "linear-gradient(135deg, var(--p), var(--teal))",
-            color: "white",
-            fontWeight: 900,
-            fontSize: 16,
-            boxShadow: "0 14px 28px rgba(37,99,235,.2)",
-          }}
-        >
-          {initials || "?"}
-        </div>
+        {profilePhotoUrl && !profilePhotoFailed ? (
+          <img
+            src={profilePhotoUrl}
+            alt={`${formatValue(employee.name)} profile`}
+            onError={() => setProfilePhotoFailed(true)}
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              objectFit: "cover",
+              background: "linear-gradient(135deg, var(--p), var(--teal))",
+              border: "2px solid rgba(255,255,255,.9)",
+              boxShadow: "0 14px 28px rgba(37,99,235,.2)",
+              flex: "0 0 auto",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              display: "grid",
+              placeItems: "center",
+              background: "linear-gradient(135deg, var(--p), var(--teal))",
+              color: "white",
+              fontWeight: 900,
+              fontSize: 16,
+              boxShadow: "0 14px 28px rgba(37,99,235,.2)",
+              flex: "0 0 auto",
+            }}
+          >
+            {initials || "?"}
+          </div>
+        )}
         <div style={{ minWidth: 240, flex: 1 }}>
           <div
             style={{
@@ -636,6 +678,10 @@ export default function MyProfile() {
     isLoading: isEmployeeLoading,
     isError: isEmployeeError,
   } = useEmployee(resolvedEmployeeId);
+  const {
+    data: attachments = [],
+    isLoading: attachmentsLoading,
+  } = useEmployeeAttachments(resolvedEmployeeId);
   const emp = employeeById || (isEmployeeProfile(selfProfile) ? selfProfile : null);
 
   const isLoading =
@@ -774,6 +820,45 @@ export default function MyProfile() {
           fields={medicalFields}
           accent={sectionMeta.medicalInfo.accent}
         />
+      </DataSection>
+
+      <DataSection title="attachments">
+        {attachmentsLoading ? (
+          <div className="mono" style={{ color: "var(--t3)", fontSize: 12 }}>Loading documents...</div>
+        ) : attachments.length ? (
+          <div style={{ display: "grid", gap: 10 }}>
+            {attachments.map((item: any) => (
+              <a
+                key={item.id}
+                href={imageUrl(item.url || item.file_path)}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: 12,
+                  borderRadius: 8,
+                  border: "1px solid var(--br2)",
+                  background: "rgba(248,250,252,.72)",
+                  color: "var(--t1)",
+                  textDecoration: "none",
+                }}
+              >
+                <span>
+                  <strong>{formatValue(item.original_filename)}</strong>
+                  <span style={{ display: "block", marginTop: 4, color: "var(--t3)", fontSize: 12 }}>
+                    {formatValue(item.document_type || item.kind)} · {Math.ceil(Number(item.size_bytes || 0) / 1024)} KB
+                  </span>
+                </span>
+                <span className="pill pill-blue">View</span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="mono" style={{ color: "var(--t3)", fontSize: 12 }}>No documents uploaded yet.</div>
+        )}
       </DataSection>
     </div>
   );

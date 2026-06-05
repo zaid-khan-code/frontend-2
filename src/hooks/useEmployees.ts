@@ -50,6 +50,12 @@ function normalizeEmployee(raw: any) {
       raw.accountInfo?.email ??
       raw.empEmail ??
       raw.personalInfo?.email,
+    profilePhotoUrl:
+      raw.profilePhotoUrl ??
+      raw.profile_photo_url ??
+      raw.profilePhoto ??
+      raw.profile_photo ??
+      raw.photo_url,
   };
 }
 

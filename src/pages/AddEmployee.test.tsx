@@ -109,7 +109,7 @@ describe("AddEmployee", () => {
     renderAddEmployee();
 
     fireEvent.change(screen.getByLabelText(/employee id/i), {
-      target: { value: "001" },
+      target: { value: "0001" },
     });
     fireEvent.change(screen.getByLabelText(/full name/i), {
       target: { value: "Ayesha Khan" },
@@ -203,7 +203,7 @@ describe("AddEmployee", () => {
     renderAddEmployee();
 
     fireEvent.change(screen.getByLabelText(/employee id/i), {
-      target: { value: "002" },
+      target: { value: "0002" },
     });
     fireEvent.change(screen.getByLabelText(/full name/i), {
       target: { value: "Bilal Ahmed" },
@@ -350,7 +350,7 @@ describe("AddEmployee", () => {
       expect(screen.getByText("Account access")).toBeTruthy();
     });
     const emailInput = screen.getByLabelText(/employee email/i) as HTMLInputElement;
-    expect(emailInput.value).toBe("bilal.ahmed.saeed.ahmed.emp002@esspl.com.pk");
+    expect(emailInput.value).toBe("bilal.ahmed.saeed.ahmed.emp0002@esspl.com.pk");
     fireEvent.change(emailInput, { target: { value: "custom.employee@esspl.com.pk" } });
     expect(emailInput.value).toBe("custom.employee@esspl.com.pk");
     expect(screen.getByRole("option", { name: "Employee" })).toBeTruthy();
@@ -388,7 +388,7 @@ describe("AddEmployee", () => {
   it("filters Pakistan city choices by selected province and can add a new city while creating an employee", async () => {
     renderAddEmployee();
 
-    fireEvent.change(screen.getByLabelText(/employee id/i), { target: { value: "003" } });
+    fireEvent.change(screen.getByLabelText(/employee id/i), { target: { value: "0003" } });
     fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Amina Ali" } });
     fireEvent.change(screen.getByLabelText(/father name/i), { target: { value: "Farhan Ali" } });
     fireEvent.change(screen.getByLabelText(/cnic/i), { target: { value: "4210112345673" } });
@@ -432,7 +432,7 @@ describe("AddEmployee", () => {
   it("rejects special characters in location adding and handles duplicate error", async () => {
     renderAddEmployee();
 
-    fireEvent.change(screen.getByLabelText(/employee id/i), { target: { value: "004" } });
+    fireEvent.change(screen.getByLabelText(/employee id/i), { target: { value: "0004" } });
     fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Sajid Ali" } });
     fireEvent.change(screen.getByLabelText(/father name/i), { target: { value: "Ali Ahmed" } });
     fireEvent.change(screen.getByLabelText(/cnic/i), { target: { value: "4210112345674" } });
@@ -495,7 +495,7 @@ describe("AddEmployee", () => {
   it("validates IBAN character limits and account number constraints in the frontend bank account step", async () => {
     renderAddEmployee();
 
-    fireEvent.change(screen.getByLabelText(/employee id/i), { target: { value: "005" } });
+    fireEvent.change(screen.getByLabelText(/employee id/i), { target: { value: "0005" } });
     fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Kamran Khan" } });
     fireEvent.change(screen.getByLabelText(/father name/i), { target: { value: "Sher Khan" } });
     fireEvent.change(screen.getByLabelText(/cnic/i), { target: { value: "4210112345675" } });

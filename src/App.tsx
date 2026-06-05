@@ -22,6 +22,7 @@ import Unauthorized from "./pages/Unauthorized";
 import Dashboard from "./pages/Dashboard";
 import Launchpad from "./pages/Launchpad";
 import Employees from "./pages/Employees";
+import EmployeeBulkUpload from "./pages/EmployeeBulkUpload";
 import AddEmployee from "./pages/AddEmployee";
 import { EmployeeWizardProvider } from "./context/EmployeeWizardContext";
 import EmployeeDetail from "./pages/EmployeeDetail";
@@ -197,6 +198,7 @@ const App = () => (
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/directory" element={<Directory />} />
                 <Route path="/employees" element={<Employees />} />
+                <Route path="/employees/bulk-upload" element={<EmployeeBulkUpload />} />
                 <Route
                   path="/employees/add"
                   element={
