@@ -33,6 +33,9 @@ Read this file before making frontend or backend changes. It is the current work
 - Employee self-service must always be scoped to the logged-in employee.
 - Backend permission checks are authoritative. Frontend permission checks are UX and safety only.
 - Do not show UI actions that the current user cannot perform.
+- Audit Logs are mandatory for every database-changing action supported by the backend/frontend.
+- Audit Logs are read-only and Super Admin only. No role, including Super Admin, should get delete/edit controls for audit log entries.
+- Every new module or feature that creates, updates, imports, approves, rejects, uploads, generates, or otherwise changes persistent data must write an audit log entry.
 - Use `mandatory`, not `required`, in user-facing validation language.
 - Payroll stays Coming Soon until backend payroll is complete.
 - Calendar employee views are read-only. Calendar event management belongs in management/configuration screens.
@@ -66,15 +69,16 @@ Read this file before making frontend or backend changes. It is the current work
 
 1. Inspect existing route, controller, service, schema, migration, seed, and tests before editing.
 2. Follow existing module patterns.
-3. Add migrations in `C:\backend\migrations` with:
+3. For every database-changing endpoint, add or update Audit Log writes before considering the backend work complete.
+4. Add migrations in `C:\backend\migrations` with:
    - `-- Up Migration`
    - SQL changes
    - `-- Down Migration`
    - rollback SQL
-4. Add/update schema validation when request or response shapes change.
-5. Add/update service/controller tests for behavior changes.
-6. Update seeds when new permissions, roles, or master data are needed.
-7. Verify backend with:
+5. Add/update schema validation when request or response shapes change.
+6. Add/update service/controller tests for behavior changes, including audit-log behavior for writes.
+7. Update seeds when new permissions, roles, or master data are needed.
+8. Verify backend with:
    - `npm.cmd test`
    - `npm.cmd run db:check`
 
@@ -85,8 +89,10 @@ Read this file before making frontend or backend changes. It is the current work
 3. Use real backend hooks/API clients; normalize backend response shapes defensively.
 4. Add inline validation for forms with HR-friendly wording.
 5. Focus the first invalid field on submit when adding form validation.
-6. Add/update tests when behavior changes.
-7. Verify frontend with:
+6. For write actions, make sure the UI calls backend endpoints that create Audit Log entries. Do not bypass audited backend APIs with local-only state changes.
+7. Audit Log UI must be Super Admin only, read-only, searchable, and filterable by module/action/date/actor/target where data is available.
+8. Add/update tests when behavior changes.
+9. Verify frontend with:
    - `npm.cmd test -- --run`
    - `npm.cmd run build`
 
@@ -176,6 +182,14 @@ Known recurring warnings:
 - Vite chunk-size warning after build.
 
 ## Planned Features Not Yet Implemented
+
+### Audit Logs Expansion
+
+- Audit Logs must cover every persistent action currently supported by the app, including login, logout, employee changes, leave request/approval/rejection, attendance actions, attendance sheet generation, penalties, announcements, calendar events, configuration changes, uploads, and bulk imports.
+- Audit Logs are visible only to Super Admin.
+- Audit Logs are immutable: no edit and no delete actions, including for Super Admin.
+- Audit Log screens must support filtering by module/tab, action type, actor, target employee, status, and date range where data exists.
+- Future modules must include audit logging as a mandatory backend requirement before being considered complete.
 
 ### Department Head Role
 
