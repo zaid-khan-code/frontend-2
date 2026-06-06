@@ -24,6 +24,87 @@ function imageUrl(value?: string) {
   return `${API_ORIGIN}${value.startsWith("/") ? value : `/${value}`}`;
 }
 
+function ImageModal({
+  src,
+  alt,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(15, 23, 42, 0.82)",
+        backdropFilter: "blur(8px)",
+        zIndex: 10000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        animation: "fadeIn .25s ease-out",
+        cursor: "pointer",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          position: "relative",
+          maxWidth: "90%",
+          maxHeight: "85vh",
+          animation: "slideIn .25s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={src}
+          alt={alt}
+          style={{
+            maxWidth: "100%",
+            maxHeight: "85vh",
+            borderRadius: 16,
+            border: "4px solid #ffffff",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+            objectFit: "contain",
+          }}
+        />
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: -16,
+            right: -16,
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            backgroundColor: "#ffffff",
+            border: "1px solid var(--br2)",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            cursor: "pointer",
+            display: "grid",
+            placeItems: "center",
+            color: "var(--t1)",
+            fontWeight: "bold",
+            fontSize: 20,
+            transition: "transform .15s ease",
+            outline: "none",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "scale(1.1)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          &times;
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function getSelfProfile(payload: any) {
   if (!payload || typeof payload !== "object") return payload;
   return payload.employee || payload.profile || payload.user || payload.data || payload;
@@ -248,12 +329,21 @@ function FieldGrid({
     return raw !== null && raw !== undefined && raw !== "";
   });
 
+  if (visibleFields.length === 0) {
+    return (
+      <div style={{ color: "var(--t3)", fontSize: 12, padding: "8px 0" }}>
+        No details provided.
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-        gap: 10,
+        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+        columnGap: 32,
+        rowGap: 20,
       }}
     >
       {visibleFields.map((field) => {
@@ -266,28 +356,20 @@ function FieldGrid({
           <div
             key={field}
             style={{
-              minHeight: quiet ? 58 : 72,
-              padding: quiet ? "9px 10px" : "12px 13px",
-              borderRadius: 8,
-              background:
-                tone === "empty"
-                  ? "rgba(148,163,184,.08)"
-                  : quiet
-                    ? "rgba(248,250,252,.72)"
-                    : "linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.72))",
-              border: quiet
-                ? "1px dashed rgba(148,163,184,.32)"
-                : "1px solid var(--br2)",
-              boxShadow: quiet ? "none" : "0 10px 24px rgba(15,23,42,.045)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              borderBottom: "1px solid rgba(226,232,240,.5)",
+              paddingBottom: 8,
             }}
           >
             <div
               style={{
                 fontSize: 10,
-                fontWeight: 800,
-                color: quiet ? "rgba(71,85,105,.62)" : accent,
-                marginBottom: 7,
+                fontWeight: 600,
+                color: "var(--t3)",
                 textTransform: "uppercase",
+                letterSpacing: "0.05em",
               }}
             >
               {labelFromKey(field)}
@@ -295,42 +377,19 @@ function FieldGrid({
             <div
               className="mono"
               style={{
-                display:
-                  tone === "empty" || tone === "yes" || tone === "no"
-                    ? "inline-flex"
-                    : quiet
-                      ? "inline"
-                      : "block",
-                alignItems: "center",
-                minHeight: 18,
-                padding:
-                  tone === "empty" || tone === "yes" || tone === "no"
-                    ? "3px 7px"
-                    : 0,
-                borderRadius: 999,
-                background:
-                  tone === "empty"
-                    ? "rgba(100,116,139,.12)"
-                    : tone === "yes"
-                      ? "rgba(16,185,129,.12)"
-                      : tone === "no"
-                        ? "rgba(239,68,68,.1)"
-                        : "transparent",
+                fontSize: 13,
+                fontWeight: tone === "empty" ? 500 : 700,
                 color:
                   tone === "empty"
-                    ? "var(--t3)"
+                    ? "var(--t4)"
                     : tone === "yes"
                       ? "var(--green)"
                       : tone === "no"
                         ? "var(--red)"
-                        : quiet
-                          ? "rgba(51,65,85,.72)"
-                          : "var(--t1)",
-                fontSize: quiet ? 11 : 13,
+                        : "var(--t1)",
                 fontFamily: quiet ? "'IBM Plex Mono', monospace" : "inherit",
-                fontWeight: tone === "value" ? (quiet ? 600 : 750) : 800,
                 overflowWrap: "anywhere",
-                lineHeight: 1.35,
+                lineHeight: 1.4,
               }}
             >
               {value}
@@ -477,7 +536,13 @@ function DataSection({
   );
 }
 
-function ProfileHero({ employee }: { employee: any }) {
+function ProfileHero({
+  employee,
+  onImageClick,
+}: {
+  employee: any;
+  onImageClick: (url: string) => void;
+}) {
   const [profilePhotoFailed, setProfilePhotoFailed] = React.useState(false);
   const initials = String(employee.name || employee.employee_id || "?")
     .trim()
@@ -503,19 +568,20 @@ function ProfileHero({ employee }: { employee: any }) {
     <div
       className="card"
       style={{
-        marginBottom: 12,
-        padding: 18,
-        borderRadius: 8,
+        marginBottom: 20,
+        padding: 24,
+        borderRadius: 12,
         background:
-          "linear-gradient(135deg, rgba(37,99,235,.12), rgba(13,148,136,.1) 48%, rgba(236,72,153,.12))",
-        border: "1px solid rgba(147,197,253,.55)",
+          "linear-gradient(135deg, rgba(37,99,235,.06), rgba(13,148,136,.05) 48%, rgba(236,72,153,.06))",
+        border: "1px solid rgba(147,197,253,.35)",
+        boxShadow: "0 10px 30px rgba(59,130,246,.04)",
       }}
     >
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 14,
+          gap: 24,
           flexWrap: "wrap",
         }}
       >
@@ -524,44 +590,56 @@ function ProfileHero({ employee }: { employee: any }) {
             src={profilePhotoUrl}
             alt={`${formatValue(employee.name)} profile`}
             onError={() => setProfilePhotoFailed(true)}
+            onClick={() => onImageClick(profilePhotoUrl)}
             style={{
-              width: 52,
-              height: 52,
+              width: 120,
+              height: 120,
               borderRadius: "50%",
               objectFit: "cover",
               background: "linear-gradient(135deg, var(--p), var(--teal))",
-              border: "2px solid rgba(255,255,255,.9)",
-              boxShadow: "0 14px 28px rgba(37,99,235,.2)",
+              border: "4px solid #ffffff",
+              boxShadow: "0 8px 24px rgba(37,99,235,.15), 0 0 0 1px rgba(37,99,235,.1)",
               flex: "0 0 auto",
+              cursor: "pointer",
+              transition: "transform .22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow .22s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "scale(1.05)";
+              e.currentTarget.style.boxShadow = "0 12px 30px rgba(37,99,235,.24), 0 0 0 2px var(--p)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.boxShadow = "0 8px 24px rgba(37,99,235,.15), 0 0 0 1px rgba(37,99,235,.1)";
             }}
           />
         ) : (
           <div
             style={{
-              width: 52,
-              height: 52,
+              width: 120,
+              height: 120,
               borderRadius: "50%",
               display: "grid",
               placeItems: "center",
               background: "linear-gradient(135deg, var(--p), var(--teal))",
               color: "white",
-              fontWeight: 900,
-              fontSize: 16,
-              boxShadow: "0 14px 28px rgba(37,99,235,.2)",
+              fontWeight: 800,
+              fontSize: 36,
+              border: "4px solid #ffffff",
+              boxShadow: "0 8px 24px rgba(37,99,235,.15), 0 0 0 1px rgba(37,99,235,.1)",
               flex: "0 0 auto",
             }}
           >
             {initials || "?"}
           </div>
         )}
-        <div style={{ minWidth: 240, flex: 1 }}>
+        <div style={{ minWidth: 240, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div
             style={{
-              fontSize: 22,
-              lineHeight: 1.15,
-              fontWeight: 900,
+              fontSize: 24,
+              lineHeight: 1.2,
+              fontWeight: 800,
               color: "var(--t1)",
-              marginBottom: 5,
+              marginBottom: 8,
             }}
           >
             {formatValue(employee.name)}
@@ -581,17 +659,18 @@ function ProfileHero({ employee }: { employee: any }) {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
-                  padding: "5px 9px",
-                borderRadius: 999,
-                background: "rgba(255,255,255,.72)",
-                border: "1px solid var(--br2)",
-                color: "var(--t2)",
-                fontSize: 11,
-                fontFamily: "inherit",
-                fontWeight: 700,
-              }}
-            >
-                <span style={{ color: "var(--t3)", fontWeight: 800 }}>
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  background: "#ffffff",
+                  border: "1px solid var(--br2)",
+                  color: "var(--t2)",
+                  fontSize: 11,
+                  fontFamily: "inherit",
+                  fontWeight: 600,
+                  boxShadow: "0 2px 4px rgba(15,23,42,.02)",
+                }}
+              >
+                <span style={{ color: "var(--t3)", fontWeight: 700 }}>
                   {label}
                 </span>
                 {formatValue(value)}
@@ -637,23 +716,25 @@ function ContactCards({ source }: { source: any }) {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 12 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 12 }}>
       {contacts.map((contact) => (
         <div
           key={contact.label}
           style={{
-            padding: 13,
-            borderRadius: 10,
-            background: contact.tint,
+            padding: "14px 16px",
+            borderRadius: 8,
+            background: "#ffffff",
             border: "1px solid var(--br2)",
+            borderLeft: `4px solid ${contact.accent}`,
+            boxShadow: "0 2px 8px rgba(15,23,42,.02)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <span className="pill pill-blue" style={{ color: contact.accent }}>{contact.label}</span>
-            {contact.relation && <span style={{ fontSize: 11, color: "var(--t3)" }}>{contact.relation}</span>}
+            <span className="pill pill-blue" style={{ color: contact.accent, background: contact.tint }}>{contact.label}</span>
+            {contact.relation && <span style={{ fontSize: 11, color: "var(--t3)", fontWeight: 500 }}>{contact.relation}</span>}
           </div>
-          <div style={{ fontWeight: 850, color: "var(--t1)", marginBottom: 4 }}>{formatValue(contact.name)}</div>
-          <div className="mono" style={{ fontSize: 14, fontWeight: 850, color: contact.accent }}>
+          <div style={{ fontWeight: 700, color: "var(--t1)", marginBottom: 4, fontSize: 14 }}>{formatValue(contact.name)}</div>
+          <div className="mono" style={{ fontSize: 13, fontWeight: 700, color: contact.accent }}>
             {[contact.code, contact.phone].filter(Boolean).join(" ")}
           </div>
           {contact.email && <div className="mono" style={{ marginTop: 5, fontSize: 11, color: "var(--t3)" }}>{contact.email}</div>}
@@ -683,6 +764,11 @@ export default function MyProfile() {
     isLoading: attachmentsLoading,
   } = useEmployeeAttachments(resolvedEmployeeId);
   const emp = employeeById || (isEmployeeProfile(selfProfile) ? selfProfile : null);
+
+  const [activeTab, setActiveTab] = React.useState<
+    "personal" | "job" | "compensation" | "bank-medical" | "documents"
+  >("personal");
+  const [previewPhotoUrl, setPreviewPhotoUrl] = React.useState<string | null>(null);
 
   const isLoading =
     !emp && (isSelfLoading || (!!resolvedEmployeeId && isEmployeeLoading));
@@ -717,149 +803,287 @@ export default function MyProfile() {
         </div>
       </div>
 
-      <ProfileHero employee={emp} />
+      <ProfileHero employee={emp} onImageClick={setPreviewPhotoUrl} />
 
-      <DataSection title="employee">
-        <FieldGrid source={emp} fields={rootFields} accent={sectionMeta.employee.accent} />
-      </DataSection>
+      {/* Tabs Navigation */}
+      <div
+        style={{
+          display: "flex",
+          borderBottom: "1px solid var(--br2)",
+          marginBottom: 20,
+          gap: 4,
+          overflowX: "auto",
+          scrollbarWidth: "none",
+        }}
+      >
+        <button
+          className={`tab-link ${activeTab === "personal" ? "active" : ""}`}
+          onClick={() => setActiveTab("personal")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            outline: "none",
+          }}
+        >
+          <UserRound size={15} />
+          Personal & Contact
+        </button>
+        <button
+          className={`tab-link ${activeTab === "job" ? "active" : ""}`}
+          onClick={() => setActiveTab("job")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            outline: "none",
+          }}
+        >
+          <BriefcaseBusiness size={15} />
+          Job & Employment
+        </button>
+        <button
+          className={`tab-link ${activeTab === "compensation" ? "active" : ""}`}
+          onClick={() => setActiveTab("compensation")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            outline: "none",
+          }}
+        >
+          <BadgeDollarSign size={15} />
+          Compensation
+        </button>
+        <button
+          className={`tab-link ${activeTab === "bank-medical" ? "active" : ""}`}
+          onClick={() => setActiveTab("bank-medical")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            outline: "none",
+          }}
+        >
+          <HeartPulse size={15} />
+          Bank & Medical
+        </button>
+        <button
+          className={`tab-link ${activeTab === "documents" ? "active" : ""}`}
+          onClick={() => setActiveTab("documents")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            outline: "none",
+          }}
+        >
+          <FileText size={15} />
+          Documents
+        </button>
+      </div>
 
-      <DataSection title="job">
-        <FieldGrid source={emp} fields={jobFields} accent={sectionMeta.job.accent} />
-      </DataSection>
+      {/* Tab Panes (Rendered but toggled via display for test visibility) */}
+      <div style={{ display: activeTab === "personal" ? "block" : "none" }}>
+        <DataSection title="employee">
+          <FieldGrid source={emp} fields={rootFields} accent={sectionMeta.employee.accent} />
+        </DataSection>
 
-      <DataSection title="salaryInfo">
-        <FieldGrid source={emp.salaryInfo} fields={salaryFields} accent={sectionMeta.salaryInfo.accent} />
-      </DataSection>
+        <DataSection title="employeeContact">
+          <FieldGrid
+            source={emp.employeeContact}
+            fields={employeeContactFields}
+            accent={sectionMeta.employeeContact.accent}
+          />
+        </DataSection>
 
-      <DataSection title="allowances">
-        {allowances.length ? (
-          <div style={{ display: "grid", gap: 12 }}>
-            {allowances.map((allowance: any, index: number) => (
-              <div
-                key={allowance?.id || index}
-                style={{
-                  padding: 12,
-                  borderRadius: 8,
-                  background:
-                    "linear-gradient(135deg, rgba(255,251,235,.8), rgba(255,255,255,.86))",
-                  border: "1px solid rgba(245,158,11,.24)",
-                }}
-              >
+        <DataSection title="emergencyContacts">
+          <ContactCards source={emp.emergencyContacts} />
+        </DataSection>
+      </div>
+
+      <div style={{ display: activeTab === "job" ? "block" : "none" }}>
+        <DataSection title="job">
+          <FieldGrid source={emp} fields={jobFields} accent={sectionMeta.job.accent} />
+        </DataSection>
+      </div>
+
+      <div style={{ display: activeTab === "compensation" ? "block" : "none" }}>
+        <DataSection title="salaryInfo">
+          <FieldGrid source={emp.salaryInfo} fields={salaryFields} accent={sectionMeta.salaryInfo.accent} />
+        </DataSection>
+
+        <DataSection title="allowances">
+          {allowances.length ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+              {allowances.map((allowance: any, index: number) => (
                 <div
+                  key={allowance?.id || index}
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "5px 9px",
-                    borderRadius: 999,
-                    background: "rgba(245,158,11,.13)",
-                    fontSize: 12,
-                    fontWeight: 850,
-                    color: "#b45309",
-                    marginBottom: 10,
+                    padding: "14px 16px",
+                    borderRadius: 8,
+                    background: "#ffffff",
+                    border: "1px solid var(--br2)",
+                    borderLeft: "4px solid var(--amber)",
+                    boxShadow: "0 2px 8px rgba(15,23,42,.02)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    minHeight: 100,
                   }}
                 >
-                  {formatValue(allowance?.field_name)}
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      alignSelf: "flex-start",
+                      gap: 8,
+                      padding: "4px 8px",
+                      borderRadius: 999,
+                      background: "rgba(245,158,11,.13)",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: "#b45309",
+                      marginBottom: 10,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {formatValue(allowance?.field_name)}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <span className="mono" style={{ fontSize: 18, fontWeight: 900, color: "var(--t1)" }}>
+                      {formatAllowanceAmount(allowance)}
+                    </span>
+                    {allowance?.is_current && <span className="pill pill-green">Current</span>}
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span className="mono" style={{ fontSize: 18, fontWeight: 900, color: "var(--t1)" }}>
-                    {formatAllowanceAmount(allowance)}
+              ))}
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: "24px 16px",
+                textAlign: "center",
+                background: "rgba(148,163,184,.05)",
+                border: "1px dashed var(--br2)",
+                borderRadius: 8,
+                color: "var(--t3)",
+              }}
+            >
+              No allowances configured for this employee.
+            </div>
+          )}
+        </DataSection>
+      </div>
+
+      <div style={{ display: activeTab === "bank-medical" ? "block" : "none" }}>
+        <DataSection title="bankInfo">
+          {emp.bankInfo?.is_verified && (
+            <div style={{ marginBottom: 12 }}>
+              <span className="pill pill-green" style={{ fontSize: 11, padding: "4px 10px" }}>Verified</span>
+            </div>
+          )}
+          <FieldGrid source={emp.bankInfo} fields={bankFields} accent={sectionMeta.bankInfo.accent} />
+        </DataSection>
+
+        <DataSection title="medicalInfo">
+          <FieldGrid
+            source={emp.medicalInfo}
+            fields={medicalFields}
+            accent={sectionMeta.medicalInfo.accent}
+          />
+        </DataSection>
+      </div>
+
+      <div style={{ display: activeTab === "documents" ? "block" : "none" }}>
+        <DataSection title="attachments">
+          {attachmentsLoading ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--t3)", padding: 20 }}>
+              <Loader2 className="spinner" size={16} />
+              <span>Loading documents...</span>
+            </div>
+          ) : attachments.length ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+              {attachments.map((item: any) => (
+                <a
+                  key={item.id}
+                  href={imageUrl(item.url || item.file_path)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: 14,
+                    borderRadius: 8,
+                    border: "1px solid var(--br2)",
+                    background: "rgba(255, 255, 255, 0.9)",
+                    color: "var(--t1)",
+                    textDecoration: "none",
+                    boxShadow: "0 4px 12px rgba(15,23,42,.03)",
+                    transition: "border-color .15s, box-shadow .15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "var(--p)";
+                    e.currentTarget.style.boxShadow = "0 6px 16px rgba(15,23,42,.06)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "var(--br2)";
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(15,23,42,.03)";
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 8,
+                        display: "grid",
+                        placeItems: "center",
+                        background: "rgba(67,56,202,.08)",
+                        color: "rgba(67,56,202,1)",
+                      }}
+                    >
+                      <FileText size={18} />
+                    </span>
+                    <span>
+                      <strong style={{ display: "block", fontSize: 13, color: "var(--t1)" }}>
+                        {formatValue(item.original_filename)}
+                      </strong>
+                      <span style={{ display: "block", marginTop: 2, color: "var(--t3)", fontSize: 11 }}>
+                        {formatValue(item.document_type || item.kind)} · {Math.ceil(Number(item.size_bytes || 0) / 1024)} KB
+                      </span>
+                    </span>
                   </span>
-                  {allowance?.is_current && <span className="pill pill-green">Current</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div
-            className="mono"
-            style={{
-              display: "inline-flex",
-              padding: "5px 8px",
-              borderRadius: 999,
-              background: "rgba(100,116,139,.12)",
-              color: "var(--t3)",
-              fontSize: 12,
-              fontWeight: 800,
-            }}
-          >
-            []
-          </div>
-        )}
-      </DataSection>
+                  <span className="pill pill-blue">View</span>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: "32px 16px",
+                textAlign: "center",
+                background: "rgba(148,163,184,.05)",
+                border: "1px dashed var(--br2)",
+                borderRadius: 8,
+                color: "var(--t3)",
+              }}
+            >
+              No documents uploaded yet.
+            </div>
+          )}
+        </DataSection>
+      </div>
 
-      <DataSection title="employeeContact">
-        <FieldGrid
-          source={emp.employeeContact}
-          fields={employeeContactFields}
-          accent={sectionMeta.employeeContact.accent}
+      {previewPhotoUrl && (
+        <ImageModal
+          src={previewPhotoUrl}
+          alt={`${formatValue(emp.name)} profile`}
+          onClose={() => setPreviewPhotoUrl(null)}
         />
-      </DataSection>
-
-      <DataSection title="emergencyContacts">
-        <ContactCards source={emp.emergencyContacts} />
-        <FieldGrid
-          source={emp.emergencyContacts}
-          fields={emergencyFields}
-          accent={sectionMeta.emergencyContacts.accent}
-        />
-      </DataSection>
-
-      <DataSection title="bankInfo">
-        {emp.bankInfo?.is_verified && (
-          <div style={{ marginBottom: 10 }}>
-            <span className="pill pill-green">Verified</span>
-          </div>
-        )}
-        <FieldGrid source={emp.bankInfo} fields={bankFields} accent={sectionMeta.bankInfo.accent} />
-      </DataSection>
-
-      <DataSection title="medicalInfo">
-        <FieldGrid
-          source={emp.medicalInfo}
-          fields={medicalFields}
-          accent={sectionMeta.medicalInfo.accent}
-        />
-      </DataSection>
-
-      <DataSection title="attachments">
-        {attachmentsLoading ? (
-          <div className="mono" style={{ color: "var(--t3)", fontSize: 12 }}>Loading documents...</div>
-        ) : attachments.length ? (
-          <div style={{ display: "grid", gap: 10 }}>
-            {attachments.map((item: any) => (
-              <a
-                key={item.id}
-                href={imageUrl(item.url || item.file_path)}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  padding: 12,
-                  borderRadius: 8,
-                  border: "1px solid var(--br2)",
-                  background: "rgba(248,250,252,.72)",
-                  color: "var(--t1)",
-                  textDecoration: "none",
-                }}
-              >
-                <span>
-                  <strong>{formatValue(item.original_filename)}</strong>
-                  <span style={{ display: "block", marginTop: 4, color: "var(--t3)", fontSize: 12 }}>
-                    {formatValue(item.document_type || item.kind)} · {Math.ceil(Number(item.size_bytes || 0) / 1024)} KB
-                  </span>
-                </span>
-                <span className="pill pill-blue">View</span>
-              </a>
-            ))}
-          </div>
-        ) : (
-          <div className="mono" style={{ color: "var(--t3)", fontSize: 12 }}>No documents uploaded yet.</div>
-        )}
-      </DataSection>
+      )}
     </div>
   );
 }
