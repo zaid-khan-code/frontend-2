@@ -1933,47 +1933,49 @@ export default function Dashboard() {
             {actions.length === 0 ? (
               <EmptyState>No live pending actions.</EmptyState>
             ) : (
-              actions.map((a, i) => (
-                <div
-                  key={i}
-                  className="rh"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "9px 6px",
-                    borderBottom:
-                      i < actions.length - 1 ? "1px solid #f3f4f6" : "none",
-                  }}
-                >
-                  <span style={{ fontSize: 15 }}>{a.marker}</span>
-                  <span
+              <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                {actions.map((a, i) => (
+                  <div
+                    key={i}
+                    className="rh"
                     style={{
-                      flex: 1,
-                      fontSize: 11,
-                      color: "#374151",
-                      lineHeight: 1.4,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "9px 6px",
+                      borderBottom:
+                        i < actions.length - 1 ? "1px solid #f3f4f6" : "none",
                     }}
                   >
-                    {a.text}
-                  </span>
-                  <button
-                    onClick={() => navigate(a.link)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#6366f1",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      padding: "2px 0",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {a.cta}
-                  </button>
-                </div>
-              ))
+                    <span style={{ fontSize: 15 }}>{a.marker}</span>
+                    <span
+                      style={{
+                        flex: 1,
+                        fontSize: 11,
+                        color: "#374151",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {a.text}
+                    </span>
+                    <button
+                      onClick={() => navigate(a.link)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#6366f1",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        padding: "2px 0",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {a.cta}
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </WCard>
 
@@ -1989,34 +1991,38 @@ export default function Dashboard() {
             />
             {alerts.length === 0 ? (
               <EmptyState>No live urgent alerts.</EmptyState>
-            ) : alerts.map((a, i) => (
-              <div
-                key={i}
-                className="rh"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 6px",
-                  borderBottom:
-                    i < alerts.length - 1 ? "1px solid #f3f4f6" : "none",
-                }}
-              >
-                <div style={{ flex: 1 }}>
+            ) : (
+              <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                {alerts.map((a, i) => (
                   <div
-                    style={{ fontSize: 11, fontWeight: 600, color: "#1e1b4b" }}
+                    key={i}
+                    className="rh"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "9px 6px",
+                      borderBottom:
+                        i < alerts.length - 1 ? "1px solid #f3f4f6" : "none",
+                    }}
                   >
-                    {a.name}
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{ fontSize: 11, fontWeight: 600, color: "#1e1b4b" }}
+                      >
+                        {a.name}
+                      </div>
+                      <div style={{ fontSize: 9, color: "#9ca3af", marginTop: 2 }}>
+                        {a.sub}
+                      </div>
+                    </div>
+                    <Chip bg={a.bg} fg={a.fg}>
+                      {a.chip}
+                    </Chip>
                   </div>
-                  <div style={{ fontSize: 9, color: "#9ca3af", marginTop: 2 }}>
-                    {a.sub}
-                  </div>
-                </div>
-                <Chip bg={a.bg} fg={a.fg}>
-                  {a.chip}
-                </Chip>
+                ))}
               </div>
-            ))}
+            )}
           </WCard>
 
           <WCard>
