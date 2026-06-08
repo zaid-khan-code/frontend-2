@@ -174,13 +174,73 @@ export function useEmployee(id?: string) {
     },
   });
 
+  const createAccountMutation = useMutation({
+    mutationFn: async ({
+      employeeId,
+      email,
+      role_id,
+    }: {
+      employeeId: string;
+      email: string;
+      role_id: string;
+    }) => {
+      const { data } = await apiClient.post(
+        `/employees/${encodeURIComponent(employeeId)}/account`,
+        { email, role_id },
+      );
+      return data.data ?? data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee", id] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+    },
+  });
+
+  const salaryRevisionMutation = useMutation({
+    mutationFn: async ({
+      employeeId,
+      payload,
+    }: {
+      employeeId: string;
+      payload: any;
+    }) => {
+      const { data } = await apiClient.post(
+        `/employees/${encodeURIComponent(employeeId)}/salary-revision`,
+        payload,
+      );
+      return data.data ?? data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee", id] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+    },
+  });
+
   return {
     data: query.data,
     isLoading: query.isLoading,
     isError: query.isError,
     resendCredentials: resendCredentialsMutation.mutateAsync,
     isResendingCredentials: resendCredentialsMutation.isPending,
+    createAccount: createAccountMutation.mutateAsync,
+    isCreatingAccount: createAccountMutation.isPending,
+    addSalaryRevision: salaryRevisionMutation.mutateAsync,
+    isAddingSalaryRevision: salaryRevisionMutation.isPending,
   };
+}
+
+export function useEmployeeFinance(employeeId?: string) {
+  return useQuery({
+    queryKey: ["employee-finance", employeeId],
+    queryFn: async () => {
+      if (!employeeId) return null;
+      const { data } = await apiClient.get(
+        `/employees/${encodeURIComponent(employeeId)}/finance`,
+      );
+      return data.data ?? data;
+    },
+    enabled: !!employeeId,
+  });
 }
 
 export function useEmployeeActions(employeeId?: string) {

@@ -174,6 +174,25 @@ describe("MyProfile", () => {
             },
           ],
         },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            salaryHistory: [
+              {
+                id: "sal-1",
+                employee_id: "EMP521",
+                base_salary: "24.00",
+                currency: "PKR",
+                effective_from: "1999-01-20T19:00:00.000Z",
+                revision_type: "Correction",
+                revision_percent: "76.00",
+                revision_reason: "Omnis facilis amet",
+              },
+            ],
+            allowancesHistory: [],
+          },
+        },
       });
 
     renderMyProfile();
@@ -189,6 +208,8 @@ describe("MyProfile", () => {
     expect(screen.getByText("12,220 PKR")).toBeTruthy();
     expect(screen.getByText("Current")).toBeTruthy();
     expect(screen.getByText("Verified")).toBeTruthy();
+    expect(screen.getByText("Salary History")).toBeTruthy();
+    expect(screen.getAllByText("Correction").length).toBeGreaterThan(0);
     expect(screen.getByText("31 Oct 1990")).toBeTruthy();
     expect(screen.getByText("Voluptas laboriosam")).toBeTruthy();
     expect(screen.getByText("Repellendus Delenit")).toBeTruthy();
@@ -212,5 +233,6 @@ describe("MyProfile", () => {
     expect(apiClient.get).toHaveBeenCalledWith("/dashboard/me");
     expect(apiClient.get).toHaveBeenCalledWith("/employees/EMP123");
     expect(apiClient.get).toHaveBeenCalledWith("/employees/EMP123/attachments");
+    expect(apiClient.get).toHaveBeenCalledWith("/employees/EMP123/finance");
   });
 });

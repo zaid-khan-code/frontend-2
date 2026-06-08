@@ -5,15 +5,14 @@ import {
   BadgeDollarSign,
   Banknote,
   CalendarDays,
-  ChevronDown,
+  BriefcaseBusiness,
   Clock3,
   FileText,
   HeartPulse,
   Mail,
-  MapPin,
+  Loader2,
   Phone,
   Upload,
-  ShieldCheck,
   UserRound,
 } from "lucide-react";
 import {
@@ -28,10 +27,10 @@ import {
 import Modal from "../components/common/Modal";
 import { useToastContext } from "../context/ToastContext";
 import { useAttendanceReport } from "../hooks/useAttendance";
-import { useEmployee } from "../hooks/useEmployees";
+import { useEmployee, useEmployeeFinance } from "../hooks/useEmployees";
 import { useLeaveBalances, useLeaves } from "../hooks/useLeaves";
 import { usePenalties } from "../hooks/usePenalties";
-import { usePenaltyRules } from "../hooks/useConfig";
+import { usePenaltyRules, useRoles } from "../hooks/useConfig";
 import { useRbac } from "../hooks/useRbac";
 import { useEmployeeAttachments } from "../hooks/useEmployeeAttachments";
 import { apiClient } from "../services/apiClient";
@@ -39,6 +38,7 @@ import { formatPKR, getStatusColor } from "../services/api";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const API_ORIGIN = String(apiClient.defaults.baseURL || "http://localhost:3001/api").replace(/\/api\/?$/, "");
+const salaryRevisionTypes = ["Initial", "Promotion", "Demotion", "Increment", "Decrement", "Correction", "Market Adjustment"];
 
 function firstValue(...values: any[]) {
   return values.find((value) => value !== undefined && value !== null && value !== "");
@@ -112,6 +112,235 @@ function attachmentUrl(item: any) {
   return `${API_ORIGIN}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
+function formatMoney(value: any, currency: string) {
+  const amount = Number(value ?? 0);
+  const resolved = Number.isFinite(amount) ? amount.toLocaleString("en-PK") : String(value ?? "0");
+  return currency === "PKR" ? `${resolved} PKR` : `${resolved} ${currency || "PKR"}`;
+}
+
+function formatValue(value: any) {
+  if (value === null || value === undefined || value === "") return "Not provided";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value);
+}
+
+function formatAllowanceAmount(allowance: any) {
+  const amount = Number(allowance?.amount ?? 0);
+  if (allowance?.is_percentage) {
+    return `${Number.isFinite(amount) ? amount.toLocaleString("en-PK") : allowance?.amount}%`;
+  }
+  return `${Number.isFinite(amount) ? amount.toLocaleString("en-PK") : allowance?.amount} PKR`;
+}
+
+function ImageModal({
+  src,
+  alt,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(15, 23, 42, 0.82)",
+        backdropFilter: "blur(8px)",
+        zIndex: 10000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          position: "relative",
+          maxWidth: "90%",
+          maxHeight: "85vh",
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <img
+          src={src}
+          alt={alt}
+          style={{
+            maxWidth: "100%",
+            maxHeight: "85vh",
+            borderRadius: 16,
+            border: "4px solid #ffffff",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+            objectFit: "contain",
+          }}
+        />
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: -16,
+            right: -16,
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            backgroundColor: "#ffffff",
+            border: "1px solid var(--br2)",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            cursor: "pointer",
+            display: "grid",
+            placeItems: "center",
+            color: "var(--t1)",
+            fontWeight: "bold",
+            fontSize: 20,
+          }}
+        >
+          &times;
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProfileHero({
+  employee,
+  profilePhotoUrl,
+  profilePhotoFailed,
+  setProfilePhotoFailed,
+  onImageClick,
+}: {
+  employee: any;
+  profilePhotoUrl: string;
+  profilePhotoFailed: boolean;
+  setProfilePhotoFailed: (value: boolean) => void;
+  onImageClick: (url: string) => void;
+}) {
+  const initials = getInitials(employee.name, employee.id);
+
+  React.useEffect(() => {
+    setProfilePhotoFailed(false);
+  }, [profilePhotoUrl, setProfilePhotoFailed]);
+
+  return (
+    <div
+      className="card"
+      style={{
+        marginBottom: 20,
+        padding: 24,
+        borderRadius: 12,
+        background: "linear-gradient(135deg, rgba(37,99,235,.06), rgba(13,148,136,.05) 48%, rgba(236,72,153,.06))",
+        border: "1px solid rgba(147,197,253,.35)",
+        boxShadow: "0 10px 30px rgba(59,130,246,.04)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+        {profilePhotoUrl && !profilePhotoFailed ? (
+          <img
+            src={profilePhotoUrl}
+            alt={`${employee.name} profile`}
+            onError={() => setProfilePhotoFailed(true)}
+            onClick={() => onImageClick(profilePhotoUrl)}
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: "50%",
+              objectFit: "cover",
+              background: "linear-gradient(135deg, var(--p), var(--teal))",
+              border: "4px solid #ffffff",
+              boxShadow: "0 8px 24px rgba(37,99,235,.15), 0 0 0 1px rgba(37,99,235,.1)",
+              flex: "0 0 auto",
+              cursor: "pointer",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: "50%",
+              display: "grid",
+              placeItems: "center",
+              background: "linear-gradient(135deg, var(--p), var(--teal))",
+              color: "white",
+              fontWeight: 800,
+              fontSize: 36,
+              border: "4px solid #ffffff",
+              boxShadow: "0 8px 24px rgba(37,99,235,.15), 0 0 0 1px rgba(37,99,235,.1)",
+              flex: "0 0 auto",
+            }}
+          >
+            {initials || "?"}
+          </div>
+        )}
+        <div style={{ minWidth: 240, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ fontSize: 24, lineHeight: 1.2, fontWeight: 800, color: "var(--t1)", marginBottom: 8 }}>
+            {text(employee.name)}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[
+              ["Employee ID", employee.id],
+              ["Department", employee.department],
+              ["Designation", employee.designation],
+              ["Status", employee.jobStatus],
+            ].map(([label, value]) => (
+              <span
+                key={label}
+                className="mono"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  background: "#ffffff",
+                  border: "1px solid var(--br2)",
+                  color: "var(--t2)",
+                  fontSize: 11,
+                  fontFamily: "inherit",
+                  fontWeight: 600,
+                  boxShadow: "0 2px 4px rgba(15,23,42,.02)",
+                }}
+              >
+                <span style={{ color: "var(--t3)", fontWeight: 700 }}>{label}</span>
+                {text(value)}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function normalizeWhatsappPhone(value: any) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits || digits === "0") return "";
+  if (digits.startsWith("92")) return digits;
+  if (digits.startsWith("0") && digits.length === 11) return `92${digits.slice(1)}`;
+  if (digits.length === 10) return `92${digits}`;
+  return digits;
+}
+
+function buildCredentialsWhatsappUrl({
+  employeeId,
+  employeeName,
+  email,
+  password,
+  phone,
+}: {
+  employeeId: string;
+  employeeName: string;
+  email: string;
+  password: string;
+  phone: string;
+}) {
+  const whatsappPhone = normalizeWhatsappPhone(phone);
+  if (!whatsappPhone || !email || !password) return "";
+  const message = `Welcome to ESSPL HR.\n\nHello ${employeeName},\n\nYour employee login account has been created.\n\nEmployee ID: ${employeeId}\nEmail: ${email}\nPassword: ${password}\n\nLogin here: ${window.location.origin}/login\n\nPlease change your password after first login.`;
+  return `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
+}
+
 function normalizeEmployee(raw: any) {
   return {
     id: text(firstValue(raw?.employee_id, raw?.id)),
@@ -155,6 +384,7 @@ function normalizeEmployee(raw: any) {
     nextMedicalExamDate: raw?.medicalInfo?.next_medical_exam_date,
     salary: numberValue(raw?.salaryInfo?.base_salary),
     currency: text(raw?.salaryInfo?.currency || "PKR"),
+    allowances: Array.isArray(raw?.allowances) ? raw.allowances : [],
     profilePhotoUrl: firstValue(raw?.profilePhotoUrl, raw?.profile_photo_url, raw?.profile_photo, raw?.photo_url),
   };
 }
@@ -220,8 +450,7 @@ export default function EmployeeDetail() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
   const { can } = useRbac();
-  const [tab, setTab] = useState("profile");
-  const [actionsOpen, setActionsOpen] = useState(false);
+  const [tab, setTab] = useState("personal");
   const [windowOffset, setWindowOffset] = useState<0 | 6>(0);
   const [resendModalOpen, setResendModalOpen] = useState(false);
   const [penaltyModalOpen, setPenaltyModalOpen] = useState(false);
@@ -232,12 +461,47 @@ export default function EmployeeDetail() {
   const [attachmentKind, setAttachmentKind] = useState("document");
   const [documentType, setDocumentType] = useState("General");
   const [profilePhotoFailed, setProfilePhotoFailed] = useState(false);
-  const { data: rawEmployee, isLoading, resendCredentials, isResendingCredentials } = useEmployee(id);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountRoleId, setAccountRoleId] = useState("");
+  const [salaryAmount, setSalaryAmount] = useState("");
+  const [salaryCurrency, setSalaryCurrency] = useState("PKR");
+  const [salaryEffectiveFrom, setSalaryEffectiveFrom] = useState(new Date().toISOString().slice(0, 10));
+  const [salaryRevisionType, setSalaryRevisionType] = useState("");
+  const [salaryRevisionPercent, setSalaryRevisionPercent] = useState("");
+  const [salaryRevisionReason, setSalaryRevisionReason] = useState("");
+  const [credentialEmail, setCredentialEmail] = useState("");
+  const [credentialPhone, setCredentialPhone] = useState("");
+
+  const {
+    data: rawEmployee,
+    isLoading,
+    resendCredentials,
+    isResendingCredentials,
+    createAccount,
+    isCreatingAccount,
+    addSalaryRevision,
+    isAddingSalaryRevision,
+  } = useEmployee(id);
+
   const employee = useMemo(() => (rawEmployee ? normalizeEmployee(rawEmployee) : null), [rawEmployee]);
   const employeeId = employee?.id || id || "";
-  const canViewAttachments = can("view_employee_attachments");
-  const canUploadAttachments = can("upload_employee_attachments");
+  const { data: finance = null } = useEmployeeFinance(employeeId);
+  const canManageEmployees = can("resend_credentials") || can("edit_employee") || can("create_employee");
+  const canViewAttachments = can("view_employee_attachments") || canManageEmployees;
+  const canUploadAttachments = can("upload_employee_attachments") || canManageEmployees;
   const { data: attachments = [], isLoading: attachmentsLoading, upload: uploadAttachment, isUploading: isUploadingAttachment } = useEmployeeAttachments(canViewAttachments ? employeeId : undefined);
+  const { data: reportRows = [], isLoading: attendanceLoading } = useAttendanceReport(
+    employeeId
+      ? { employee_id: employeeId, year: new Date().getFullYear(), month: new Date().getMonth() + 1 }
+      : undefined,
+  );
+  const { data: leaveRows = [], isLoading: leavesLoading } = useLeaves(employeeId ? { employee_id: employeeId } : undefined);
+  const { data: leaveBalances = [], isLoading: balancesLoading } = useLeaveBalances(employeeId ? { employee_id: employeeId, year: new Date().getFullYear() } : undefined);
+  const { data: penaltyRows = [], isLoading: penaltiesLoading, isError: penaltiesError, propose: proposePenalty } = usePenalties(employeeId ? { employee_id: employeeId } : undefined);
+  const { data: penaltyRules = [] } = usePenaltyRules();
+  const { data: roles = [] } = useRoles();
+
   const profilePhotoUrl = useMemo(() => {
     const photo = attachments.find((item: any) => item?.kind === "profile_photo" && String(item?.mime_type || "").startsWith("image/"));
     return attachmentUrl(photo) || attachmentUrl({ url: employee?.profilePhotoUrl });
@@ -247,18 +511,13 @@ export default function EmployeeDetail() {
     setProfilePhotoFailed(false);
   }, [profilePhotoUrl]);
 
-  const months = useMemo(() => getWindowMonths(windowOffset), [windowOffset]);
-  const latestMonth = months[months.length - 1];
-  const { data: reportRows = [], isLoading: attendanceLoading } = useAttendanceReport(
-    employeeId && latestMonth
-      ? { employee_id: employeeId, year: latestMonth.year, month: latestMonth.month }
-      : undefined,
-  );
-  const { data: leaveRows = [], isLoading: leavesLoading } = useLeaves(employeeId ? { employee_id: employeeId } : undefined);
-  const { data: leaveBalances = [], isLoading: balancesLoading } = useLeaveBalances(employeeId ? { employee_id: employeeId, year: new Date().getFullYear() } : undefined);
-  const { data: penaltyRows = [], isLoading: penaltiesLoading, isError: penaltiesError, propose: proposePenalty } = usePenalties(employeeId ? { employee_id: employeeId } : undefined);
-  const { data: penaltyRules = [] } = usePenaltyRules();
+  useEffect(() => {
+    if (employee?.email && employee.email !== "Not provided" && !accountEmail) {
+      setAccountEmail(employee.email);
+    }
+  }, [accountEmail, employee?.email]);
 
+  const months = useMemo(() => getWindowMonths(windowOffset), [windowOffset]);
   const attendanceChart = months.map((month) => {
     const row = reportRows.find((item: any) => {
       const rowDate = item.month || item.date || item.attendance_month;
@@ -271,7 +530,6 @@ export default function EmployeeDetail() {
       late: numberValue(row.lates ?? row.late),
     };
   });
-
   const attendanceTotals = attendanceChart.reduce(
     (acc, row) => ({
       present: acc.present + row.present,
@@ -281,11 +539,24 @@ export default function EmployeeDetail() {
     { present: 0, absent: 0, late: 0 },
   );
 
+  const salaryHistory = Array.isArray(finance?.salaryHistory) ? finance.salaryHistory : [];
+  const currentAllowances = Array.isArray(employee?.allowances) ? employee.allowances : [];
+  const showSalaryRevisionDetails = salaryRevisionType !== "" && salaryRevisionType !== "Initial";
+  const credentialsWhatsappUrl = buildCredentialsWhatsappUrl({
+    employeeId: employee?.id || "",
+    employeeName: employee?.name || "",
+    email: credentialEmail || accountEmail || employee?.email || "",
+    password: tempPassword || "",
+    phone: credentialPhone || employee?.phone || "",
+  });
+
   const handleResendCredentials = async () => {
     if (!employeeId) return;
     try {
       const result = await resendCredentials(employeeId);
       setTempPassword(result?.tempPassword ?? result?.temp_password ?? result?.password ?? null);
+      setCredentialEmail(result?.email ?? result?.user?.email ?? employee?.email ?? "");
+      setCredentialPhone(result?.whatsappPhone ?? result?.whatsapp_phone ?? employee?.phone ?? "");
       setResendModalOpen(true);
       showToast("Credentials resent successfully");
     } catch {
@@ -314,6 +585,61 @@ export default function EmployeeDetail() {
     }
   };
 
+  const handleCreateAccount = async () => {
+    if (!employeeId || !accountEmail.trim() || !accountRoleId) {
+      showToast("Account email and role are mandatory.", "error");
+      return;
+    }
+    const submittedEmail = accountEmail.trim();
+    try {
+      const result = await createAccount({
+        employeeId,
+        email: submittedEmail,
+        role_id: accountRoleId,
+      });
+      setTempPassword(result?.tempPassword ?? result?.temp_password ?? result?.password ?? null);
+      setCredentialEmail(result?.email ?? result?.user?.email ?? submittedEmail);
+      setCredentialPhone(result?.whatsappPhone ?? result?.whatsapp_phone ?? result?.phone ?? employee?.phone ?? "");
+      setResendModalOpen(true);
+      showToast("Login account created successfully.");
+    } catch (error: any) {
+      showToast(error?.response?.data?.error?.message || "Failed to create login account.", "error");
+    }
+  };
+
+  const handleAddSalaryRevision = async () => {
+    const parsedSalary = Number(salaryAmount);
+    const parsedPercent = salaryRevisionPercent === "" ? null : Number(salaryRevisionPercent);
+    if (!employeeId || !salaryAmount || !Number.isFinite(parsedSalary) || parsedSalary < 0 || !salaryEffectiveFrom || !salaryRevisionType) {
+      showToast("Base salary, effective from date, and revision type are mandatory.", "error");
+      return;
+    }
+    if (parsedPercent !== null && !Number.isFinite(parsedPercent)) {
+      showToast("Revision percent must be a valid number.", "error");
+      return;
+    }
+    try {
+      await addSalaryRevision({
+        employeeId,
+        payload: {
+          base_salary: parsedSalary,
+          currency: salaryCurrency,
+          effective_from: salaryEffectiveFrom,
+          revision_type: salaryRevisionType,
+          revision_percent: salaryRevisionType === "Initial" ? null : parsedPercent,
+          revision_reason: salaryRevisionType === "Initial" ? null : salaryRevisionReason.trim() || null,
+        },
+      });
+      setSalaryAmount("");
+      setSalaryRevisionType("");
+      setSalaryRevisionPercent("");
+      setSalaryRevisionReason("");
+      showToast("Salary history added successfully.");
+    } catch (error: any) {
+      showToast(error?.response?.data?.error?.message || "Failed to add salary history.", "error");
+    }
+  };
+
   const handleAttachmentFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -331,7 +657,12 @@ export default function EmployeeDetail() {
   };
 
   if (isLoading) {
-    return <div style={{ padding: 50, textAlign: "center" }}>Loading employee profile...</div>;
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <Loader2 className="spinner" size={28} />
+        <div style={{ marginTop: 10, fontSize: 13, color: "var(--t3)" }}>Loading employee profile...</div>
+      </div>
+    );
   }
 
   if (!employee) {
@@ -343,171 +674,235 @@ export default function EmployeeDetail() {
     );
   }
 
-  const tabs = ["Profile", "Attendance", "Leave", "Penalties", ...(canViewAttachments ? ["Documents"] : []), "Settings"];
-  const initials = getInitials(employee.name, employee.id);
-  const showProfilePhoto = Boolean(profilePhotoUrl && !profilePhotoFailed);
-  const quickActions = [
-    { label: "Open attendance sheet", action: () => navigate("/attendance") },
-    { label: "Open leave management", action: () => navigate("/leave") },
-    { label: "Add penalty", action: () => setPenaltyModalOpen(true) },
-    ...(can("resend_credentials") ? [{ label: "Resend credentials", action: handleResendCredentials }] : []),
-  ];
+  const hasLoginAccount = employee.email !== "Not provided";
+  const tabs = [
+    { key: "personal", label: "Personal & Contact", icon: UserRound },
+    { key: "job", label: "Job & Employment", icon: BriefcaseBusiness },
+    { key: "compensation", label: "Compensation", icon: BadgeDollarSign },
+    { key: "bank-medical", label: "Bank & Medical", icon: HeartPulse },
+    { key: "documents", label: "Documents", icon: FileText },
+  ] as const;
 
   return (
-    <div style={{ display: "grid", gap: 14 }}>
-      <div
-        className="card"
-        style={{
-          padding: 18,
-          borderRadius: 16,
-          overflow: "visible",
-          background: "linear-gradient(135deg, rgba(37,99,235,.12), rgba(13,148,136,.09) 48%, rgba(168,85,247,.12))",
-          border: "1px solid rgba(147,197,253,.55)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          {showProfilePhoto ? (
-            <img
-              src={profilePhotoUrl}
-              alt={`${employee.name} profile`}
-              onError={() => setProfilePhotoFailed(true)}
-              style={{
-                width: 62,
-                height: 62,
-                borderRadius: "50%",
-                objectFit: "cover",
-                background: "linear-gradient(135deg, var(--p), var(--teal))",
-                border: "2px solid rgba(255,255,255,.9)",
-                boxShadow: "0 10px 22px rgba(15,23,42,.16)",
-                flex: "0 0 auto",
-              }}
-            />
+    <div>
+      <div className="pg-head">
+        <div>
+          <div className="pg-greet">Employee Detail</div>
+          <div className="pg-sub">Employee record from the backend profile payload</div>
+        </div>
+      </div>
+
+      <ProfileHero
+        employee={employee}
+        profilePhotoUrl={profilePhotoUrl}
+        profilePhotoFailed={profilePhotoFailed}
+        setProfilePhotoFailed={setProfilePhotoFailed}
+        onImageClick={setPreviewPhotoUrl}
+      />
+
+      <div style={{ display: "flex", borderBottom: "1px solid var(--br2)", marginBottom: 20, gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
+        {tabs.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            className={`tab-link ${tab === key ? "active" : ""}`}
+            onClick={() => setTab(key)}
+            style={{ display: "flex", alignItems: "center", gap: 6, outline: "none" }}
+          >
+            <Icon size={15} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: tab === "personal" ? "block" : "none" }}>
+        <InfoCard title="Personal & Contact" icon={<UserRound size={15} />}>
+          <FieldGrid
+            items={[
+              ["Full Name", employee.name],
+              ["Email", employee.email],
+              ["Phone", employee.phone],
+              ["Father Name", employee.fatherName],
+              ["Date of Birth", formatDate(employee.dob)],
+              ["CNIC", employee.cnic],
+              ["Gender", employee.gender],
+              ["Emergency Contact 1", employee.emergency1],
+              ["Emergency Contact 2", employee.emergency2],
+              ["Permanent Address", employee.permanentAddress],
+              ["Postal Address", employee.postalAddress],
+            ]}
+          />
+        </InfoCard>
+      </div>
+
+      <div style={{ display: tab === "job" ? "block" : "none" }}>
+        <InfoCard title="Job & Employment" icon={<BriefcaseBusiness size={15} />}>
+          <FieldGrid
+            items={[
+              ["Department", employee.department],
+              ["Designation", employee.designation],
+              ["Employment Type", employee.employmentType],
+              ["Job Status", employee.jobStatus],
+              ["Work Mode", employee.workMode],
+              ["Work Location", employee.workLocation],
+              ["Shift", employee.shift],
+              ["Date of Joining", formatDate(employee.dateOfJoining)],
+              ["Date of Exit", formatDate(employee.dateOfExit)],
+            ]}
+          />
+        </InfoCard>
+      </div>
+
+      <div style={{ display: tab === "compensation" ? "block" : "none" }}>
+        <InfoCard title="Salary & Allowance" icon={<BadgeDollarSign size={15} />}>
+          <FieldGrid
+            items={[
+              ["Base Salary", formatMoney(employee.salary, employee.currency)],
+              ["Currency", employee.currency],
+            ]}
+          />
+        </InfoCard>
+
+        <InfoCard title="Allowances" icon={<Banknote size={15} />}>
+          {currentAllowances.length ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+              {currentAllowances.map((allowance: any, index: number) => (
+                <div
+                  key={allowance?.id || index}
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: 8,
+                    background: "#ffffff",
+                    border: "1px solid var(--br2)",
+                    borderLeft: "4px solid var(--amber)",
+                    boxShadow: "0 2px 8px rgba(15,23,42,.02)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    minHeight: 100,
+                  }}
+                >
+                  <div style={{ display: "inline-flex", alignItems: "center", alignSelf: "flex-start", gap: 8, padding: "4px 8px", borderRadius: 999, background: "rgba(245,158,11,.13)", fontSize: 11, fontWeight: 800, color: "#b45309", marginBottom: 10, textTransform: "uppercase" }}>
+                    {formatValue(allowance?.field_name)}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <span className="mono" style={{ fontSize: 18, fontWeight: 900, color: "var(--t1)" }}>
+                      {formatAllowanceAmount(allowance)}
+                    </span>
+                    {allowance?.is_current && <span className="pill pill-green">Current</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
-            <div style={{ width: 62, height: 62, borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(135deg, var(--p), var(--teal))", color: "white", fontSize: 18, fontWeight: 950, flex: "0 0 auto" }}>
-              {initials}
+            <div style={{ padding: "24px 16px", textAlign: "center", background: "rgba(148,163,184,.05)", border: "1px dashed var(--br2)", borderRadius: 8, color: "var(--t3)" }}>
+              No allowances configured for this employee.
             </div>
           )}
-          <div style={{ flex: 1, minWidth: 260 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <h1 style={{ margin: 0, fontSize: 26, lineHeight: 1.1, color: "var(--t1)" }}>{employee.name}</h1>
-              <span className="mono" style={{ fontSize: 12, color: "var(--t3)" }}>{employee.id}</span>
-              <span className={`pill ${getStatusColor(employee.jobStatus)}`}>{employee.jobStatus}</span>
+        </InfoCard>
+
+        <InfoCard title="Salary History" icon={<CalendarDays size={15} />}>
+          {salaryHistory.length ? (
+            <div style={{ overflowX: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Effective From</th>
+                    <th>Base Salary</th>
+                    <th>Revision Type</th>
+                    <th>Percent</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salaryHistory.map((row: any, index: number) => (
+                    <tr key={row.id || index}>
+                      <td className="mono">{formatDate(row.effective_from)}</td>
+                      <td className="mono">{formatMoney(row.base_salary, row.currency || employee.salaryInfo?.currency || "PKR")}</td>
+                      <td>{formatValue(row.revision_type)}</td>
+                      <td className="mono">{formatValue(row.revision_percent)}</td>
+                      <td>{formatValue(row.revision_reason)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "var(--t2)", fontSize: 13 }}>
-              <span>{employee.designation}</span>
-              <span>in</span>
-              <strong>{employee.department}</strong>
-              <span style={{ color: "var(--t3)" }}>|</span>
-              <MapPin size={13} />
-              <span>{employee.workLocation}</span>
-            </div>
-          </div>
-          <div style={{ position: "relative", zIndex: 20 }}>
-            <button className="btn btn-secondary" onClick={() => setActionsOpen((open) => !open)}>
-              Quick Actions <ChevronDown size={12} />
-            </button>
-            {actionsOpen && (
-              <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: 220, background: "#fff", border: "1px solid var(--br)", borderRadius: 12, boxShadow: "var(--sh2)", zIndex: 2000, padding: 6 }}>
-                {quickActions.map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => {
-                      setActionsOpen(false);
-                      item.action();
-                    }}
-                    style={{ display: "block", width: "100%", border: "none", background: "transparent", textAlign: "left", padding: "9px 10px", borderRadius: 8, cursor: "pointer", fontSize: 12, color: "var(--t2)" }}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+          ) : (
+            <EmptyState>No salary history available yet.</EmptyState>
+          )}
+        </InfoCard>
       </div>
 
-      <div className="tabs" style={{ overflowX: "auto" }}>
-        {tabs.map((item) => {
-          const key = item.toLowerCase();
-          return (
-            <button key={key} className={`tab ${tab === key ? "active" : ""}`} onClick={() => setTab(key)}>
-              {item}
-            </button>
-          );
-        })}
+      <div style={{ display: tab === "bank-medical" ? "block" : "none" }}>
+        <InfoCard title="Bank & Medical" icon={<HeartPulse size={15} />}>
+          {employee.bankVerified && (
+            <div style={{ marginBottom: 12 }}>
+              <span className="pill pill-green" style={{ fontSize: 11, padding: "4px 10px" }}>Verified</span>
+            </div>
+          )}
+          <FieldGrid
+            items={[
+              ["Bank Name", employee.bankName],
+              ["Bank Account", employee.bankAccount],
+              ["Verification", employee.bankVerified ? "Verified" : "Not provided"],
+              ["Blood Group", employee.bloodGroup],
+              ["Gender", employee.genderMedical],
+              ["Height", employee.heightCm],
+              ["Weight", employee.weightKg],
+              ["Disability", employee.hasDisability ? "Yes" : "No"],
+              ["Disability Type", employee.disabilityType],
+              ["Disability Description", employee.disabilityDescription],
+              ["Chronic Condition", employee.hasChronicCondition ? "Yes" : "No"],
+              ["Allergies", employee.allergies],
+              ["Known Allergies", employee.hasKnownAllergies ? "Yes" : "No"],
+              ["Chronic Conditions", employee.chronicConditions],
+              ["Medication", employee.medications],
+              ["Fitness Status", employee.fitnessStatus],
+              ["Last Medical Exam", formatDate(employee.lastMedicalExamDate)],
+              ["Next Medical Exam", formatDate(employee.nextMedicalExamDate)],
+            ]}
+          />
+        </InfoCard>
       </div>
 
-      {tab === "profile" && (
-        <div style={{ display: "grid", gap: 12 }}>
-          <InfoCard title="Personal & Contact" icon={<UserRound size={15} />}>
-            <FieldGrid
-              items={[
-                ["Full Name", employee.name],
-                ["Email", employee.email],
-                ["Phone", employee.phone],
-                ["Father Name", employee.fatherName],
-                ["Date of Birth", formatDate(employee.dob)],
-                ["CNIC", employee.cnic],
-                ["Gender", employee.gender],
-                ["Emergency Contact 1", employee.emergency1],
-                ["Emergency Contact 2", employee.emergency2],
-                ["Permanent Address", employee.permanentAddress],
-                ["Postal Address", employee.postalAddress],
-              ]}
-            />
-          </InfoCard>
-          <InfoCard title="Job Information" icon={<ShieldCheck size={15} />}>
-            <FieldGrid
-              items={[
-                ["Department", employee.department],
-                ["Designation", employee.designation],
-                ["Employment Type", employee.employmentType],
-                ["Job Status", employee.jobStatus],
-                ["Work Mode", employee.workMode],
-                ["Work Location", employee.workLocation],
-                ["Shift", employee.shift],
-                ["Date of Joining", formatDate(employee.dateOfJoining)],
-                ["Date of Exit", formatDate(employee.dateOfExit)],
-              ]}
-            />
-          </InfoCard>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
-            <InfoCard title="Salary & Bank" icon={<Banknote size={15} />}>
-              <FieldGrid
-                items={[
-                  ["Base Salary", employee.currency === "PKR" ? formatPKR(employee.salary) : `${employee.salary.toLocaleString("en-PK")} ${employee.currency}`],
-                  ["Bank Name", employee.bankName],
-                  ["Bank Account", employee.bankAccount],
-                  ["Verification", employee.bankVerified ? "Verified" : "Not provided"],
-                ]}
-              />
-            </InfoCard>
-            <InfoCard title="Medical" icon={<HeartPulse size={15} />}>
-              <FieldGrid
-                items={[
-                  ["Blood Group", employee.bloodGroup],
-                  ["Gender", employee.genderMedical],
-                  ["Height", employee.heightCm],
-                  ["Weight", employee.weightKg],
-                  ["Disability", employee.hasDisability ? "Yes" : "No"],
-                  ["Disability Type", employee.disabilityType],
-                  ["Disability Description", employee.disabilityDescription],
-                  ["Chronic Condition", employee.hasChronicCondition ? "Yes" : "No"],
-                  ["Allergies", employee.allergies],
-                  ["Known Allergies", employee.hasKnownAllergies ? "Yes" : "No"],
-                  ["Chronic Conditions", employee.chronicConditions],
-                  ["Medication", employee.medications],
-                  ["Fitness Status", employee.fitnessStatus],
-                  ["Last Medical Exam", formatDate(employee.lastMedicalExamDate)],
-                  ["Next Medical Exam", formatDate(employee.nextMedicalExamDate)],
-                ]}
-              />
-            </InfoCard>
-          </div>
-        </div>
-      )}
+      <div style={{ display: tab === "documents" ? "block" : "none" }}>
+        <InfoCard title="Documents" icon={<FileText size={15} />}>
+          {attachmentsLoading ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--t3)", padding: 20 }}>
+              <Loader2 className="spinner" size={16} />
+              <span>Loading documents...</span>
+            </div>
+          ) : attachments.length ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+              {attachments.map((item: any) => (
+                <a
+                  key={item.id}
+                  href={`${API_ORIGIN}${item.url || item.file_path}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: 14, borderRadius: 8, border: "1px solid var(--br2)", background: "rgba(255, 255, 255, 0.9)", color: "var(--t1)", textDecoration: "none", boxShadow: "0 4px 12px rgba(15,23,42,.03)" }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ width: 36, height: 36, borderRadius: 8, display: "grid", placeItems: "center", background: "rgba(67,56,202,.08)", color: "rgba(67,56,202,1)" }}>
+                      <FileText size={18} />
+                    </span>
+                    <span>
+                      <strong style={{ display: "block", fontSize: 13, color: "var(--t1)" }}>{formatValue(item.original_filename)}</strong>
+                      <span style={{ display: "block", marginTop: 2, color: "var(--t3)", fontSize: 11 }}>
+                        {formatValue(item.document_type || item.kind)} · {Math.ceil(Number(item.size_bytes || 0) / 1024)} KB
+                      </span>
+                    </span>
+                  </span>
+                  <span className="pill pill-blue">View</span>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <EmptyState>No documents uploaded yet.</EmptyState>
+          )}
+        </InfoCard>
+      </div>
 
-      {tab === "attendance" && (
+      <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
         <InfoCard title={windowOffset === 0 ? "Attendance (Last 6 Months)" : "Attendance (Previous 6 Months)"} icon={<Clock3 size={15} />}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -536,58 +931,53 @@ export default function EmployeeDetail() {
             </ResponsiveContainer>
           )}
         </InfoCard>
-      )}
 
-      {tab === "leave" && (
-        <div style={{ display: "grid", gap: 12 }}>
-          <InfoCard title="Leave Balances" icon={<CalendarDays size={15} />}>
-            {balancesLoading ? (
-              <EmptyState>Loading leave balances...</EmptyState>
-            ) : leaveBalances.length ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
-                {leaveBalances.map((balance: any, index: number) => {
-                  const total = numberValue(balance.balance);
-                  const used = numberValue(balance.used);
-                  const remaining = numberValue(balance.remaining ?? total - used);
-                  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
-                  return (
-                    <div key={balance.leave_type_id || balance.id || index} style={{ padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "linear-gradient(135deg, rgba(236,253,245,.82), rgba(255,255,255,.9))" }}>
-                      <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)", marginBottom: 6 }}>{text(balance.leave_type_name || balance.leave_type?.name || balance.leave_type || balance.type || balance.name)}</div>
-                      <div className="mono" style={{ fontSize: 18, fontWeight: 950, color: "var(--green)" }}>{remaining} remaining</div>
-                      <div style={{ marginTop: 10, height: 7, borderRadius: 999, background: "rgba(15,23,42,.08)", overflow: "hidden" }}>
-                        <div style={{ width: `${pct}%`, height: "100%", background: "var(--green)" }} />
-                      </div>
-                      <div style={{ marginTop: 7, fontSize: 11, color: "var(--t3)" }}>{used} used of {total}</div>
+        <InfoCard title="Leave Requests" icon={<CalendarDays size={15} />}>
+          {balancesLoading ? (
+            <EmptyState>Loading leave balances...</EmptyState>
+          ) : leaveBalances.length ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginBottom: 14 }}>
+              {leaveBalances.map((balance: any, index: number) => {
+                const total = numberValue(balance.balance);
+                const used = numberValue(balance.used);
+                const remaining = numberValue(balance.remaining ?? total - used);
+                const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                return (
+                  <div key={balance.leave_type_id || balance.id || index} style={{ padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "linear-gradient(135deg, rgba(236,253,245,.82), rgba(255,255,255,.9))" }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)", marginBottom: 6 }}>{text(balance.leave_type_name || balance.leave_type?.name || balance.leave_type || balance.type || balance.name)}</div>
+                    <div className="mono" style={{ fontSize: 18, fontWeight: 950, color: "var(--green)" }}>{remaining} remaining</div>
+                    <div style={{ marginTop: 10, height: 7, borderRadius: 999, background: "rgba(15,23,42,.08)", overflow: "hidden" }}>
+                      <div style={{ width: `${pct}%`, height: "100%", background: "var(--green)" }} />
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <EmptyState>No leave balances are assigned for this employee.</EmptyState>
-            )}
-          </InfoCard>
-          <InfoCard title="Leave Requests" icon={<FileText size={15} />}>
-            {leavesLoading ? (
-              <EmptyState>Loading leave requests...</EmptyState>
-            ) : leaveRows.length ? (
-              <div style={{ overflowX: "auto" }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>From</th>
-                      <th>To</th>
-                      <th>Days</th>
-                      <th>Reason</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {leaveRows.map((leave: any, index: number) => {
-                      const from = leave.from || leave.start_date || leave.date_from;
-                      const to = leave.to || leave.end_date || leave.date_to;
-                      const calculatedDays = daysInclusive(from, to);
-                      return (
+                    <div style={{ marginTop: 7, fontSize: 11, color: "var(--t3)" }}>{used} used of {total}</div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState>No leave balances are assigned for this employee.</EmptyState>
+          )}
+          {leavesLoading ? (
+            <EmptyState>Loading leave requests...</EmptyState>
+          ) : leaveRows.length ? (
+            <div style={{ overflowX: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Days</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaveRows.map((leave: any, index: number) => {
+                    const from = leave.from || leave.start_date || leave.date_from;
+                    const to = leave.to || leave.end_date || leave.date_to;
+                    const calculatedDays = daysInclusive(from, to);
+                    return (
                       <tr key={leave.id || index}>
                         <td>{text(leave.leave_type?.name || leave.leave_type_name || leave.leave_type || leave.type)}</td>
                         <td className="mono">{formatDate(from)}</td>
@@ -596,24 +986,25 @@ export default function EmployeeDetail() {
                         <td>{text(leave.reason || leave.notes)}</td>
                         <td><span className={`pill ${getStatusColor(leave.status)}`}>{formatStatus(leave.status)}</span></td>
                       </tr>
-                    )})}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <EmptyState>No leave requests found.</EmptyState>
-            )}
-          </InfoCard>
-        </div>
-      )}
-
-      {tab === "penalties" && (
-        <InfoCard title="Penalty" icon={<BadgeDollarSign size={15} />}>
-          {penaltiesError && (
-            <div style={{ display: "flex", gap: 10, alignItems: "center", padding: 14, border: "1px dashed rgba(245,158,11,.45)", borderRadius: 12, background: "rgba(255,251,235,.7)", color: "#92400e", marginBottom: 12 }}>
-              <AlertTriangle size={16} /> Penalty data is not available for your current permissions.
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
+          ) : (
+            <EmptyState>No leave requests found.</EmptyState>
           )}
+        </InfoCard>
+
+        <InfoCard title="Penalties" icon={<BadgeDollarSign size={15} />}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+            {penaltiesError && (
+              <div style={{ display: "flex", gap: 10, alignItems: "center", padding: 14, border: "1px dashed rgba(245,158,11,.45)", borderRadius: 12, background: "rgba(255,251,235,.7)", color: "#92400e" }}>
+                <AlertTriangle size={16} /> Penalty data is not available for your current permissions.
+              </div>
+            )}
+            <button className="btn btn-secondary" onClick={() => setPenaltyModalOpen(true)}>Add penalty</button>
+          </div>
           {penaltiesLoading ? (
             <EmptyState>Loading penalties...</EmptyState>
           ) : penaltyRows.length ? (
@@ -647,72 +1038,130 @@ export default function EmployeeDetail() {
             <EmptyState>No penalties recorded.</EmptyState>
           )}
         </InfoCard>
-      )}
 
-      {tab === "documents" && canViewAttachments && (
-        <InfoCard title="Documents & Profile Photo" icon={<FileText size={15} />}>
-          {canUploadAttachments && (
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
-              <select className="input select-input" style={{ maxWidth: 190 }} value={attachmentKind} onChange={(event) => setAttachmentKind(event.target.value)}>
-                <option value="document">Document</option>
-                <option value="profile_photo">Profile Photo</option>
-              </select>
-              {attachmentKind === "document" && (
-                <input className="input" style={{ maxWidth: 220 }} value={documentType} onChange={(event) => setDocumentType(event.target.value)} placeholder="Document type" />
+        <InfoCard title="Management" icon={<Mail size={15} />}>
+          <div style={{ display: "grid", gap: 14 }}>
+            <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>{hasLoginAccount ? "Login Account" : "Create Login Account"}</div>
+              {hasLoginAccount ? (
+                <FieldGrid items={[["Account Email", employee.email]]} />
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Account Email</span>
+                    <input className="input" type="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} placeholder="employee@company.com" />
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Account Role</span>
+                    <select className="input select-input" value={accountRoleId} onChange={(event) => setAccountRoleId(event.target.value)}>
+                      <option value="">Select role...</option>
+                      {roles.map((role: any) => (
+                        <option key={role.id} value={role.id}>
+                          {formatStatus(role.role_name || role.name || role.display_name)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
               )}
-              <label className="btn btn-primary" style={{ cursor: "pointer" }}>
-                <Upload size={13} /> {isUploadingAttachment ? "Uploading..." : "Upload File"}
-                <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.docx" style={{ display: "none" }} onChange={handleAttachmentFile} disabled={isUploadingAttachment} />
-              </label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {!hasLoginAccount && (
+                  <button className="btn btn-primary" onClick={handleCreateAccount} disabled={isCreatingAccount}>
+                    {isCreatingAccount ? "Creating..." : "Create login account"}
+                  </button>
+                )}
+                {can("resend_credentials") && (
+                  <button className="btn btn-secondary" onClick={handleResendCredentials} disabled={isResendingCredentials}>
+                    {isResendingCredentials ? "Sending..." : "Resend Credentials"}
+                  </button>
+                )}
+              </div>
             </div>
-          )}
-          {attachmentsLoading ? (
-            <EmptyState>Loading attachments...</EmptyState>
-          ) : attachments.length ? (
-            <div style={{ overflowX: "auto" }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Type</th>
-                    <th>File</th>
-                    <th>Size</th>
-                    <th>Uploaded</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attachments.map((item: any) => (
-                    <tr key={item.id}>
-                      <td>{item.document_type || item.kind}</td>
-                      <td>{item.original_filename}</td>
-                      <td>{Math.ceil(Number(item.size_bytes || 0) / 1024)} KB</td>
-                      <td>{formatDate(item.created_at)}</td>
-                      <td>
-                        <a className="btn btn-secondary btn-sm" href={`${API_ORIGIN}${item.url || item.file_path}`} target="_blank" rel="noreferrer">
-                          View
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState>No attachments uploaded yet.</EmptyState>
-          )}
-        </InfoCard>
-      )}
 
-      {tab === "settings" && (
-        <InfoCard title="Account Settings" icon={<Mail size={15} />}>
-          {can("resend_credentials") ? (
-            <button className="btn btn-primary" onClick={handleResendCredentials} disabled={isResendingCredentials}>
-              {isResendingCredentials ? "Sending..." : "Resend Credentials"}
-            </button>
-          ) : (
-            <p style={{ fontSize: 12, color: "var(--t3)", margin: 0 }}>You do not have permission to resend credentials.</p>
-          )}
+            <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Add Salary History</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                <label className="form-group" style={{ margin: 0 }}>
+                  <span className="form-label">Base Salary</span>
+                  <input className="input" type="number" min="0" value={salaryAmount} onChange={(event) => setSalaryAmount(event.target.value)} placeholder="125000" />
+                </label>
+                <label className="form-group" style={{ margin: 0 }}>
+                  <span className="form-label">Currency</span>
+                  <select className="input select-input" value={salaryCurrency} onChange={(event) => setSalaryCurrency(event.target.value)}>
+                    <option value="PKR">PKR</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </label>
+                <label className="form-group" style={{ margin: 0 }}>
+                  <span className="form-label">Effective From</span>
+                  <input className="input" type="date" value={salaryEffectiveFrom} onChange={(event) => setSalaryEffectiveFrom(event.target.value)} />
+                </label>
+                <label className="form-group" style={{ margin: 0 }}>
+                  <span className="form-label">Revision Type</span>
+                  <select
+                    className="input select-input"
+                    value={salaryRevisionType}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      setSalaryRevisionType(nextValue);
+                      if (nextValue === "Initial" || nextValue === "") {
+                        setSalaryRevisionPercent("");
+                        setSalaryRevisionReason("");
+                      }
+                    }}
+                  >
+                    <option value="">Select option</option>
+                    {salaryRevisionTypes.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </label>
+                {showSalaryRevisionDetails && (
+                  <>
+                    <label className="form-group" style={{ margin: 0 }}>
+                      <span className="form-label">Revision Percent</span>
+                      <input className="input" type="number" step="0.01" value={salaryRevisionPercent} onChange={(event) => setSalaryRevisionPercent(event.target.value)} placeholder="Optional" />
+                    </label>
+                    <label className="form-group" style={{ margin: 0 }}>
+                      <span className="form-label">Revision Reason</span>
+                      <input className="input" value={salaryRevisionReason} onChange={(event) => setSalaryRevisionReason(event.target.value)} placeholder="Optional note" />
+                    </label>
+                  </>
+                )}
+              </div>
+              <div>
+                <button className="btn btn-primary" onClick={handleAddSalaryRevision} disabled={isAddingSalaryRevision}>
+                  {isAddingSalaryRevision ? "Saving..." : "Add salary history"}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Upload profile photo/documents</div>
+              {canUploadAttachments ? (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <select className="input select-input" style={{ maxWidth: 190 }} value={attachmentKind} onChange={(event) => setAttachmentKind(event.target.value)}>
+                    <option value="document">Document</option>
+                    <option value="profile_photo">Profile Photo</option>
+                  </select>
+                  {attachmentKind === "document" && (
+                    <input className="input" style={{ maxWidth: 220 }} value={documentType} onChange={(event) => setDocumentType(event.target.value)} placeholder="Document type" />
+                  )}
+                  <label className="btn btn-primary" style={{ cursor: "pointer" }}>
+                    <Upload size={13} /> {isUploadingAttachment ? "Uploading..." : "Upload File"}
+                    <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.docx" style={{ display: "none" }} onChange={handleAttachmentFile} disabled={isUploadingAttachment} />
+                  </label>
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: "var(--t3)", margin: 0 }}>You do not have permission to upload employee attachments.</p>
+              )}
+            </div>
+          </div>
         </InfoCard>
+      </div>
+
+      {previewPhotoUrl && (
+        <ImageModal src={previewPhotoUrl} alt={`${employee.name} profile`} onClose={() => setPreviewPhotoUrl(null)} />
       )}
 
       <Modal
@@ -720,14 +1169,27 @@ export default function EmployeeDetail() {
         onClose={() => {
           setResendModalOpen(false);
           setTempPassword(null);
+          setCredentialEmail("");
+          setCredentialPhone("");
         }}
         title="Temporary Password"
       >
         <p style={{ fontSize: 13, marginBottom: 12 }}>Share this password with the employee securely. It will not be sent automatically.</p>
+        <FieldGrid items={[["Employee ID", employee.id], ["Email", credentialEmail || accountEmail || employee.email]]} />
         <div className="mono" style={{ padding: 12, background: "var(--hover)", borderRadius: 8, fontWeight: 800 }}>
           {tempPassword || "Not provided"}
         </div>
+        {credentialsWhatsappUrl ? (
+          <a className="btn btn-primary" href={credentialsWhatsappUrl} target="_blank" rel="noreferrer" style={{ marginTop: 12, display: "inline-flex" }}>
+            <Phone size={13} /> Send credentials via WhatsApp
+          </a>
+        ) : (
+          <p style={{ fontSize: 12, color: "var(--t3)", margin: "12px 0 0" }}>
+            Add the employee phone number to send credentials through WhatsApp.
+          </p>
+        )}
       </Modal>
+
       <Modal open={penaltyModalOpen} onClose={() => setPenaltyModalOpen(false)} title={`Add Penalty - ${employee.name}`}>
         <div className="form-group">
           <label className="form-label">Employee</label>

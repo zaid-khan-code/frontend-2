@@ -1,6 +1,6 @@
 import React from "react";
 import { useAuth } from "../context/AuthContext";
-import { useEmployee } from "../hooks/useEmployees";
+import { useEmployee, useEmployeeFinance } from "../hooks/useEmployees";
 import { useEmployeeSelfMetrics } from "../hooks/useDashboard";
 import { useEmployeeAttachments } from "../hooks/useEmployeeAttachments";
 import { apiClient } from "../services/apiClient";
@@ -288,6 +288,12 @@ function formatAllowanceAmount(allowance: any) {
   return `${Number.isFinite(amount) ? amount.toLocaleString("en-PK") : allowance?.amount} PKR`;
 }
 
+function formatSalaryAmount(value: any, currency: string) {
+  const amount = Number(value ?? 0);
+  const resolved = Number.isFinite(amount) ? amount.toLocaleString("en-PK") : String(value ?? "0");
+  return currency === "PKR" ? `${resolved} PKR` : `${resolved} ${currency || "PKR"}`;
+}
+
 function labelFromKey(key: string) {
   if (readableFieldMap[key]) return readableFieldMap[key].label;
   return key
@@ -423,7 +429,13 @@ const sectionMeta: Record<
     Icon: BriefcaseBusiness,
   },
   salaryInfo: {
-    label: "Salary Info",
+    label: "Salary & Allowance",
+    accent: "var(--green)",
+    tint: "rgba(15,118,110,.1)",
+    Icon: BadgeDollarSign,
+  },
+  salaryHistory: {
+    label: "Salary History",
     accent: "var(--green)",
     tint: "rgba(15,118,110,.1)",
     Icon: BadgeDollarSign,
@@ -763,6 +775,7 @@ export default function MyProfile() {
     data: attachments = [],
     isLoading: attachmentsLoading,
   } = useEmployeeAttachments(resolvedEmployeeId);
+  const { data: finance = null } = useEmployeeFinance(resolvedEmployeeId);
   const emp = employeeById || (isEmployeeProfile(selfProfile) ? selfProfile : null);
 
   const [activeTab, setActiveTab] = React.useState<
@@ -793,6 +806,7 @@ export default function MyProfile() {
   }
 
   const allowances = Array.isArray(emp.allowances) ? emp.allowances : [];
+  const salaryHistory = Array.isArray(finance?.salaryHistory) ? finance.salaryHistory : [];
 
   return (
     <div>
@@ -973,6 +987,48 @@ export default function MyProfile() {
               No allowances configured for this employee.
             </div>
           )}
+        </DataSection>
+
+        <DataSection title="salaryHistory">
+          <div style={{ overflowX: "auto" }}>
+            {salaryHistory.length ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Effective From</th>
+                    <th>Base Salary</th>
+                    <th>Revision Type</th>
+                    <th>Percent</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salaryHistory.map((row: any, index: number) => (
+                    <tr key={row.id || index}>
+                      <td className="mono">{formatDateOnly(row.effective_from)}</td>
+                      <td className="mono">{formatSalaryAmount(row.base_salary, row.currency || emp.salaryInfo?.currency || "PKR")}</td>
+                      <td>{formatValue(row.revision_type)}</td>
+                      <td className="mono">{row.revision_percent ?? "Not provided"}</td>
+                      <td>{formatValue(row.revision_reason)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div
+                style={{
+                  padding: "24px 16px",
+                  textAlign: "center",
+                  background: "rgba(148,163,184,.05)",
+                  border: "1px dashed var(--br2)",
+                  borderRadius: 8,
+                  color: "var(--t3)",
+                }}
+              >
+                No salary history available yet.
+              </div>
+            )}
+          </div>
         </DataSection>
       </div>
 

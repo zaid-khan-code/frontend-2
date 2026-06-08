@@ -51,6 +51,33 @@ const fieldLabels: Record<string, string> = {
   medicalInfo: "Medical information",
 };
 
+const taskStorageKey = "ems.bulkUpload.postImportTasks";
+
+type PostImportTaskStatus = "pending" | "done" | "skipped";
+
+type PostImportTask = {
+  key: string;
+  label: string;
+  message: string;
+  status: PostImportTaskStatus;
+};
+
+type EmployeePostImportTask = {
+  employee_id: string;
+  employee_name: string;
+  rowNumber: number;
+  importedAt: string;
+  tasks: PostImportTask[];
+};
+
+const postImportFieldLabels: Record<string, string> = {
+  accountInfo: "Create login account",
+  salaryInfo: "Add salary history",
+  attachments: "Upload profile photo/documents",
+  bankInfo: "Complete bank information",
+  medicalInfo: "Complete medical information",
+};
+
 const sectionByField: Record<string, string> = {
   employee_id: "Personal",
   full_name: "Personal",
@@ -79,6 +106,19 @@ const sectionByField: Record<string, string> = {
   bankInfo: "After import",
   medicalInfo: "After import",
 };
+
+function loadStoredTasks(): EmployeePostImportTask[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(taskStorageKey) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredTasks(tasks: EmployeePostImportTask[]) {
+  localStorage.setItem(taskStorageKey, JSON.stringify(tasks));
+}
 
 function labelFor(field: string) {
   return fieldLabels[field] || field.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
@@ -157,6 +197,130 @@ function summarize(preview: BulkPreview | null) {
   return preview;
 }
 
+function buildPostImportTasks(importResult: any, importedRows: BulkPreviewRow[]): EmployeePostImportTask[] {
+  const importedIds = new Set((importResult?.imported || []).map((item: any) => item.employee_id).filter(Boolean));
+  const now = new Date().toISOString();
+  return importedRows
+    .filter((row) => importedIds.has(row.mapped?.employee_id || row.data.employee_id))
+    .map((row) => {
+      const employeeId = row.mapped?.employee_id || row.data.employee_id;
+      const tasks = row.warnings
+        .filter((issue) => postImportFieldLabels[issue.field])
+        .map((issue) => {
+          const readable = readableIssue(issue);
+          return {
+            key: issue.field,
+            label: postImportFieldLabels[issue.field],
+            message: readable.message,
+            status: "pending" as const,
+          };
+        });
+      return {
+        employee_id: employeeId,
+        employee_name: row.data.full_name || employeeId,
+        rowNumber: row.rowNumber,
+        importedAt: now,
+        tasks,
+      };
+    })
+    .filter((item) => item.employee_id && item.tasks.length);
+}
+
+function mergePostImportTasks(current: EmployeePostImportTask[], incoming: EmployeePostImportTask[]) {
+  const byEmployee = new Map(current.map((item) => [item.employee_id, item]));
+  for (const item of incoming) {
+    const existing = byEmployee.get(item.employee_id);
+    if (!existing) {
+      byEmployee.set(item.employee_id, item);
+      continue;
+    }
+    const statusByKey = new Map(existing.tasks.map((task) => [task.key, task.status]));
+    byEmployee.set(item.employee_id, {
+      ...item,
+      tasks: item.tasks.map((task) => ({ ...task, status: statusByKey.get(task.key) || task.status })),
+    });
+  }
+  return [...byEmployee.values()].sort((a, b) => b.importedAt.localeCompare(a.importedAt));
+}
+
+function taskCounts(items: EmployeePostImportTask[]) {
+  const all = items.flatMap((item) => item.tasks);
+  return {
+    pending: all.filter((task) => task.status === "pending").length,
+    done: all.filter((task) => task.status === "done").length,
+    skipped: all.filter((task) => task.status === "skipped").length,
+  };
+}
+
+function PostImportTracker({
+  items,
+  onTaskStatus,
+  onClearResolved,
+}: {
+  items: EmployeePostImportTask[];
+  onTaskStatus: (employeeId: string, taskKey: string, status: PostImportTaskStatus) => void;
+  onClearResolved: () => void;
+}) {
+  if (!items.length) return null;
+  const counts = taskCounts(items);
+  return (
+    <div className="card" style={{ padding: 14, borderRadius: 8, borderColor: counts.pending ? "#fca5a5" : "#bbf7d0", background: counts.pending ? "#fff7ed" : "#f0fdf4" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+        <div>
+          <div style={{ fontWeight: 950, color: counts.pending ? "#9a3412" : "#166534" }}>Post-import completion tracker</div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>
+            {counts.pending} pending, {counts.done} done, {counts.skipped} skipped. These warnings are skippable when HR does not have the data yet.
+          </div>
+        </div>
+        <button className="btn btn-secondary" onClick={onClearResolved} disabled={!counts.done && !counts.skipped}>
+          Clear resolved
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {items.map((employee) => {
+          const pendingCount = employee.tasks.filter((task) => task.status === "pending").length;
+          return (
+            <div key={employee.employee_id} style={{ padding: 12, borderRadius: 8, background: "#fff", border: `1px solid ${pendingCount ? "#fed7aa" : "#bbf7d0"}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                <div>
+                  <strong>{employee.employee_id}</strong>
+                  <div style={{ color: "#64748b", fontSize: 12 }}>{employee.employee_name}</div>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <span className={`pill ${pendingCount ? "pill-yellow" : "pill-green"}`}>{pendingCount ? `${pendingCount} pending` : "Resolved"}</span>
+                  <button className="btn btn-sm btn-secondary" onClick={() => window.open(`/employees/${employee.employee_id}`, "_self")}>
+                    Open profile
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {employee.tasks.map((task) => (
+                  <div key={task.key} style={{ display: "grid", gridTemplateColumns: "minmax(180px, 240px) 1fr auto", gap: 10, alignItems: "center" }}>
+                    <div style={{ fontWeight: 850 }}>{task.label}</div>
+                    <div style={{ color: "#64748b", fontSize: 12 }}>{task.message}</div>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <span className={`pill ${task.status === "pending" ? "pill-yellow" : task.status === "done" ? "pill-green" : "pill-steel"}`}>
+                        {task.status === "pending" ? "Pending" : task.status === "done" ? "Done" : "Skipped"}
+                      </span>
+                      {task.status !== "done" && (
+                        <button className="btn btn-sm btn-secondary" onClick={() => onTaskStatus(employee.employee_id, task.key, "done")}>Mark done</button>
+                      )}
+                      {task.status !== "skipped" && (
+                        <button className="btn btn-sm btn-ghost" onClick={() => onTaskStatus(employee.employee_id, task.key, "skipped")}>Skip</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function EmployeeBulkUpload() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
@@ -167,6 +331,7 @@ export default function EmployeeBulkUpload() {
   const [editing, setEditing] = useState<BulkPreviewRow | null>(null);
   const [draft, setDraft] = useState<Record<string, any>>({});
   const [result, setResult] = useState<any>(null);
+  const [postImportTasks, setPostImportTasks] = useState<EmployeePostImportTask[]>(() => loadStoredTasks());
 
   const stats = summarize(preview);
   const rows = useMemo(() => {
@@ -223,10 +388,31 @@ export default function EmployeeBulkUpload() {
       const validRows = preview.rows.filter((row) => row.errors.length === 0);
       const imported = await importRows(validRows);
       setResult(imported);
+      const nextTasks = mergePostImportTasks(postImportTasks, buildPostImportTasks(imported, validRows));
+      setPostImportTasks(nextTasks);
+      saveStoredTasks(nextTasks);
       showToast(`Imported ${imported.imported_count || 0} employee(s).`);
     } catch (error: any) {
       showToast(error?.response?.data?.error?.message || "Failed to import employees.", "error");
     }
+  };
+
+  const updateTaskStatus = (employeeId: string, taskKey: string, status: PostImportTaskStatus) => {
+    const next = postImportTasks.map((employee) =>
+      employee.employee_id === employeeId
+        ? { ...employee, tasks: employee.tasks.map((task) => task.key === taskKey ? { ...task, status } : task) }
+        : employee,
+    );
+    setPostImportTasks(next);
+    saveStoredTasks(next);
+  };
+
+  const clearResolvedTasks = () => {
+    const next = postImportTasks
+      .map((employee) => ({ ...employee, tasks: employee.tasks.filter((task) => task.status === "pending") }))
+      .filter((employee) => employee.tasks.length);
+    setPostImportTasks(next);
+    saveStoredTasks(next);
   };
 
   return (
@@ -357,9 +543,15 @@ export default function EmployeeBulkUpload() {
       {result && (
         <div className="card" style={{ padding: 14, borderRadius: 8, borderColor: "#bbf7d0", background: "#f0fdf4" }}>
           <strong style={{ color: "#166534" }}>Imported {result.imported_count || 0} employee(s).</strong>
-          <div style={{ marginTop: 6, color: "#166534", fontSize: 13 }}>{(result.next_actions || []).join(", ")}</div>
+          <div style={{ marginTop: 6, color: "#166534", fontSize: 13 }}>Review the post-import completion tracker below before leaving this page.</div>
         </div>
       )}
+
+      <PostImportTracker
+        items={postImportTasks}
+        onTaskStatus={updateTaskStatus}
+        onClearResolved={clearResolvedTasks}
+      />
 
       {editing && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.38)", zIndex: 2000, display: "flex", justifyContent: "flex-end" }}>
