@@ -213,6 +213,7 @@ export function useEmployee(id?: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employee", id] });
       queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-finance", id] });
     },
   });
 
@@ -255,6 +256,13 @@ export function useEmployeeActions(employeeId?: string) {
       updates: any;
     }) => {
       if (!employeeId) throw new Error("Missing employee id");
+      if (section === "allowances") {
+        const { data } = await apiClient.put(
+          `/employees/${encodeURIComponent(employeeId)}/${section}`,
+          updates,
+        );
+        return data;
+      }
       const { data } = await apiClient.patch(
         `/employees/${encodeURIComponent(employeeId)}/${section}`,
         updates,
@@ -264,6 +272,7 @@ export function useEmployeeActions(employeeId?: string) {
     onSuccess: () => {
       if (employeeId) {
         queryClient.invalidateQueries({ queryKey: ["employee", employeeId] });
+        queryClient.invalidateQueries({ queryKey: ["employee-finance", employeeId] });
       }
       queryClient.invalidateQueries({ queryKey: ["employees"] });
     },

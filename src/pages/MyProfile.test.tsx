@@ -98,6 +98,19 @@ describe("MyProfile", () => {
           updated_at: "2026-05-21T20:04:00.793Z",
           field_name: "Medical Allowance",
         },
+        {
+          id: "a672fb31-6419-407e-8c7c-021887213f28",
+          employee_id: "EMP521",
+          allowance_type_id: "14f9753e-eb51-400a-b56f-11e46665a7c3",
+          amount: "3795.00",
+          is_percentage: false,
+          is_current: true,
+          is_active: false,
+          created_by: "017d766b-e8a4-430c-963f-d9f64921573f",
+          created_at: "2026-05-21T20:04:00.793Z",
+          updated_at: "2026-05-21T20:04:00.793Z",
+          field_name: "Fuel Allowance",
+        },
       ],
       emergencyContacts: {
         contact_1: "47444444444",
@@ -205,6 +218,10 @@ describe("MyProfile", () => {
     );
     expect(screen.getAllByText("IT-Support").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Medical Allowance").length).toBeGreaterThan(0);
+    expect(screen.getByText("Current Allowances")).toBeTruthy();
+    expect(screen.getByText("Deactive Allowances")).toBeTruthy();
+    expect(screen.getByText("Fuel Allowance")).toBeTruthy();
+    expect(screen.getByText("Deactive")).toBeTruthy();
     expect(screen.getByText("12,220 PKR")).toBeTruthy();
     expect(screen.getByText("Current")).toBeTruthy();
     expect(screen.getByText("Verified")).toBeTruthy();

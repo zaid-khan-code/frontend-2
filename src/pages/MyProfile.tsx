@@ -806,7 +806,10 @@ export default function MyProfile() {
   }
 
   const allowances = Array.isArray(emp.allowances) ? emp.allowances : [];
+  const activeAllowances = allowances.filter((allowance: any) => allowance?.is_active !== false);
+  const deactiveAllowances = allowances.filter((allowance: any) => allowance?.is_active === false);
   const salaryHistory = Array.isArray(finance?.salaryHistory) ? finance.salaryHistory : [];
+  const allowanceHistory = Array.isArray(finance?.allowancesHistory) ? finance.allowancesHistory : [];
 
   return (
     <div>
@@ -929,49 +932,95 @@ export default function MyProfile() {
 
         <DataSection title="allowances">
           {allowances.length ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
-              {allowances.map((allowance: any, index: number) => (
-                <div
-                  key={allowance?.id || index}
-                  style={{
-                    padding: "14px 16px",
-                    borderRadius: 8,
-                    background: "#ffffff",
-                    border: "1px solid var(--br2)",
-                    borderLeft: "4px solid var(--amber)",
-                    boxShadow: "0 2px 8px rgba(15,23,42,.02)",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    minHeight: 100,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      alignSelf: "flex-start",
-                      gap: 8,
-                      padding: "4px 8px",
-                      borderRadius: 999,
-                      background: "rgba(245,158,11,.13)",
-                      fontSize: 11,
-                      fontWeight: 800,
-                      color: "#b45309",
-                      marginBottom: 10,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {formatValue(allowance?.field_name)}
+            <div style={{ display: "grid", gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 900, color: "var(--t1)", marginBottom: 10 }}>Current Allowances</div>
+                {activeAllowances.length ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+                    {activeAllowances.map((allowance: any, index: number) => (
+                      <div
+                        key={allowance?.id || index}
+                        style={{
+                          padding: "14px 16px",
+                          borderRadius: 8,
+                          background: "#ffffff",
+                          border: "1px solid var(--br2)",
+                          borderLeft: "4px solid var(--amber)",
+                          boxShadow: "0 2px 8px rgba(15,23,42,.02)",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          minHeight: 100,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            alignSelf: "flex-start",
+                            gap: 8,
+                            padding: "4px 8px",
+                            borderRadius: 999,
+                            background: "rgba(245,158,11,.13)",
+                            fontSize: 11,
+                            fontWeight: 800,
+                            color: "#b45309",
+                            marginBottom: 10,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {formatValue(allowance?.field_name)}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                          <span className="mono" style={{ fontSize: 18, fontWeight: 900, color: "var(--t1)" }}>
+                            {formatAllowanceAmount(allowance)}
+                          </span>
+                          <span className="pill pill-green">Current</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                    <span className="mono" style={{ fontSize: 18, fontWeight: 900, color: "var(--t1)" }}>
-                      {formatAllowanceAmount(allowance)}
-                    </span>
-                    {allowance?.is_current && <span className="pill pill-green">Current</span>}
+                ) : (
+                  <div style={{ padding: "18px 14px", textAlign: "center", background: "rgba(148,163,184,.05)", border: "1px dashed var(--br2)", borderRadius: 8, color: "var(--t3)" }}>
+                    No current active allowances.
+                  </div>
+                )}
+              </div>
+              {deactiveAllowances.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: "var(--t1)", marginBottom: 10 }}>Deactive Allowances</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+                    {deactiveAllowances.map((allowance: any, index: number) => (
+                      <div
+                        key={allowance?.id || index}
+                        style={{
+                          padding: "14px 16px",
+                          borderRadius: 8,
+                          background: "#ffffff",
+                          border: "1px solid var(--br2)",
+                          borderLeft: "4px solid var(--red)",
+                          boxShadow: "0 2px 8px rgba(15,23,42,.02)",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          minHeight: 100,
+                          opacity: 0.82,
+                        }}
+                      >
+                        <div style={{ display: "inline-flex", alignItems: "center", alignSelf: "flex-start", gap: 8, padding: "4px 8px", borderRadius: 999, background: "rgba(220,38,38,.1)", fontSize: 11, fontWeight: 800, color: "var(--red)", marginBottom: 10, textTransform: "uppercase" }}>
+                          {formatValue(allowance?.field_name)}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                          <span className="mono" style={{ fontSize: 18, fontWeight: 900, color: "var(--t1)" }}>
+                            {formatAllowanceAmount(allowance)}
+                          </span>
+                          <span className="pill pill-red">Deactive</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           ) : (
             <div
@@ -1026,6 +1075,46 @@ export default function MyProfile() {
                 }}
               >
                 No salary history available yet.
+              </div>
+            )}
+          </div>
+        </DataSection>
+
+        <DataSection title="allowances">
+          <div style={{ overflowX: "auto" }}>
+            {allowanceHistory.length ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Current</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allowanceHistory.map((row: any, index: number) => (
+                    <tr key={row.id || index}>
+                      <td>{formatValue(row.field_name || row.allowance_type_name || row.allowance_type_id)}</td>
+                      <td className="mono">{formatAllowanceAmount(row)}</td>
+                      <td>{row.is_current ? "Yes" : "No"}</td>
+                      <td className="mono">{formatDateOnly(row.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div
+                style={{
+                  padding: "24px 16px",
+                  textAlign: "center",
+                  background: "rgba(148,163,184,.05)",
+                  border: "1px dashed var(--br2)",
+                  borderRadius: 8,
+                  color: "var(--t3)",
+                }}
+              >
+                No allowance history available yet.
               </div>
             )}
           </div>

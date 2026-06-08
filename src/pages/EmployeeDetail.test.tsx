@@ -10,9 +10,11 @@ const useLeaveBalancesMock = vi.hoisted(() => vi.fn());
 const usePenaltiesMock = vi.hoisted(() => vi.fn());
 const useEmployeeAttachmentsMock = vi.hoisted(() => vi.fn());
 const useEmployeeFinanceMock = vi.hoisted(() => vi.fn());
+const useEmployeeActionsMock = vi.hoisted(() => vi.fn());
 const resendCredentialsMock = vi.hoisted(() => vi.fn());
 const createAccountMock = vi.hoisted(() => vi.fn());
 const addSalaryRevisionMock = vi.hoisted(() => vi.fn());
+const updateAllowancesMock = vi.hoisted(() => vi.fn());
 const employeeMock = vi.hoisted(() => vi.fn());
 
 vi.mock("recharts", () => ({
@@ -52,6 +54,7 @@ vi.mock("../hooks/useEmployees", () => ({
     isAddingSalaryRevision: false,
   }),
   useEmployeeFinance: (employeeId: string) => useEmployeeFinanceMock(employeeId),
+  useEmployeeActions: (employeeId: string) => useEmployeeActionsMock(employeeId),
   useEmployees: () => ({ update: vi.fn() }),
 }));
 
@@ -87,6 +90,12 @@ vi.mock("../hooks/useEmployeeAttachments", () => ({
 
 vi.mock("../hooks/useConfig", () => ({
   usePenaltyRules: () => ({ data: [{ id: "rule-1", name: "Late Arrival", amount_pkr: 1000, is_active: true }] }),
+  useAllowanceTypes: () => ({
+    data: [
+      { id: "allowance-meal", field_name: "Meal Allowance" },
+      { id: "allowance-fuel", field_name: "Fuel Allowance" },
+    ],
+  }),
   useRoles: () => ({
     data: [
       { id: "role-employee", role_name: "employee" },
@@ -183,12 +192,28 @@ describe("EmployeeDetail", () => {
             created_at: "2026-06-01T00:00:00.000Z",
           },
         ],
-        allowancesHistory: [],
+        allowancesHistory: [
+          {
+            id: "allow-1",
+            employee_id: "EMP001",
+            allowance_type_id: "allowance-meal",
+            field_name: "Meal Allowance",
+            amount: "5000",
+            is_percentage: false,
+            is_current: true,
+            created_at: "2026-06-01T00:00:00.000Z",
+          },
+        ],
       },
       isLoading: false,
     });
+    useEmployeeActionsMock.mockReturnValue({
+      updateAllowances: updateAllowancesMock,
+      isUpdatingSection: false,
+    });
     createAccountMock.mockResolvedValue({ tempPassword: "Temp#1234", whatsappPhone: "03001234567" });
     addSalaryRevisionMock.mockResolvedValue({});
+    updateAllowancesMock.mockResolvedValue({});
   });
 
   it("shows the MyProfile-style tabs and uses Not provided instead of N/A", () => {
@@ -260,7 +285,8 @@ describe("EmployeeDetail", () => {
 
   it("loads employee attendance in six-month windows", () => {
     renderEmployeeDetail();
-    expect(screen.getByText("Attendance (Last 6 Months)")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Attendance (Last 6 Months)" }));
+    expect(screen.getAllByText("Attendance (Last 6 Months)").length).toBeGreaterThan(0);
     expect(screen.getByText("Previous 6 months")).toBeTruthy();
     expect(useAttendanceReportMock).toHaveBeenCalled();
   });
@@ -269,12 +295,15 @@ describe("EmployeeDetail", () => {
     renderEmployeeDetail();
 
     expect(useLeaveBalancesMock).toHaveBeenCalledWith(expect.objectContaining({ employee_id: "EMP001" }));
+    fireEvent.click(screen.getByRole("button", { name: "Leave Requests" }));
     expect(screen.getAllByText("Annual Leave").length).toBeGreaterThan(0);
     expect(screen.getByText("10 remaining")).toBeTruthy();
 
+    fireEvent.click(screen.getByRole("button", { name: "Penalties" }));
     expect(usePenaltiesMock).toHaveBeenCalledWith({ employee_id: "EMP001" });
     expect(screen.getByText("Late Arrival")).toBeTruthy();
 
+    fireEvent.click(screen.getByRole("button", { name: "Documents" }));
     expect(useEmployeeAttachmentsMock).toHaveBeenCalledWith("EMP001");
     expect(screen.getByText("cnic.pdf")).toBeTruthy();
   });
@@ -304,6 +333,7 @@ describe("EmployeeDetail", () => {
       salaryInfo: { base_salary: "125000", currency: "PKR" },
     });
     renderEmployeeDetail();
+    fireEvent.click(screen.getByRole("button", { name: "Management" }));
 
     fireEvent.change(screen.getByLabelText("Account Email"), {
       target: { value: "bulk.employee@esspl.com.pk" },
@@ -356,6 +386,7 @@ describe("EmployeeDetail", () => {
 
   it("hides account creation fields when the employee already has a login account", () => {
     renderEmployeeDetail();
+    fireEvent.click(screen.getByRole("button", { name: "Management" }));
 
     expect(screen.queryByLabelText("Account Email")).toBeNull();
     expect(screen.queryByLabelText("Account Role")).toBeNull();
@@ -376,6 +407,7 @@ describe("EmployeeDetail", () => {
     });
 
     renderEmployeeDetail();
+    fireEvent.click(screen.getByRole("button", { name: "Management" }));
 
     const revisionType = screen.getByLabelText("Revision Type") as HTMLSelectElement;
     expect(revisionType.value).toBe("");
@@ -396,12 +428,68 @@ describe("EmployeeDetail", () => {
   });
 
   it("shows salary history in the compensation section", () => {
+    employeeMock.mockReturnValue({
+      employee_id: "EMP001",
+      name: "Adeel Rahman",
+      department_name: "Administration",
+      designation_title: "Admin Officer",
+      job_status_name: "Active",
+      employeeContact: { primary_phone: "03001234567" },
+      salaryInfo: { base_salary: "125000", currency: "PKR" },
+      allowances: [
+        {
+          id: "allow-current",
+          field_name: "Medical Allowance",
+          amount: "5571",
+          is_percentage: false,
+          is_current: true,
+          is_active: true,
+        },
+        {
+          id: "allow-deactive",
+          field_name: "Fuel Allowance",
+          amount: "3795",
+          is_percentage: false,
+          is_current: true,
+          is_active: false,
+        },
+      ],
+    });
     renderEmployeeDetail();
     fireEvent.click(screen.getByRole("button", { name: "Compensation" }));
 
     expect(screen.getByText("Salary & Allowance")).toBeTruthy();
+    expect(screen.getByText("Current Allowances")).toBeTruthy();
+    expect(screen.getByText("Deactive Allowances")).toBeTruthy();
+    expect(screen.getByText("Medical Allowance")).toBeTruthy();
+    expect(screen.getAllByText("Fuel Allowance").length).toBeGreaterThan(0);
+    expect(screen.getByText("Deactive")).toBeTruthy();
     expect(screen.getByText("Salary History")).toBeTruthy();
-    expect(screen.getByText("01 Jun 2026")).toBeTruthy();
+    expect(screen.getByText("Allowance History")).toBeTruthy();
+    expect(screen.getAllByText("Meal Allowance").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("01 Jun 2026").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Increment").length).toBeGreaterThan(0);
+  });
+
+  it("saves allowance edits from the management tab and keeps the history log separate", async () => {
+    renderEmployeeDetail();
+    fireEvent.click(screen.getByRole("button", { name: "Management" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add allowance row" }));
+
+    fireEvent.change(screen.getByLabelText("Allowance Type"), {
+      target: { value: "allowance-fuel" },
+    });
+    fireEvent.change(screen.getByLabelText("Amount"), {
+      target: { value: "2500" },
+    });
+    fireEvent.click(screen.getByLabelText("Percentage"));
+    fireEvent.click(screen.getByLabelText("Active"));
+    fireEvent.click(screen.getByRole("button", { name: "Save allowances" }));
+
+    await waitFor(() => {
+      expect(updateAllowancesMock).toHaveBeenCalledWith({
+        allowances: [{ allowance_type_id: "allowance-fuel", amount: 2500, is_percentage: true, is_active: false }],
+      });
+    });
   });
 });

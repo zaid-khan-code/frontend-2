@@ -9,6 +9,7 @@ import {
   Clock3,
   FileText,
   HeartPulse,
+  Landmark,
   Mail,
   Loader2,
   Phone,
@@ -27,10 +28,10 @@ import {
 import Modal from "../components/common/Modal";
 import { useToastContext } from "../context/ToastContext";
 import { useAttendanceReport } from "../hooks/useAttendance";
-import { useEmployee, useEmployeeFinance } from "../hooks/useEmployees";
+import { useAllowanceTypes, usePenaltyRules, useRoles } from "../hooks/useConfig";
+import { useEmployee, useEmployeeActions, useEmployeeFinance } from "../hooks/useEmployees";
 import { useLeaveBalances, useLeaves } from "../hooks/useLeaves";
 import { usePenalties } from "../hooks/usePenalties";
-import { usePenaltyRules, useRoles } from "../hooks/useConfig";
 import { useRbac } from "../hooks/useRbac";
 import { useEmployeeAttachments } from "../hooks/useEmployeeAttachments";
 import { apiClient } from "../services/apiClient";
@@ -392,10 +393,14 @@ function normalizeEmployee(raw: any) {
 function InfoCard({
   title,
   icon,
+  accent = "var(--p)",
+  tint = "rgba(37,99,235,.08)",
   children,
 }: {
   title: string;
   icon: React.ReactNode;
+  accent?: string;
+  tint?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -407,14 +412,14 @@ function InfoCard({
           gap: 10,
           padding: "13px 15px",
           borderBottom: "1px solid var(--br2)",
-          background: "linear-gradient(90deg, rgba(37,99,235,.08), rgba(255,255,255,.8))",
+          background: `linear-gradient(90deg, ${tint}, rgba(255,255,255,.8))`,
           fontSize: 12,
           fontWeight: 900,
-          color: "var(--t1)",
+          color: accent,
           textTransform: "uppercase",
         }}
       >
-        <span style={{ display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: 9, background: "rgba(37,99,235,.1)", color: "var(--p)" }}>
+        <span style={{ display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: 9, background: tint, color: accent }}>
           {icon}
         </span>
         {title}
@@ -426,11 +431,120 @@ function InfoCard({
 
 function FieldGrid({ items }: { items: Array<[string, any]> }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
-      {items.map(([label, value]) => (
-        <div key={label} style={{ padding: "11px 12px", border: "1px solid var(--br2)", borderRadius: 10, background: "rgba(248,250,252,.72)" }}>
-          <div style={{ fontSize: 10, fontWeight: 850, textTransform: "uppercase", color: "var(--t3)", marginBottom: 6 }}>{label}</div>
-          <div style={{ fontSize: 13, fontWeight: 750, color: "var(--t1)", overflowWrap: "anywhere" }}>{text(value)}</div>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+        columnGap: 32,
+        rowGap: 20,
+      }}
+    >
+      {items.map(([label, value]) => {
+        const displayVal = text(value);
+        const isEmpty = displayVal === "Not provided" || displayVal === "";
+        const isYes = displayVal === "Yes" || displayVal === "Verified";
+        const isNo = displayVal === "No";
+        return (
+          <div
+            key={label}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              borderBottom: "1px solid rgba(226,232,240,.5)",
+              paddingBottom: 8,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                color: "var(--t3)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              {label}
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: isEmpty
+                  ? "var(--t4)"
+                  : isYes
+                    ? "var(--green)"
+                    : isNo
+                      ? "var(--red)"
+                      : "var(--t1)",
+                overflowWrap: "anywhere",
+                lineHeight: 1.4,
+              }}
+            >
+              {displayVal}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ContactCards({ source }: { source: any }) {
+  const contacts = [
+    {
+      label: "Primary",
+      name: source?.e_contact_1_full_name || source?.primary_contact || "Primary contact",
+      relation: source?.e_contact_1_relation,
+      phone: source?.e_contact_1_phone || source?.contact_1,
+      code: source?.e_contact_1_phone_country_code,
+      email: source?.e_contact_1_email,
+      accent: "var(--p)",
+      tint: "rgba(37,99,235,.09)",
+    },
+    {
+      label: "Secondary",
+      name: source?.e_contact_2_full_name || "Secondary contact",
+      relation: source?.e_contact_2_relation,
+      phone: source?.e_contact_2_phone || source?.contact_2,
+      code: source?.e_contact_2_phone_country_code,
+      email: source?.e_contact_2_email,
+      accent: "var(--teal)",
+      tint: "rgba(13,148,136,.09)",
+    },
+  ].filter((contact) => contact.phone || contact.name !== "Secondary contact" || contact.email);
+
+  if (!contacts.length) {
+    return (
+      <div className="mono" style={{ color: "var(--t3)", fontSize: 12 }}>
+        Not provided
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 12 }}>
+      {contacts.map((contact) => (
+        <div
+          key={contact.label}
+          style={{
+            padding: "14px 16px",
+            borderRadius: 8,
+            background: "#ffffff",
+            border: "1px solid var(--br2)",
+            borderLeft: `4px solid ${contact.accent}`,
+            boxShadow: "0 2px 8px rgba(15,23,42,.02)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <span className="pill pill-blue" style={{ color: contact.accent, background: contact.tint }}>{contact.label}</span>
+            {contact.relation && <span style={{ fontSize: 11, color: "var(--t3)", fontWeight: 500 }}>{contact.relation}</span>}
+          </div>
+          <div style={{ fontWeight: 700, color: "var(--t1)", marginBottom: 4, fontSize: 14 }}>{formatValue(contact.name)}</div>
+          <div className="mono" style={{ fontSize: 13, fontWeight: 700, color: contact.accent }}>
+            {[contact.code, contact.phone].filter(Boolean).join(" ")}
+          </div>
+          {contact.email && <div className="mono" style={{ marginTop: 5, fontSize: 11, color: "var(--t3)" }}>{contact.email}</div>}
         </div>
       ))}
     </div>
@@ -472,6 +586,7 @@ export default function EmployeeDetail() {
   const [salaryRevisionReason, setSalaryRevisionReason] = useState("");
   const [credentialEmail, setCredentialEmail] = useState("");
   const [credentialPhone, setCredentialPhone] = useState("");
+  const [allowanceDrafts, setAllowanceDrafts] = useState<Array<{ allowance_type_id: string; amount: string; is_percentage: boolean; is_active: boolean }>>([]);
 
   const {
     data: rawEmployee,
@@ -487,6 +602,8 @@ export default function EmployeeDetail() {
   const employee = useMemo(() => (rawEmployee ? normalizeEmployee(rawEmployee) : null), [rawEmployee]);
   const employeeId = employee?.id || id || "";
   const { data: finance = null } = useEmployeeFinance(employeeId);
+  const { data: allowanceTypes = [] } = useAllowanceTypes();
+  const { updateAllowances, isUpdatingSection: isUpdatingAllowances } = useEmployeeActions(employeeId);
   const canManageEmployees = can("resend_credentials") || can("edit_employee") || can("create_employee");
   const canViewAttachments = can("view_employee_attachments") || canManageEmployees;
   const canUploadAttachments = can("upload_employee_attachments") || canManageEmployees;
@@ -517,6 +634,17 @@ export default function EmployeeDetail() {
     }
   }, [accountEmail, employee?.email]);
 
+  useEffect(() => {
+    setAllowanceDrafts(
+      (employee?.allowances || []).map((allowance: any) => ({
+        allowance_type_id: String(allowance?.allowance_type_id || ""),
+        amount: String(allowance?.amount ?? ""),
+        is_percentage: Boolean(allowance?.is_percentage),
+        is_active: allowance?.is_active !== false,
+      })),
+    );
+  }, [employee?.allowances]);
+
   const months = useMemo(() => getWindowMonths(windowOffset), [windowOffset]);
   const attendanceChart = months.map((month) => {
     const row = reportRows.find((item: any) => {
@@ -540,7 +668,10 @@ export default function EmployeeDetail() {
   );
 
   const salaryHistory = Array.isArray(finance?.salaryHistory) ? finance.salaryHistory : [];
+  const allowanceHistory = Array.isArray(finance?.allowancesHistory) ? finance.allowancesHistory : [];
   const currentAllowances = Array.isArray(employee?.allowances) ? employee.allowances : [];
+  const activeAllowances = currentAllowances.filter((allowance: any) => allowance?.is_active !== false);
+  const deactiveAllowances = currentAllowances.filter((allowance: any) => allowance?.is_active === false);
   const showSalaryRevisionDetails = salaryRevisionType !== "" && salaryRevisionType !== "Initial";
   const credentialsWhatsappUrl = buildCredentialsWhatsappUrl({
     employeeId: employee?.id || "",
@@ -656,6 +787,27 @@ export default function EmployeeDetail() {
     }
   };
 
+  const handleAddAllowanceRow = () => {
+    setAllowanceDrafts((rows) => [...rows, { allowance_type_id: "", amount: "", is_percentage: false, is_active: true }]);
+  };
+
+  const handleSaveAllowances = async () => {
+    try {
+      const payload = allowanceDrafts
+        .filter((row) => row.allowance_type_id)
+        .map((row) => ({
+          allowance_type_id: row.allowance_type_id,
+          amount: Number(row.amount || 0),
+          is_percentage: Boolean(row.is_percentage),
+          is_active: Boolean(row.is_active),
+        }));
+      await updateAllowances({ allowances: payload });
+      showToast("Allowances updated successfully.");
+    } catch (error: any) {
+      showToast(error?.response?.data?.error?.message || "Failed to update allowances.", "error");
+    }
+  };
+
   if (isLoading) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
@@ -681,6 +833,10 @@ export default function EmployeeDetail() {
     { key: "compensation", label: "Compensation", icon: BadgeDollarSign },
     { key: "bank-medical", label: "Bank & Medical", icon: HeartPulse },
     { key: "documents", label: "Documents", icon: FileText },
+    { key: "management", label: "Management", icon: Mail },
+    { key: "penalties", label: "Penalties", icon: AlertTriangle },
+    { key: "leaves", label: "Leave Requests", icon: CalendarDays },
+    { key: "attendance", label: "Attendance (Last 6 Months)", icon: Clock3 },
   ] as const;
 
   return (
@@ -715,27 +871,40 @@ export default function EmployeeDetail() {
       </div>
 
       <div style={{ display: tab === "personal" ? "block" : "none" }}>
-        <InfoCard title="Personal & Contact" icon={<UserRound size={15} />}>
+        <InfoCard title="Employee" icon={<UserRound size={15} />} accent="var(--p)" tint="rgba(37,99,235,.1)">
           <FieldGrid
             items={[
               ["Full Name", employee.name],
               ["Email", employee.email],
-              ["Phone", employee.phone],
               ["Father Name", employee.fatherName],
               ["Date of Birth", formatDate(employee.dob)],
               ["CNIC", employee.cnic],
               ["Gender", employee.gender],
-              ["Emergency Contact 1", employee.emergency1],
-              ["Emergency Contact 2", employee.emergency2],
-              ["Permanent Address", employee.permanentAddress],
-              ["Postal Address", employee.postalAddress],
             ]}
           />
         </InfoCard>
+
+        <div style={{ marginTop: 16 }}>
+          <InfoCard title="Employee Contact" icon={<Phone size={15} />} accent="#2563eb" tint="rgba(37,99,235,.1)">
+            <FieldGrid
+              items={[
+                ["Phone", employee.phone],
+                ["Permanent Address", employee.permanentAddress],
+                ["Postal Address", employee.postalAddress],
+              ]}
+            />
+          </InfoCard>
+        </div>
+
+        <div style={{ marginTop: 16 }}>
+          <InfoCard title="Emergency Contacts" icon={<Phone size={15} />} accent="#db2777" tint="rgba(236,72,153,.12)">
+            <ContactCards source={rawEmployee?.emergencyContacts} />
+          </InfoCard>
+        </div>
       </div>
 
       <div style={{ display: tab === "job" ? "block" : "none" }}>
-        <InfoCard title="Job & Employment" icon={<BriefcaseBusiness size={15} />}>
+        <InfoCard title="Job & Employment" icon={<BriefcaseBusiness size={15} />} accent="var(--teal)" tint="rgba(13,148,136,.1)">
           <FieldGrid
             items={[
               ["Department", employee.department],
@@ -753,7 +922,7 @@ export default function EmployeeDetail() {
       </div>
 
       <div style={{ display: tab === "compensation" ? "block" : "none" }}>
-        <InfoCard title="Salary & Allowance" icon={<BadgeDollarSign size={15} />}>
+        <InfoCard title="Salary & Allowance" icon={<BadgeDollarSign size={15} />} accent="var(--green)" tint="rgba(15,118,110,.1)">
           <FieldGrid
             items={[
               ["Base Salary", formatMoney(employee.salary, employee.currency)],
@@ -762,78 +931,159 @@ export default function EmployeeDetail() {
           />
         </InfoCard>
 
-        <InfoCard title="Allowances" icon={<Banknote size={15} />}>
-          {currentAllowances.length ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
-              {currentAllowances.map((allowance: any, index: number) => (
-                <div
-                  key={allowance?.id || index}
-                  style={{
-                    padding: "14px 16px",
-                    borderRadius: 8,
-                    background: "#ffffff",
-                    border: "1px solid var(--br2)",
-                    borderLeft: "4px solid var(--amber)",
-                    boxShadow: "0 2px 8px rgba(15,23,42,.02)",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    minHeight: 100,
-                  }}
-                >
-                  <div style={{ display: "inline-flex", alignItems: "center", alignSelf: "flex-start", gap: 8, padding: "4px 8px", borderRadius: 999, background: "rgba(245,158,11,.13)", fontSize: 11, fontWeight: 800, color: "#b45309", marginBottom: 10, textTransform: "uppercase" }}>
-                    {formatValue(allowance?.field_name)}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                    <span className="mono" style={{ fontSize: 18, fontWeight: 900, color: "var(--t1)" }}>
-                      {formatAllowanceAmount(allowance)}
-                    </span>
-                    {allowance?.is_current && <span className="pill pill-green">Current</span>}
-                  </div>
+        <div style={{ marginTop: 16 }}>
+          <InfoCard title="Allowances" icon={<Banknote size={15} />} accent="#b45309" tint="rgba(245,158,11,.14)">
+            {currentAllowances.length ? (
+              <div style={{ display: "grid", gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: "var(--t1)", marginBottom: 10 }}>Current Allowances</div>
+                  {activeAllowances.length ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+                      {activeAllowances.map((allowance: any, index: number) => (
+                        <div
+                          key={allowance?.id || index}
+                          style={{
+                            padding: "14px 16px",
+                            borderRadius: 8,
+                            background: "#ffffff",
+                            border: "1px solid var(--br2)",
+                            borderLeft: "4px solid var(--amber)",
+                            boxShadow: "0 2px 8px rgba(15,23,42,.02)",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            minHeight: 100,
+                          }}
+                        >
+                          <div style={{ display: "inline-flex", alignItems: "center", alignSelf: "flex-start", gap: 8, padding: "4px 8px", borderRadius: 999, background: "rgba(245,158,11,.13)", fontSize: 11, fontWeight: 800, color: "#b45309", marginBottom: 10, textTransform: "uppercase" }}>
+                            {formatValue(allowance?.field_name)}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                            <span className="mono" style={{ fontSize: 18, fontWeight: 900, color: "var(--t1)" }}>
+                              {formatAllowanceAmount(allowance)}
+                            </span>
+                            <span className="pill pill-green">Current</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ padding: "18px 14px", textAlign: "center", background: "rgba(148,163,184,.05)", border: "1px dashed var(--br2)", borderRadius: 8, color: "var(--t3)" }}>
+                      No current active allowances.
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ padding: "24px 16px", textAlign: "center", background: "rgba(148,163,184,.05)", border: "1px dashed var(--br2)", borderRadius: 8, color: "var(--t3)" }}>
-              No allowances configured for this employee.
-            </div>
-          )}
-        </InfoCard>
+                {deactiveAllowances.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: "var(--t1)", marginBottom: 10 }}>Deactive Allowances</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+                      {deactiveAllowances.map((allowance: any, index: number) => (
+                        <div
+                          key={allowance?.id || index}
+                          style={{
+                            padding: "14px 16px",
+                            borderRadius: 8,
+                            background: "#ffffff",
+                            border: "1px solid var(--br2)",
+                            borderLeft: "4px solid var(--red)",
+                            boxShadow: "0 2px 8px rgba(15,23,42,.02)",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            minHeight: 100,
+                            opacity: 0.82,
+                          }}
+                        >
+                          <div style={{ display: "inline-flex", alignItems: "center", alignSelf: "flex-start", gap: 8, padding: "4px 8px", borderRadius: 999, background: "rgba(220,38,38,.1)", fontSize: 11, fontWeight: 800, color: "var(--red)", marginBottom: 10, textTransform: "uppercase" }}>
+                            {formatValue(allowance?.field_name)}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                            <span className="mono" style={{ fontSize: 18, fontWeight: 900, color: "var(--t1)" }}>
+                              {formatAllowanceAmount(allowance)}
+                            </span>
+                            <span className="pill pill-red">Deactive</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ padding: "24px 16px", textAlign: "center", background: "rgba(148,163,184,.05)", border: "1px dashed var(--br2)", borderRadius: 8, color: "var(--t3)" }}>
+                No allowances configured for this employee.
+              </div>
+            )}
+          </InfoCard>
+        </div>
 
-        <InfoCard title="Salary History" icon={<CalendarDays size={15} />}>
-          {salaryHistory.length ? (
-            <div style={{ overflowX: "auto" }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Effective From</th>
-                    <th>Base Salary</th>
-                    <th>Revision Type</th>
-                    <th>Percent</th>
-                    <th>Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {salaryHistory.map((row: any, index: number) => (
-                    <tr key={row.id || index}>
-                      <td className="mono">{formatDate(row.effective_from)}</td>
-                      <td className="mono">{formatMoney(row.base_salary, row.currency || employee.salaryInfo?.currency || "PKR")}</td>
-                      <td>{formatValue(row.revision_type)}</td>
-                      <td className="mono">{formatValue(row.revision_percent)}</td>
-                      <td>{formatValue(row.revision_reason)}</td>
+        <div style={{ marginTop: 16 }}>
+          <InfoCard title="Salary History" icon={<CalendarDays size={15} />} accent="var(--green)" tint="rgba(15,118,110,.1)">
+            {salaryHistory.length ? (
+              <div style={{ overflowX: "auto" }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Effective From</th>
+                      <th>Base Salary</th>
+                      <th>Revision Type</th>
+                      <th>Percent</th>
+                      <th>Reason</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState>No salary history available yet.</EmptyState>
-          )}
-        </InfoCard>
+                  </thead>
+                  <tbody>
+                    {salaryHistory.map((row: any, index: number) => (
+                      <tr key={row.id || index}>
+                        <td className="mono">{formatDate(row.effective_from)}</td>
+                        <td className="mono">{formatMoney(row.base_salary, row.currency || employee.salaryInfo?.currency || "PKR")}</td>
+                        <td>{formatValue(row.revision_type)}</td>
+                        <td className="mono">{formatValue(row.revision_percent)}</td>
+                        <td>{formatValue(row.revision_reason)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState>No salary history available yet.</EmptyState>
+            )}
+          </InfoCard>
+        </div>
+
+        <div style={{ marginTop: 16 }}>
+          <InfoCard title="Allowance History" icon={<Banknote size={15} />} accent="#b45309" tint="rgba(245,158,11,.14)">
+            {allowanceHistory.length ? (
+              <div style={{ overflowX: "auto" }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Amount</th>
+                      <th>Current</th>
+                      <th>Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allowanceHistory.map((row: any, index: number) => (
+                      <tr key={row.id || index}>
+                        <td>{formatValue(row.field_name || row.allowance_type_name || row.allowance_type_id)}</td>
+                        <td className="mono">{formatAllowanceAmount(row)}</td>
+                        <td>{row.is_current ? "Yes" : "No"}</td>
+                        <td className="mono">{formatDate(row.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState>No allowance history available yet.</EmptyState>
+            )}
+          </InfoCard>
+        </div>
       </div>
 
       <div style={{ display: tab === "bank-medical" ? "block" : "none" }}>
-        <InfoCard title="Bank & Medical" icon={<HeartPulse size={15} />}>
+        <InfoCard title="Bank Info" icon={<Landmark size={15} />} accent="#7c3aed" tint="rgba(124,58,237,.11)">
           {employee.bankVerified && (
             <div style={{ marginBottom: 12 }}>
               <span className="pill pill-green" style={{ fontSize: 11, padding: "4px 10px" }}>Verified</span>
@@ -844,28 +1094,37 @@ export default function EmployeeDetail() {
               ["Bank Name", employee.bankName],
               ["Bank Account", employee.bankAccount],
               ["Verification", employee.bankVerified ? "Verified" : "Not provided"],
-              ["Blood Group", employee.bloodGroup],
-              ["Gender", employee.genderMedical],
-              ["Height", employee.heightCm],
-              ["Weight", employee.weightKg],
-              ["Disability", employee.hasDisability ? "Yes" : "No"],
-              ["Disability Type", employee.disabilityType],
-              ["Disability Description", employee.disabilityDescription],
-              ["Chronic Condition", employee.hasChronicCondition ? "Yes" : "No"],
-              ["Allergies", employee.allergies],
-              ["Known Allergies", employee.hasKnownAllergies ? "Yes" : "No"],
-              ["Chronic Conditions", employee.chronicConditions],
-              ["Medication", employee.medications],
-              ["Fitness Status", employee.fitnessStatus],
-              ["Last Medical Exam", formatDate(employee.lastMedicalExamDate)],
-              ["Next Medical Exam", formatDate(employee.nextMedicalExamDate)],
             ]}
           />
         </InfoCard>
+
+        <div style={{ marginTop: 16 }}>
+          <InfoCard title="Medical Info" icon={<HeartPulse size={15} />} accent="#0891b2" tint="rgba(8,145,178,.11)">
+            <FieldGrid
+              items={[
+                ["Blood Group", employee.bloodGroup],
+                ["Gender", employee.genderMedical],
+                ["Height", employee.heightCm],
+                ["Weight", employee.weightKg],
+                ["Disability", employee.hasDisability ? "Yes" : "No"],
+                ["Disability Type", employee.disabilityType],
+                ["Disability Description", employee.disabilityDescription],
+                ["Chronic Condition", employee.hasChronicCondition ? "Yes" : "No"],
+                ["Allergies", employee.allergies],
+                ["Known Allergies", employee.hasKnownAllergies ? "Yes" : "No"],
+                ["Chronic Conditions", employee.chronicConditions],
+                ["Medication", employee.medications],
+                ["Fitness Status", employee.fitnessStatus],
+                ["Last Medical Exam", formatDate(employee.lastMedicalExamDate)],
+                ["Next Medical Exam", formatDate(employee.nextMedicalExamDate)],
+              ]}
+            />
+          </InfoCard>
+        </div>
       </div>
 
       <div style={{ display: tab === "documents" ? "block" : "none" }}>
-        <InfoCard title="Documents" icon={<FileText size={15} />}>
+        <InfoCard title="Documents" icon={<FileText size={15} />} accent="#4338ca" tint="rgba(67,56,202,.1)">
           {attachmentsLoading ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--t3)", padding: 20 }}>
               <Loader2 className="spinner" size={16} />
@@ -902,8 +1161,8 @@ export default function EmployeeDetail() {
         </InfoCard>
       </div>
 
-      <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-        <InfoCard title={windowOffset === 0 ? "Attendance (Last 6 Months)" : "Attendance (Previous 6 Months)"} icon={<Clock3 size={15} />}>
+      <div style={{ display: tab === "attendance" ? "block" : "none" }}>
+        <InfoCard title={windowOffset === 0 ? "Attendance (Last 6 Months)" : "Attendance (Previous 6 Months)"} icon={<Clock3 size={15} />} accent="#2563eb" tint="rgba(37,99,235,.1)">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <span className="pill pill-green">Present: {attendanceTotals.present}</span>
@@ -931,8 +1190,10 @@ export default function EmployeeDetail() {
             </ResponsiveContainer>
           )}
         </InfoCard>
+      </div>
 
-        <InfoCard title="Leave Requests" icon={<CalendarDays size={15} />}>
+      <div style={{ display: tab === "leaves" ? "block" : "none" }}>
+        <InfoCard title="Leave Requests" icon={<CalendarDays size={15} />} accent="#0d9488" tint="rgba(13,148,136,.1)">
           {balancesLoading ? (
             <EmptyState>Loading leave balances...</EmptyState>
           ) : leaveBalances.length ? (
@@ -995,8 +1256,10 @@ export default function EmployeeDetail() {
             <EmptyState>No leave requests found.</EmptyState>
           )}
         </InfoCard>
+      </div>
 
-        <InfoCard title="Penalties" icon={<BadgeDollarSign size={15} />}>
+      <div style={{ display: tab === "penalties" ? "block" : "none" }}>
+        <InfoCard title="Penalties" icon={<BadgeDollarSign size={15} />} accent="#dc2626" tint="rgba(220,38,38,.1)">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
             {penaltiesError && (
               <div style={{ display: "flex", gap: 10, alignItems: "center", padding: 14, border: "1px dashed rgba(245,158,11,.45)", borderRadius: 12, background: "rgba(255,251,235,.7)", color: "#92400e" }}>
@@ -1038,8 +1301,10 @@ export default function EmployeeDetail() {
             <EmptyState>No penalties recorded.</EmptyState>
           )}
         </InfoCard>
+      </div>
 
-        <InfoCard title="Management" icon={<Mail size={15} />}>
+      <div style={{ display: tab === "management" ? "block" : "none" }}>
+        <InfoCard title="Management" icon={<Mail size={15} />} accent="#4f46e5" tint="rgba(79,70,229,.1)">
           <div style={{ display: "grid", gap: 14 }}>
             <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
               <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>{hasLoginAccount ? "Login Account" : "Create Login Account"}</div>
@@ -1134,6 +1399,117 @@ export default function EmployeeDetail() {
                   {isAddingSalaryRevision ? "Saving..." : "Add salary history"}
                 </button>
               </div>
+            </div>
+
+            <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Allowance Management</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button className="btn btn-secondary btn-sm" onClick={handleAddAllowanceRow}>
+                    Add allowance row
+                  </button>
+                  <button className="btn btn-primary btn-sm" onClick={handleSaveAllowances} disabled={isUpdatingAllowances}>
+                    {isUpdatingAllowances ? "Saving..." : "Save allowances"}
+                  </button>
+                </div>
+              </div>
+              {allowanceDrafts.length ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {allowanceDrafts.map((row, index) => (
+                    <div
+                      key={`${row.allowance_type_id || "row"}-${index}`}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "minmax(220px, 1.4fr) minmax(140px, 0.8fr) minmax(100px, 0.6fr) minmax(90px, 0.5fr) auto",
+                        gap: 10,
+                        alignItems: "end",
+                      }}
+                    >
+                      <label className="form-group" style={{ margin: 0 }}>
+                        <span className="form-label">Allowance Type</span>
+                        <select
+                          className="input select-input"
+                          value={row.allowance_type_id}
+                          onChange={(event) => {
+                            const next = event.target.value;
+                            setAllowanceDrafts((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, allowance_type_id: next } : item,
+                              ),
+                            );
+                          }}
+                        >
+                          <option value="">Select allowance type</option>
+                          {allowanceTypes.map((type: any) => (
+                            <option key={type.id} value={type.id}>
+                              {type.field_name || type.name || type.title}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="form-group" style={{ margin: 0 }}>
+                        <span className="form-label">Amount</span>
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          value={row.amount}
+                          onChange={(event) => {
+                            const next = event.target.value;
+                            setAllowanceDrafts((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, amount: next } : item,
+                              ),
+                            );
+                          }}
+                        />
+                      </label>
+                      <label className="form-group" style={{ margin: 0, paddingBottom: 2 }}>
+                        <span className="form-label">Percentage</span>
+                        <input
+                          type="checkbox"
+                          checked={row.is_percentage}
+                          onChange={(event) => {
+                            const checked = event.target.checked;
+                            setAllowanceDrafts((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, is_percentage: checked } : item,
+                              ),
+                            );
+                          }}
+                        />
+                      </label>
+                      <label className="form-group" style={{ margin: 0, paddingBottom: 2 }}>
+                        <span className="form-label">Active</span>
+                        <input
+                          type="checkbox"
+                          checked={row.is_active}
+                          onChange={(event) => {
+                            const checked = event.target.checked;
+                            setAllowanceDrafts((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, is_active: checked } : item,
+                              ),
+                            );
+                          }}
+                        />
+                      </label>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() =>
+                          setAllowanceDrafts((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                        }
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: "var(--t3)", margin: 0 }}>
+                  Add allowance rows here to update the employee's allowance package.
+                </p>
+              )}
             </div>
 
             <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
