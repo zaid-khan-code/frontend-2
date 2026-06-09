@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CalendarDays, Check, ChevronDown, Clock, Plus, RotateCcw, Users, X } from "lucide-react";
 import Modal from "../components/common/Modal";
 import { useToastContext } from "../context/ToastContext";
@@ -252,98 +252,189 @@ export default function Leave() {
           {balanceSummaries.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: "var(--t3)" }}>No leave balances found.</div>
           ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Employee</th>
-                  <th>Department</th>
-                  <th>Overall Status</th>
-                  <th aria-label="Expand balance details" />
-                </tr>
-              </thead>
-              <tbody>
-                {balanceSummaries.map((balance: any) => {
-                  const isExpanded = expandedEmployeeId === balance.employee_id;
-                  const allocated = Number(balance.total_allocated ?? 0);
-                  const used = Number(balance.total_used ?? 0);
-                  const remaining = Number(balance.total_remaining ?? allocated - used);
-                  const usedPercent = allocated > 0 ? Math.min(100, Math.round((used / allocated) * 100)) : 0;
-                  const photoUrl = profileImageUrl(balance.profile_photo_url);
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {balanceSummaries.map((balance: any) => {
+                const isExpanded = expandedEmployeeId === balance.employee_id;
+                const allocated = Number(balance.total_allocated ?? 0);
+                const used = Number(balance.total_used ?? 0);
+                const remaining = Number(balance.total_remaining ?? allocated - used);
+                const usedPercent = allocated > 0 ? Math.min(100, Math.round((used / allocated) * 100)) : 0;
+                const photoUrl = profileImageUrl(balance.profile_photo_url);
+                const leaveTypeColors = [
+                  { bg: "rgba(37,99,235,.07)", border: "rgba(37,99,235,.18)", accent: "#2563eb", barBg: "rgba(37,99,235,.12)", bar: "#2563eb" },
+                  { bg: "rgba(16,185,129,.06)", border: "rgba(16,185,129,.18)", accent: "#0f766e", barBg: "rgba(16,185,129,.12)", bar: "#10b981" },
+                  { bg: "rgba(245,158,11,.06)", border: "rgba(245,158,11,.18)", accent: "#b45309", barBg: "rgba(245,158,11,.12)", bar: "#f59e0b" },
+                  { bg: "rgba(168,85,247,.06)", border: "rgba(168,85,247,.18)", accent: "#7c3aed", barBg: "rgba(168,85,247,.12)", bar: "#a855f7" },
+                  { bg: "rgba(236,72,153,.06)", border: "rgba(236,72,153,.18)", accent: "#be185d", barBg: "rgba(236,72,153,.12)", bar: "#ec4899" },
+                  { bg: "rgba(14,165,233,.06)", border: "rgba(14,165,233,.18)", accent: "#0369a1", barBg: "rgba(14,165,233,.12)", bar: "#0ea5e9" },
+                  { bg: "rgba(20,184,166,.06)", border: "rgba(20,184,166,.18)", accent: "#0d9488", barBg: "rgba(20,184,166,.12)", bar: "#14b8a6" },
+                  { bg: "rgba(100,116,139,.06)", border: "rgba(100,116,139,.18)", accent: "#475569", barBg: "rgba(100,116,139,.12)", bar: "#64748b" },
+                ];
 
-                  return (
-                    <React.Fragment key={balance.employee_id}>
-                      <tr
-                        onClick={() => setExpandedEmployeeId(isExpanded ? "" : balance.employee_id)}
-                        style={{ cursor: "pointer" }}
-                        aria-expanded={isExpanded}
-                      >
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            {photoUrl ? (
-                              <img
-                                src={photoUrl}
-                                alt={`${balance.employee_name || balance.employee_id} profile`}
-                                style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flex: "0 0 auto" }}
-                              />
-                            ) : (
-                              <div style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(37,99,235,.1)", color: "var(--p)", fontSize: 11, fontWeight: 900, flex: "0 0 auto" }}>
-                                {employeeInitials(balance.employee_name, balance.employee_id)}
-                              </div>
-                            )}
-                            <div>
-                              <strong>{balance.employee_name || balance.employee_id}</strong>
-                              <div className="mono" style={{ fontSize: 10, color: "var(--t3)" }}>{balance.employee_id}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td>{balance.department_name || "Not provided"}</td>
-                        <td style={{ minWidth: 240 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6, fontSize: 11 }}>
-                            <span>{used.toLocaleString("en-PK")} taken of {allocated.toLocaleString("en-PK")}</span>
-                            <strong>{remaining.toLocaleString("en-PK")} remaining</strong>
-                          </div>
-                          <div style={{ height: 7, borderRadius: 4, overflow: "hidden", background: "var(--br2)" }}>
-                            <div style={{ width: `${usedPercent}%`, height: "100%", background: "var(--p)", borderRadius: 4 }} />
-                          </div>
-                        </td>
-                        <td style={{ width: 44, textAlign: "right" }}>
-                          <ChevronDown
-                            size={17}
-                            style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .15s ease" }}
-                          />
-                        </td>
-                      </tr>
-                      {isExpanded && (
-                        <tr>
-                          <td colSpan={4} style={{ background: "rgba(248,250,252,.7)", padding: 14 }}>
-                            <table>
-                              <thead>
-                                <tr>
-                                  <th>Leave Type</th>
-                                  <th>Allocated</th>
-                                  <th>Taken</th>
-                                  <th>Remaining</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {(balance.leave_types || []).map((leaveType: any) => (
-                                  <tr key={leaveType.leave_type_id}>
-                                    <td>{leaveType.leave_type_name || "Leave"}</td>
-                                    <td className="mono">{Number(leaveType.allocated ?? 0).toLocaleString("en-PK")}</td>
-                                    <td className="mono">{Number(leaveType.used ?? 0).toLocaleString("en-PK")}</td>
-                                    <td className="mono">{Number(leaveType.remaining ?? 0).toLocaleString("en-PK")}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </td>
-                        </tr>
+                return (
+                  <div key={balance.employee_id}>
+                    {/* Clickable employee row */}
+                    <div
+                      onClick={() => setExpandedEmployeeId(isExpanded ? "" : balance.employee_id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedEmployeeId(isExpanded ? "" : balance.employee_id); } }}
+                      aria-expanded={isExpanded}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 14,
+                        padding: "12px 16px",
+                        borderRadius: isExpanded ? "12px 12px 0 0" : 12,
+                        background: isExpanded ? "linear-gradient(135deg, rgba(56,189,248,.08), rgba(168,85,247,.06))" : "#fff",
+                        border: `1px solid ${isExpanded ? "rgba(56,189,248,.22)" : "rgba(226,232,240,.8)"}`,
+                        borderBottom: isExpanded ? "1px solid rgba(56,189,248,.12)" : undefined,
+                        cursor: "pointer",
+                        transition: "all .2s ease",
+                      }}
+                    >
+                      {/* Avatar */}
+                      {photoUrl ? (
+                        <img
+                          src={photoUrl}
+                          alt={`${balance.employee_name || balance.employee_id} profile`}
+                          style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "2px solid rgba(56,189,248,.2)", boxShadow: "0 4px 12px rgba(56,189,248,.12)" }}
+                        />
+                      ) : (
+                        <div style={{ width: 40, height: 40, borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(145deg, var(--p2), var(--p3))", color: "#fff", fontSize: 12, fontWeight: 800, flexShrink: 0, boxShadow: "0 4px 12px rgba(56,189,248,.18)" }}>
+                          {employeeInitials(balance.employee_name, balance.employee_id)}
+                        </div>
                       )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+
+                      {/* Name + ID */}
+                      <div style={{ minWidth: 130, flex: "0 0 auto" }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: "var(--t1)" }}>{balance.employee_name || balance.employee_id}</div>
+                        <div className="mono" style={{ fontSize: 10, color: "var(--t4)", marginTop: 1 }}>{balance.employee_id}</div>
+                      </div>
+
+                      {/* Department */}
+                      <div style={{ flex: "0 0 auto", minWidth: 100, fontSize: 12, color: "var(--t3)" }}>
+                        <span style={{ background: "rgba(100,116,139,.08)", padding: "3px 10px", borderRadius: 20, fontSize: 10.5, fontWeight: 600, color: "var(--t2)" }}>
+                          {balance.department_name || "Unassigned"}
+                        </span>
+                      </div>
+
+                      {/* Overall progress */}
+                      <div style={{ flex: 1, minWidth: 160 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+                          <span style={{ fontSize: 10.5, color: "var(--t3)" }}>
+                            {used} used of {allocated}
+                          </span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: remaining > 0 ? "var(--green)" : "var(--red)" }}>
+                            {remaining} remaining
+                          </span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 3, overflow: "hidden", background: "var(--br2)" }}>
+                          <div
+                            style={{
+                              width: `${usedPercent}%`,
+                              height: "100%",
+                              borderRadius: 3,
+                              background: usedPercent > 80 ? "linear-gradient(90deg, #f59e0b, #ef4444)" : usedPercent > 50 ? "linear-gradient(90deg, #2563eb, #f59e0b)" : "linear-gradient(90deg, #10b981, #2563eb)",
+                              transition: "width .4s ease",
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Chevron */}
+                      <ChevronDown
+                        size={16}
+                        style={{
+                          color: "var(--t4)",
+                          flexShrink: 0,
+                          transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                          transition: "transform .25s cubic-bezier(.4,0,.2,1)",
+                        }}
+                      />
+                    </div>
+
+                    {/* Expanded mini-card grid */}
+                    {isExpanded && (
+                      <div
+                        style={{
+                          padding: "16px 18px 18px",
+                          background: "linear-gradient(180deg, rgba(248,250,252,.95), rgba(241,245,249,.85))",
+                          border: "1px solid rgba(56,189,248,.16)",
+                          borderTop: "none",
+                          borderRadius: "0 0 12px 12px",
+                          animation: "fadeIn .2s ease",
+                        }}
+                      >
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--t4)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 10 }}>
+                          Leave Breakdown — {(balance.leave_types || []).length} Type{(balance.leave_types || []).length !== 1 ? "s" : ""}
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fill, minmax(165px, 1fr))",
+                            gap: 10,
+                          }}
+                        >
+                          {(balance.leave_types || []).map((lt: any, idx: number) => {
+                            const ltAlloc = Number(lt.allocated ?? 0);
+                            const ltUsed = Number(lt.used ?? 0);
+                            const ltRemaining = Number(lt.remaining ?? 0);
+                            const ltPercent = ltAlloc > 0 ? Math.min(100, Math.round((ltUsed / ltAlloc) * 100)) : 0;
+                            const palette = leaveTypeColors[idx % leaveTypeColors.length];
+
+                            return (
+                              <div
+                                key={lt.leave_type_id}
+                                style={{
+                                  background: palette.bg,
+                                  border: `1px solid ${palette.border}`,
+                                  borderRadius: 10,
+                                  padding: "12px 14px",
+                                  position: "relative",
+                                  overflow: "hidden",
+                                  transition: "transform .15s ease, box-shadow .15s ease",
+                                }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 20px rgba(0,0,0,.06)"; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
+                              >
+                                {/* Leave type name */}
+                                <div style={{ fontSize: 11, fontWeight: 700, color: palette.accent, marginBottom: 10, letterSpacing: ".01em" }}>
+                                  {lt.leave_type_name || "Leave"}
+                                </div>
+
+                                {/* Three metrics */}
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 4, marginBottom: 10 }}>
+                                  <div style={{ textAlign: "center", flex: 1 }}>
+                                    <div className="mono" style={{ fontSize: 16, fontWeight: 800, color: "var(--t1)", lineHeight: 1.1 }}>{ltRemaining}</div>
+                                    <div style={{ fontSize: 8.5, color: "var(--t4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 2 }}>Left</div>
+                                  </div>
+                                  <div style={{ width: 1, background: palette.border, alignSelf: "stretch", margin: "2px 0" }} />
+                                  <div style={{ textAlign: "center", flex: 1 }}>
+                                    <div className="mono" style={{ fontSize: 16, fontWeight: 800, color: "var(--t1)", lineHeight: 1.1 }}>{ltUsed}</div>
+                                    <div style={{ fontSize: 8.5, color: "var(--t4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 2 }}>Used</div>
+                                  </div>
+                                  <div style={{ width: 1, background: palette.border, alignSelf: "stretch", margin: "2px 0" }} />
+                                  <div style={{ textAlign: "center", flex: 1 }}>
+                                    <div className="mono" style={{ fontSize: 16, fontWeight: 800, color: "var(--t1)", lineHeight: 1.1 }}>{ltAlloc}</div>
+                                    <div style={{ fontSize: 8.5, color: "var(--t4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 2 }}>Total</div>
+                                  </div>
+                                </div>
+
+                                {/* Mini progress bar */}
+                                <div style={{ height: 4, borderRadius: 2, overflow: "hidden", background: palette.barBg }}>
+                                  <div style={{ width: `${ltPercent}%`, height: "100%", borderRadius: 2, background: palette.bar, transition: "width .4s ease" }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       ) : (
