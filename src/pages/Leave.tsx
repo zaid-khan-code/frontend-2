@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarDays, Check, ChevronDown, Clock, Plus, RotateCcw, Users, X } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Clock, MessageCircle, Plus, RotateCcw, Users, X } from "lucide-react";
 import Modal from "../components/common/Modal";
 import { useToastContext } from "../context/ToastContext";
 import { useLeaveBalanceSummary, useLeaves } from "../hooks/useLeaves";
@@ -100,6 +100,8 @@ export default function Leave() {
         to: endDate,
         days: daysBetweenInclusive(startDate, endDate),
         reason: leave.reason || "Not provided",
+        reviewNote: leave.review_note || leave.rejection_reason || "",
+        department: leave.department_name || "",
         appliedOn: leave.created_at,
         status: statusLabel(leave.status),
         approvedBy: readableApprover(leave.reviewed_by_name, leave.approved_by_name, leave.actioned_by_name, leave.reviewed_by),
@@ -434,6 +436,137 @@ export default function Leave() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      ) : tab === "rejected" ? (
+        <div className="card">
+          <div className="ch">
+            <div className="ct">Rejected Leave Requests</div>
+            <span className="mono" style={{ fontSize: 11, color: "var(--t4)" }}>{filteredRows.length} total</span>
+          </div>
+          {filteredRows.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: "var(--t3)" }}>
+              <X size={32} style={{ margin: "0 auto 8px", opacity: 0.4 }} />
+              <div style={{ fontSize: 13 }}>No rejected leave requests</div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12 }}>
+              {filteredRows.map((row: any) => (
+                <div
+                  key={row.id}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid rgba(239,68,68,.16)",
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    transition: "transform .15s ease, box-shadow .15s ease, border-color .15s ease",
+                  }}
+                  onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.boxShadow = "0 8px 24px rgba(185,28,28,.08)"; el.style.borderColor = "rgba(239,68,68,.28)"; }}
+                  onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(0)"; el.style.boxShadow = "none"; el.style.borderColor = "rgba(239,68,68,.16)"; }}
+                >
+
+                  {/* Card body */}
+                  <div style={{ padding: "14px 16px" }}>
+                    {/* Top row: employee + leave type pill + date */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(145deg, var(--p2), var(--p3))", color: "#fff", fontSize: 11, fontWeight: 800, flexShrink: 0, boxShadow: "0 4px 10px rgba(56,189,248,.15)" }}>
+                        {employeeInitials(row.empName, row.empId)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: "var(--t1)" }}>{row.empName}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                          <span className="mono" style={{ fontSize: 10, color: "var(--t4)" }}>{row.empId}</span>
+                          {row.department && (
+                            <>
+                              <span style={{ color: "var(--br3)", fontSize: 10 }}>·</span>
+                              <span style={{ fontSize: 10, color: "var(--t4)" }}>{row.department}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <span style={{ background: "rgba(239,68,68,.08)", color: "#b91c1c", fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(239,68,68,.15)", flexShrink: 0 }}>
+                        {row.leaveType}
+                      </span>
+                    </div>
+
+                    {/* Date range + days strip */}
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "8px 12px",
+                      background: "rgba(241,245,249,.7)",
+                      borderRadius: 8,
+                      marginBottom: 12,
+                      fontSize: 11,
+                    }}>
+                      <CalendarDays size={13} style={{ color: "var(--t4)", flexShrink: 0 }} />
+                      <span className="mono" style={{ color: "var(--t2)" }}>{formatDate(row.from)}</span>
+                      <span style={{ color: "var(--t4)", fontSize: 10 }}>→</span>
+                      <span className="mono" style={{ color: "var(--t2)" }}>{formatDate(row.to)}</span>
+                      <span style={{
+                        marginLeft: "auto",
+                        background: "rgba(100,116,139,.1)",
+                        padding: "2px 8px",
+                        borderRadius: 12,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: "var(--t2)",
+                      }}>
+                        {row.days} day{row.days !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+
+                    {/* Employee's original reason */}
+                    <div style={{ fontSize: 11.5, color: "var(--t2)", marginBottom: 10, lineHeight: 1.5 }}>
+                      <span style={{ fontWeight: 600, color: "var(--t3)", fontSize: 10, textTransform: "uppercase", letterSpacing: ".06em" }}>Request Reason</span>
+                      <div style={{ marginTop: 3 }}>{row.reason}</div>
+                    </div>
+
+                    {/* Rejection reason callout */}
+                    <div style={{
+                      background: "rgba(254,226,226,.45)",
+                      border: "1px solid rgba(239,68,68,.15)",
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "flex-start",
+                    }}>
+                      <div style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 8,
+                        background: "rgba(239,68,68,.12)",
+                        display: "grid",
+                        placeItems: "center",
+                        flexShrink: 0,
+                        marginTop: 1,
+                      }}>
+                        <MessageCircle size={13} style={{ color: "#b91c1c" }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 9.5, fontWeight: 700, color: "#b91c1c", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 3 }}>Rejection Reason</div>
+                        <div style={{ fontSize: 12, color: "#991b1b", lineHeight: 1.5 }}>
+                          {row.reviewNote || "No reason provided"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer: reviewer + applied date */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(226,232,240,.6)" }}>
+                      <div style={{ fontSize: 10.5, color: "var(--t4)" }}>
+                        <span style={{ fontWeight: 600 }}>Rejected by</span>{" "}
+                        <span style={{ color: "var(--t2)", fontWeight: 700 }}>{row.approvedBy || "Not provided"}</span>
+                      </div>
+                      <div className="mono" style={{ fontSize: 10, color: "var(--t4)" }}>
+                        Applied {formatDate(row.appliedOn)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
