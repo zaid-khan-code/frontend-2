@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarDays, Check, ChevronDown, Clock, MessageCircle, Plus, RotateCcw, Users, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, MessageCircle, Plus, RotateCcw, Users, X } from "lucide-react";
 import Modal from "../components/common/Modal";
 import { useToastContext } from "../context/ToastContext";
 import { useLeaveBalanceSummary, useLeaves } from "../hooks/useLeaves";
@@ -85,6 +85,7 @@ export default function Leave() {
   const [newFrom, setNewFrom] = useState("");
   const [newTo, setNewTo] = useState("");
   const [newReason, setNewReason] = useState("");
+  const [selectedPendingId, setSelectedPendingId] = useState("");
 
   const rows = useMemo(() => {
     return serverLeaves.map((leave: any) => {
@@ -567,6 +568,285 @@ export default function Leave() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      ) : tab === "pending" ? (
+        <div className="card">
+          <div className="ch">
+            <div className="ct">Pending Leave Requests</div>
+            <span className="mono" style={{ fontSize: 11, color: "var(--t4)" }}>{filteredRows.length} awaiting review</span>
+          </div>
+          {filteredRows.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: "var(--t3)" }}>
+              <Clock size={32} style={{ margin: "0 auto 8px", opacity: 0.4 }} />
+              <div style={{ fontSize: 13 }}>No pending leave requests</div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 0, minHeight: 340 }}>
+              {/* Left: compact list */}
+              <div style={{ width: 280, flexShrink: 0, borderRight: "1px solid var(--br2)", overflowY: "auto", maxHeight: 480 }}>
+                {filteredRows.map((row: any) => {
+                  const isSelected = selectedPendingId === row.id;
+                  const today = new Date().toISOString().slice(0, 10);
+                  const startsIn = Math.ceil((new Date(String(row.from).slice(0, 10)).getTime() - new Date(today).getTime()) / 86400000);
+                  const urgency = startsIn <= 1 ? "urgent" : startsIn <= 3 ? "soon" : "normal";
+
+                  return (
+                    <div
+                      key={row.id}
+                      onClick={() => setSelectedPendingId(isSelected ? "" : row.id)}
+                      style={{
+                        padding: "12px 14px",
+                        cursor: "pointer",
+                        borderBottom: "1px solid var(--br2)",
+                        background: isSelected ? "rgba(56,189,248,.06)" : "#fff",
+                        borderLeft: isSelected ? "3px solid var(--p2)" : "3px solid transparent",
+                        transition: "all .15s ease",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <div style={{ fontWeight: 700, fontSize: 12.5, color: "var(--t1)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.empName}</div>
+                        {urgency === "urgent" && (
+                          <span style={{ background: "rgba(239,68,68,.1)", color: "#b91c1c", fontSize: 8.5, fontWeight: 700, padding: "2px 6px", borderRadius: 10, display: "flex", alignItems: "center", gap: 3 }}>
+                            <AlertTriangle size={9} /> Urgent
+                          </span>
+                        )}
+                        {urgency === "soon" && (
+                          <span style={{ background: "rgba(245,158,11,.1)", color: "#b45309", fontSize: 8.5, fontWeight: 700, padding: "2px 6px", borderRadius: 10 }}>
+                            Soon
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "var(--t4)" }}>
+                        <span>{row.leaveType}</span>
+                        <span>·</span>
+                        <span className="mono">{row.days}d</span>
+                        <span>·</span>
+                        <span className="mono">{formatDate(row.from)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Right: detail panel */}
+              <div style={{ flex: 1, padding: "20px 24px", overflowY: "auto", maxHeight: 480 }}>
+                {(() => {
+                  const detail = filteredRows.find((r: any) => r.id === selectedPendingId);
+                  if (!detail) return (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--t4)", gap: 8 }}>
+                      <Clock size={28} style={{ opacity: 0.3 }} />
+                      <div style={{ fontSize: 12.5 }}>Select a request to review</div>
+                    </div>
+                  );
+
+                  const today = new Date().toISOString().slice(0, 10);
+                  const startsIn = Math.ceil((new Date(String(detail.from).slice(0, 10)).getTime() - new Date(today).getTime()) / 86400000);
+
+                  return (
+                    <div style={{ animation: "fadeIn .2s ease" }}>
+                      {/* Employee header */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(145deg, var(--p2), var(--p3))", color: "#fff", fontSize: 13, fontWeight: 800, flexShrink: 0, boxShadow: "0 4px 12px rgba(56,189,248,.18)" }}>
+                          {employeeInitials(detail.empName, detail.empId)}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 800, fontSize: 15, color: "var(--t1)" }}>{detail.empName}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                            <span className="mono" style={{ fontSize: 10.5, color: "var(--t4)" }}>{detail.empId}</span>
+                            {detail.department && (
+                              <>
+                                <span style={{ color: "var(--br3)" }}>·</span>
+                                <span style={{ fontSize: 10.5, color: "var(--t4)" }}>{detail.department}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {startsIn <= 1 && (
+                          <span style={{ background: "rgba(239,68,68,.1)", color: "#b91c1c", fontSize: 10, fontWeight: 700, padding: "4px 10px", borderRadius: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                            <AlertTriangle size={11} /> {startsIn <= 0 ? "Starts today" : "Starts tomorrow"}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Details grid */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                        <div style={{ background: "var(--inp)", padding: "10px 14px", borderRadius: 10 }}>
+                          <div style={{ fontSize: 9.5, fontWeight: 700, color: "var(--t4)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>Leave Type</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)" }}>{detail.leaveType}</div>
+                        </div>
+                        <div style={{ background: "var(--inp)", padding: "10px 14px", borderRadius: 10 }}>
+                          <div style={{ fontSize: 9.5, fontWeight: 700, color: "var(--t4)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>Duration</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)" }}>{detail.days} day{detail.days !== 1 ? "s" : ""}</div>
+                        </div>
+                        <div style={{ background: "var(--inp)", padding: "10px 14px", borderRadius: 10 }}>
+                          <div style={{ fontSize: 9.5, fontWeight: 700, color: "var(--t4)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>From</div>
+                          <div className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: "var(--t1)" }}>{formatDate(detail.from)}</div>
+                        </div>
+                        <div style={{ background: "var(--inp)", padding: "10px 14px", borderRadius: 10 }}>
+                          <div style={{ fontSize: 9.5, fontWeight: 700, color: "var(--t4)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>To</div>
+                          <div className="mono" style={{ fontSize: 12.5, fontWeight: 600, color: "var(--t1)" }}>{formatDate(detail.to)}</div>
+                        </div>
+                      </div>
+
+                      {/* Reason */}
+                      <div style={{ background: "var(--inp)", padding: "12px 14px", borderRadius: 10, marginBottom: 16 }}>
+                        <div style={{ fontSize: 9.5, fontWeight: 700, color: "var(--t4)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 5 }}>Reason</div>
+                        <div style={{ fontSize: 12.5, color: "var(--t2)", lineHeight: 1.6 }}>{detail.reason}</div>
+                      </div>
+
+                      {/* Applied date */}
+                      <div className="mono" style={{ fontSize: 10.5, color: "var(--t4)", marginBottom: 16 }}>Applied {formatDate(detail.appliedOn)}</div>
+
+                      {/* Action buttons */}
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button
+                          className="btn btn-success"
+                          onClick={() => confirmApprove(detail)}
+                          disabled={saving}
+                          style={{ flex: 1, justifyContent: "center", borderRadius: 10, padding: "10px 16px", fontSize: 12.5 }}
+                        >
+                          <Check size={14} /> Approve
+                        </button>
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => setRejectModal(detail)}
+                          disabled={saving}
+                          style={{ flex: 1, justifyContent: "center", borderRadius: 10, padding: "10px 16px", fontSize: 12.5 }}
+                        >
+                          <X size={14} /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : tab === "approved" ? (
+        <div className="card">
+          <div className="ch">
+            <div className="ct">Approved Leave Requests</div>
+            <span className="mono" style={{ fontSize: 11, color: "var(--t4)" }}>{filteredRows.length} total</span>
+          </div>
+          {filteredRows.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: "var(--t3)" }}>
+              <Check size={32} style={{ margin: "0 auto 8px", opacity: 0.4 }} />
+              <div style={{ fontSize: 13 }}>No approved leave requests</div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12 }}>
+              {filteredRows.map((row: any) => {
+                const today = new Date().toISOString().slice(0, 10);
+                const fromDate = String(row.from).slice(0, 10);
+                const toDate = String(row.to).slice(0, 10);
+                const isActive = fromDate <= today && toDate >= today;
+                const isUpcoming = fromDate > today;
+                const daysRemaining = isActive ? Math.ceil((new Date(toDate).getTime() - new Date(today).getTime()) / 86400000) + 1 : 0;
+                const totalDays = row.days || 1;
+                const elapsed = isActive ? totalDays - daysRemaining : isUpcoming ? 0 : totalDays;
+                const progressPct = totalDays > 0 ? Math.min(100, Math.round((elapsed / totalDays) * 100)) : 100;
+
+                return (
+                  <div
+                    key={row.id}
+                    style={{
+                      background: "#fff",
+                      border: `1px solid ${isActive ? "rgba(16,185,129,.22)" : "rgba(226,232,240,.8)"}`,
+                      borderRadius: 14,
+                      padding: "14px 16px",
+                      transition: "transform .15s ease, box-shadow .15s ease",
+                    }}
+                    onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-2px)"; el.style.boxShadow = "0 6px 20px rgba(0,0,0,.05)"; }}
+                    onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(0)"; el.style.boxShadow = "none"; }}
+                  >
+                    {/* Header: employee + status badge */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(145deg, var(--p2), var(--p3))", color: "#fff", fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                        {employeeInitials(row.empName, row.empId)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: "var(--t1)" }}>{row.empName}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                          <span className="mono" style={{ fontSize: 10, color: "var(--t4)" }}>{row.empId}</span>
+                          {row.department && (
+                            <>
+                              <span style={{ color: "var(--br3)", fontSize: 10 }}>·</span>
+                              <span style={{ fontSize: 10, color: "var(--t4)" }}>{row.department}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {isActive ? (
+                        <span style={{ background: "rgba(16,185,129,.1)", color: "#0f766e", fontSize: 9.5, fontWeight: 700, padding: "3px 10px", borderRadius: 12, border: "1px solid rgba(16,185,129,.2)", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", animation: "pulse 2s ease infinite" }} />
+                          On Leave
+                        </span>
+                      ) : isUpcoming ? (
+                        <span style={{ background: "rgba(37,99,235,.07)", color: "var(--p)", fontSize: 9.5, fontWeight: 700, padding: "3px 10px", borderRadius: 12, border: "1px solid rgba(37,99,235,.15)", flexShrink: 0 }}>
+                          Upcoming
+                        </span>
+                      ) : (
+                        <span style={{ background: "rgba(100,116,139,.07)", color: "var(--t3)", fontSize: 9.5, fontWeight: 700, padding: "3px 10px", borderRadius: 12, flexShrink: 0 }}>
+                          Completed
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Leave type + date strip */}
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "8px 12px",
+                      background: isActive ? "rgba(16,185,129,.04)" : "rgba(241,245,249,.7)",
+                      borderRadius: 8,
+                      marginBottom: 12,
+                      fontSize: 11,
+                    }}>
+                      <span style={{ fontWeight: 700, color: isActive ? "#0f766e" : "var(--t2)" }}>{row.leaveType}</span>
+                      <span style={{ color: "var(--br3)" }}>|</span>
+                      <CalendarDays size={12} style={{ color: "var(--t4)" }} />
+                      <span className="mono" style={{ color: "var(--t2)" }}>{formatDate(row.from)}</span>
+                      <span style={{ color: "var(--t4)", fontSize: 10 }}>→</span>
+                      <span className="mono" style={{ color: "var(--t2)" }}>{formatDate(row.to)}</span>
+                      <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: "var(--t2)" }}>{row.days}d</span>
+                    </div>
+
+                    {/* Progress bar for active/upcoming */}
+                    {(isActive || isUpcoming) && (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 10 }}>
+                          <span style={{ color: "var(--t4)" }}>{isActive ? `${daysRemaining} day${daysRemaining !== 1 ? "s" : ""} remaining` : `Starts in ${Math.ceil((new Date(fromDate).getTime() - new Date(today).getTime()) / 86400000)} day(s)`}</span>
+                          <span className="mono" style={{ color: "var(--t4)", fontWeight: 600 }}>{progressPct}%</span>
+                        </div>
+                        <div style={{ height: 5, borderRadius: 3, overflow: "hidden", background: "var(--br2)" }}>
+                          <div style={{ width: `${progressPct}%`, height: "100%", borderRadius: 3, background: isActive ? "#10b981" : "var(--p)", transition: "width .4s ease" }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Footer: approved by + early return */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: "1px solid rgba(226,232,240,.6)" }}>
+                      <div style={{ fontSize: 10.5, color: "var(--t4)" }}>
+                        <span style={{ fontWeight: 600 }}>Approved by</span>{" "}
+                        <span style={{ color: "var(--t2)", fontWeight: 700 }}>{row.approvedBy || "Not provided"}</span>
+                      </div>
+                      {(isActive || isUpcoming) && (
+                        <button
+                          className="btn btn-sm btn-ghost"
+                          onClick={(e) => { e.stopPropagation(); setEarlyModal(row); }}
+                          style={{ fontSize: 10.5, gap: 4 }}
+                        >
+                          <RotateCcw size={11} /> Early Return
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
