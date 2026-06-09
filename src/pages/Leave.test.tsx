@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Leave from "./Leave";
@@ -40,6 +40,7 @@ describe("Leave", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === "/leave-requests/balances/summary") return Promise.resolve({ data: { data: [] } });
       if (url === "/leave-requests/balances") return Promise.resolve({ data: { data: [] } });
       if (url === "/config/departments") return Promise.resolve({ data: { data: [] } });
       return Promise.resolve({
@@ -65,6 +66,7 @@ describe("Leave", () => {
 
   it("formats leave dates and removes unsupported amount columns", async () => {
     renderLeave();
+    fireEvent.click(screen.getByRole("button", { name: "All" }));
 
     expect(await screen.findByText("Kamran Rafiq")).toBeTruthy();
     expect(screen.getByText("13 Mar 2026")).toBeTruthy();
@@ -79,6 +81,7 @@ describe("Leave", () => {
 
   it("does not expose a raw reviewer UUID when no readable approver name is returned", async () => {
     vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === "/leave-requests/balances/summary") return Promise.resolve({ data: { data: [] } });
       if (url === "/leave-requests/balances") return Promise.resolve({ data: { data: [] } });
       if (url === "/config/departments") return Promise.resolve({ data: { data: [] } });
       return Promise.resolve({
@@ -102,9 +105,52 @@ describe("Leave", () => {
     });
 
     renderLeave();
+    fireEvent.click(screen.getByRole("button", { name: "All" }));
 
     expect(await screen.findByText("Kamran Rafiq")).toBeTruthy();
     expect(screen.getByText("Not provided")).toBeTruthy();
     expect(screen.queryByText("39b623d6-e275-45d2-b340-92a4df5f8d1f")).toBeNull();
+  });
+
+  it("shows one compact balance row per employee and expands leave-type details", async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === "/leave-requests/balances/summary") {
+        return Promise.resolve({
+          data: {
+            data: [
+              {
+                employee_id: "EMP001",
+                employee_name: "Adeel Rahman",
+                department_name: "Administration",
+                profile_photo_url: null,
+                total_allocated: 22,
+                total_used: 6,
+                total_remaining: 16,
+                leave_types: [
+                  { leave_type_id: "annual", leave_type_name: "Annual Leave", allocated: 12, used: 4, remaining: 8 },
+                  { leave_type_id: "sick", leave_type_name: "Sick Leave", allocated: 10, used: 2, remaining: 8 },
+                ],
+              },
+            ],
+          },
+        });
+      }
+      if (url === "/config/departments") return Promise.resolve({ data: { data: [] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    renderLeave();
+
+    expect(await screen.findByText("Adeel Rahman")).toBeTruthy();
+    expect(screen.getByText("EMP001")).toBeTruthy();
+    expect(screen.getByText("Administration")).toBeTruthy();
+    expect(screen.getByText("6 taken of 22")).toBeTruthy();
+    expect(screen.getByText("16 remaining")).toBeTruthy();
+    expect(screen.queryByText("Annual Leave")).toBeNull();
+
+    fireEvent.click(screen.getByText("Adeel Rahman"));
+
+    expect(screen.getByText("Annual Leave")).toBeTruthy();
+    expect(screen.getByText("Sick Leave")).toBeTruthy();
   });
 });

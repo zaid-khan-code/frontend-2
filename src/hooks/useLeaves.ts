@@ -106,3 +106,17 @@ export function useLeaveBalances(params?: any) {
     },
   });
 }
+
+export function useLeaveBalanceSummary(params?: any) {
+  const cleanParams = Object.fromEntries(
+    Object.entries(params || {}).filter(([, value]) => value !== undefined && value !== null && value !== "")
+  );
+
+  return useQuery({
+    queryKey: ['leave-requests', 'balances', 'summary', cleanParams],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/leave-requests/balances/summary', { params: cleanParams });
+      return extractList(data);
+    },
+  });
+}

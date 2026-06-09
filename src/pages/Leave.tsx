@@ -1,11 +1,30 @@
 import React, { useMemo, useState } from "react";
-import { CalendarDays, Check, Clock, Plus, RotateCcw, Users, X } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Clock, Plus, RotateCcw, Users, X } from "lucide-react";
 import Modal from "../components/common/Modal";
 import { useToastContext } from "../context/ToastContext";
-import { useLeaveBalances, useLeaves } from "../hooks/useLeaves";
+import { useLeaveBalanceSummary, useLeaves } from "../hooks/useLeaves";
 import { useEmployees } from "../hooks/useEmployees";
 import { useLeaveTypes } from "../hooks/useConfig";
 import { getStatusColor } from "../services/api";
+import { apiClient } from "../services/apiClient";
+
+const API_ORIGIN = String(apiClient.defaults?.baseURL || "http://localhost:3001/api").replace(/\/api\/?$/, "");
+
+function profileImageUrl(value?: string) {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  return `${API_ORIGIN}${value.startsWith("/") ? value : `/${value}`}`;
+}
+
+function employeeInitials(name?: string, employeeId?: string) {
+  return String(name || employeeId || "?")
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 function daysBetweenInclusive(startDate: string, endDate: string) {
   if (!startDate || !endDate) return 0;
@@ -49,11 +68,12 @@ function readableApprover(...values: any[]) {
 
 export default function Leave() {
   const { data: serverLeaves = [], create: createLeave, approve: approveLeave, reject: rejectLeave, earlyReturn: earlyReturnLeave } = useLeaves();
-  const { data: balances = [] } = useLeaveBalances();
+  const { data: balanceSummaries = [] } = useLeaveBalanceSummary();
   const { data: employees = [] } = useEmployees();
   const { data: leaveTypes = [] } = useLeaveTypes();
   const { showToast } = useToastContext();
-  const [tab, setTab] = useState("all");
+  const [tab, setTab] = useState("balances");
+  const [expandedEmployeeId, setExpandedEmployeeId] = useState("");
   const [newModal, setNewModal] = useState(false);
   const [rejectModal, setRejectModal] = useState<any | null>(null);
   const [earlyModal, setEarlyModal] = useState<any | null>(null);
@@ -229,7 +249,7 @@ export default function Leave() {
           <div className="ch">
             <div className="ct">Leave Balance Overview</div>
           </div>
-          {balances.length === 0 ? (
+          {balanceSummaries.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: "var(--t3)" }}>No leave balances found.</div>
           ) : (
             <table>
@@ -237,28 +257,91 @@ export default function Leave() {
                 <tr>
                   <th>Employee</th>
                   <th>Department</th>
-                  <th>Leave Type</th>
-                  <th>Year</th>
-                  <th>Balance</th>
-                  <th>Used</th>
-                  <th>Remaining</th>
+                  <th>Overall Status</th>
+                  <th aria-label="Expand balance details" />
                 </tr>
               </thead>
               <tbody>
-                {balances.map((balance: any, index: number) => (
-                  <tr key={`${balance.employee_id}-${balance.leave_type_id}-${index}`}>
-                    <td>
-                      <strong>{balance.name || balance.employee_name || balance.employee_id}</strong>
-                      <div className="mono" style={{ fontSize: 10, color: "var(--t3)" }}>{balance.employee_id}</div>
-                    </td>
-                    <td>{balance.department_name || "Not provided"}</td>
-                    <td>{balance.leave_type_name || balance.name || "Leave"}</td>
-                    <td className="mono">{balance.year || new Date().getFullYear()}</td>
-                    <td className="mono">{Number(balance.balance ?? 0).toLocaleString("en-PK")}</td>
-                    <td className="mono">{Number(balance.used ?? 0).toLocaleString("en-PK")}</td>
-                    <td className="mono">{Number(balance.remaining ?? Number(balance.balance ?? 0) - Number(balance.used ?? 0)).toLocaleString("en-PK")}</td>
-                  </tr>
-                ))}
+                {balanceSummaries.map((balance: any) => {
+                  const isExpanded = expandedEmployeeId === balance.employee_id;
+                  const allocated = Number(balance.total_allocated ?? 0);
+                  const used = Number(balance.total_used ?? 0);
+                  const remaining = Number(balance.total_remaining ?? allocated - used);
+                  const usedPercent = allocated > 0 ? Math.min(100, Math.round((used / allocated) * 100)) : 0;
+                  const photoUrl = profileImageUrl(balance.profile_photo_url);
+
+                  return (
+                    <React.Fragment key={balance.employee_id}>
+                      <tr
+                        onClick={() => setExpandedEmployeeId(isExpanded ? "" : balance.employee_id)}
+                        style={{ cursor: "pointer" }}
+                        aria-expanded={isExpanded}
+                      >
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            {photoUrl ? (
+                              <img
+                                src={photoUrl}
+                                alt={`${balance.employee_name || balance.employee_id} profile`}
+                                style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flex: "0 0 auto" }}
+                              />
+                            ) : (
+                              <div style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(37,99,235,.1)", color: "var(--p)", fontSize: 11, fontWeight: 900, flex: "0 0 auto" }}>
+                                {employeeInitials(balance.employee_name, balance.employee_id)}
+                              </div>
+                            )}
+                            <div>
+                              <strong>{balance.employee_name || balance.employee_id}</strong>
+                              <div className="mono" style={{ fontSize: 10, color: "var(--t3)" }}>{balance.employee_id}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>{balance.department_name || "Not provided"}</td>
+                        <td style={{ minWidth: 240 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6, fontSize: 11 }}>
+                            <span>{used.toLocaleString("en-PK")} taken of {allocated.toLocaleString("en-PK")}</span>
+                            <strong>{remaining.toLocaleString("en-PK")} remaining</strong>
+                          </div>
+                          <div style={{ height: 7, borderRadius: 4, overflow: "hidden", background: "var(--br2)" }}>
+                            <div style={{ width: `${usedPercent}%`, height: "100%", background: "var(--p)", borderRadius: 4 }} />
+                          </div>
+                        </td>
+                        <td style={{ width: 44, textAlign: "right" }}>
+                          <ChevronDown
+                            size={17}
+                            style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .15s ease" }}
+                          />
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={4} style={{ background: "rgba(248,250,252,.7)", padding: 14 }}>
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th>Leave Type</th>
+                                  <th>Allocated</th>
+                                  <th>Taken</th>
+                                  <th>Remaining</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(balance.leave_types || []).map((leaveType: any) => (
+                                  <tr key={leaveType.leave_type_id}>
+                                    <td>{leaveType.leave_type_name || "Leave"}</td>
+                                    <td className="mono">{Number(leaveType.allocated ?? 0).toLocaleString("en-PK")}</td>
+                                    <td className="mono">{Number(leaveType.used ?? 0).toLocaleString("en-PK")}</td>
+                                    <td className="mono">{Number(leaveType.remaining ?? 0).toLocaleString("en-PK")}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           )}
