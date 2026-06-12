@@ -34,7 +34,9 @@ export default function PenaltyLedger() {
     date: new Date().toISOString().slice(0, 10),
     reason: "",
   });
-  const canPropose = useAuthStore((state) => state.hasPermission("penalties:propose"));
+  const canPropose = useAuthStore(
+    (state) => state.hasPermission("penalties:propose") || state.hasPermission("penalties:department_propose"),
+  );
   const { showToast } = useToastContext();
   const queryParams = useMemo(() => {
     const params: Record<string, string> = {};

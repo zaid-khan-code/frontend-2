@@ -14,9 +14,10 @@ const mockState = vi.hoisted(() => ({
     pending_actions: [] as any[],
     urgent_alerts: [] as any[],
     recent_activity: [] as any[],
-    top_performers: [] as any[],
+    department_heads: [] as any[],
     upcoming_birthdays: [] as any[],
   },
+  calendarEvents: [] as any[],
 }));
 
 vi.mock("recharts", () => ({
@@ -64,7 +65,7 @@ vi.mock("../hooks/useDashboard", () => ({
 }));
 
 vi.mock("../hooks/useCalendarEvents", () => ({
-  useCalendarEvents: () => ({ data: [] }),
+  useCalendarEvents: () => ({ data: mockState.calendarEvents }),
 }));
 
 describe("Dashboard", () => {
@@ -78,9 +79,10 @@ describe("Dashboard", () => {
       pending_actions: [],
       urgent_alerts: [],
       recent_activity: [],
-      top_performers: [],
+      department_heads: [],
       upcoming_birthdays: [],
     };
+    mockState.calendarEvents = [];
   });
 
   it("does not show prototype dashboard data for HR Executive users", () => {
@@ -183,5 +185,108 @@ describe("Dashboard", () => {
     expect(screen.getByText("Others")).toBeTruthy();
     expect(screen.queryByText("Security")).toBeNull();
     expect(screen.queryByText("Sales")).toBeNull();
+  });
+
+  it("renders recent audit activity from dashboard metrics", () => {
+    mockState.metrics = {
+      ...mockState.metrics,
+      recent_activity: [
+        {
+          id: "activity-1",
+          text: "leave request approved",
+          by: "HR Manager",
+          type: "leave",
+          created_at: "2026-06-09T08:00:00.000Z",
+        },
+      ],
+    };
+
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("leave request approved")).toBeTruthy();
+    expect(screen.getByText(/HR Manager/)).toBeTruthy();
+  });
+
+  it("shows department heads instead of top performers", () => {
+    mockState.metrics = {
+      ...mockState.metrics,
+      department_heads: [
+        {
+          employee_id: "EMP0020",
+          name: "Ayesha Malik",
+          department_name: "Engineering",
+          work_location_name: "Lahore Office",
+        },
+      ],
+    };
+
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Department Heads")).toBeTruthy();
+    expect(screen.getByText("Ayesha Malik")).toBeTruthy();
+    expect(screen.getByText(/Engineering/)).toBeTruthy();
+    expect(screen.queryByText("Top Performers")).toBeNull();
+    expect(screen.queryByText(/performance ranking/i)).toBeNull();
+  });
+
+  it("marks every calendar day covered by a multi-day event", () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 10);
+    const end = new Date(now.getFullYear(), now.getMonth(), 12);
+    const dateKey = (date: Date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    mockState.calendarEvents = [
+      {
+        id: "event-1",
+        title: "Three Day Training",
+        type: "training",
+        date: dateKey(start),
+        start_date: dateKey(start),
+        end_date: dateKey(end),
+      },
+    ];
+
+    const { container } = render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getAllByText("Three Day Training").length).toBeGreaterThan(0);
+    expect(container.querySelectorAll(".cal-day.has-event")).toHaveLength(3);
+  });
+
+  it("does not label a future birthday as today", () => {
+    mockState.metrics = {
+      ...mockState.metrics,
+      upcoming_birthdays: [
+        {
+          employee_id: "EMP020",
+          name: "Future Birthday",
+          department: "Finance",
+          date_of_birth: "1972-03-06",
+          next_birthday: "2026-06-19",
+          days_until: 10,
+        },
+      ],
+    };
+
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Future Birthday")).toBeTruthy();
+    expect(screen.getByText("10d")).toBeTruthy();
+    expect(screen.queryByText("Today")).toBeNull();
   });
 });

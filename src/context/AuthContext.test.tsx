@@ -307,6 +307,8 @@ describe("mapRole", () => {
     expect(mapRole("HR Manager")).toBe("hr_manager");
     expect(mapRole("hr_executive")).toBe("hr_executive");
     expect(mapRole("HR Executive")).toBe("hr_executive");
+    expect(mapRole("department_head")).toBe("department_head");
+    expect(mapRole("Department Head")).toBe("department_head");
     expect(mapRole("super_admin")).toBe("super_admin");
   });
 });

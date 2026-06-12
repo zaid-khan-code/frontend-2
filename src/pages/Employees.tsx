@@ -178,6 +178,7 @@ export default function Employees() {
   const { showToast } = useToastContext();
   const { user, activeRole } = useAuth();
   const { can } = useRbac();
+  const isDepartmentHead = activeRole === "department_head";
   const canCreate = can("create_employee");
   const canEdit = can("edit_employee");
   const canDelete = can("delete_employee");
@@ -400,44 +401,37 @@ export default function Employees() {
                 color: "#1e1b4b",
               }}
             >
-              Employees
+              {isDepartmentHead ? "Department Team" : "Employees"}
             </h1>
             <p style={{ margin: "4px 0 0", fontSize: 12, color: "#9ca3af" }}>
-              Manage all employees in your organization &nbsp;·&nbsp;
+              {isDepartmentHead ? "View employees assigned under your department" : "Manage all employees in your organization"} &nbsp;·&nbsp;
               <span style={{ color: "#6366f1", fontWeight: 600 }}>
                 {activeCount} active
               </span>
             </p>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              className="emp-btn emp-btn-secondary"
-              onClick={() =>
-                canCreate
-                  ? navigate("/employees/bulk-upload")
-                  : showToast("Insufficient permissions", "error")
-              }
-              disabled={!canCreate}
-            >
-              <Upload size={13} /> Bulk Upload
-            </button>
-            <button
-              className="emp-btn emp-btn-primary"
-              onClick={() =>
-                canCreate
-                  ? navigate("/employees/add")
-                  : showToast("Insufficient permissions", "error")
-              }
-              disabled={!canCreate}
-            >
-              <Plus size={13} /> Create Employee
-            </button>
-          </div>
+          {canCreate && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                className="emp-btn emp-btn-secondary"
+                onClick={() => navigate("/employees/bulk-upload")}
+              >
+                <Upload size={13} /> Bulk Upload
+              </button>
+              <button
+                className="emp-btn emp-btn-primary"
+                onClick={() => navigate("/employees/add")}
+              >
+                <Plus size={13} /> Create Employee
+              </button>
+            </div>
+          )}
         </div>
 
         {(activeRole === "head_hr" ||
           activeRole === "branch_hr" ||
-          activeRole === "department_hr") &&
+          activeRole === "department_hr" ||
+          activeRole === "department_head") &&
           user?.departments &&
           !user.departments.includes("All") && (
             <div

@@ -12,6 +12,8 @@ export type Role =
   | "sales_manager"
   | "it_manager"
   | "hr_manager"
+  | "department_head"
+  | "ceo"
   | "swe_manager"
   | "operations_manager"
   | "employee";
@@ -156,6 +158,26 @@ const rolePermissions: Record<Role, Action[]> = {
   operations_manager: [
     "view_all_employees",
     "edit_employee",
+    "access_dashboard",
+    "access_attendance",
+    "access_leave",
+    "access_penalties",
+    "access_calendar",
+    "access_notifications",
+  ],
+  department_head: [
+    "view_all_employees",
+    "view_own_profile",
+    "access_dashboard",
+    "access_attendance",
+    "access_leave",
+    "access_penalties",
+    "access_calendar",
+    "access_notifications",
+  ],
+  ceo: [
+    "view_all_employees",
+    "view_employee_attachments",
     "access_dashboard",
     "access_attendance",
     "access_leave",

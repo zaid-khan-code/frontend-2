@@ -32,4 +32,18 @@ describe("rbac", () => {
   it("hr_manager can create via static map", () => {
     expect(canPerformAction("hr_manager", "create_employee", [])).toBe(true);
   });
+
+  it("keeps department_head scoped and without employee creation access", () => {
+    expect(normalizeRole("department_head")).toBe("department_head");
+    expect(canPerformAction("department_head", "view_all_employees", [])).toBe(true);
+    expect(canPerformAction("department_head", "create_employee", [])).toBe(false);
+  });
+
+  it("keeps ceo read-only", () => {
+    expect(normalizeRole("ceo")).toBe("ceo");
+    expect(canPerformAction("ceo", "view_all_employees", [])).toBe(true);
+    expect(canPerformAction("ceo", "edit_employee", [])).toBe(false);
+    expect(canPerformAction("ceo", "create_employee", [])).toBe(false);
+    expect(canPerformAction("ceo", "resend_credentials", [])).toBe(false);
+  });
 });

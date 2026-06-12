@@ -144,7 +144,7 @@ describe("Leave", () => {
     expect(await screen.findByText("Adeel Rahman")).toBeTruthy();
     expect(screen.getByText("EMP001")).toBeTruthy();
     expect(screen.getByText("Administration")).toBeTruthy();
-    expect(screen.getByText("6 taken of 22")).toBeTruthy();
+    expect(screen.getByText("6 used of 22")).toBeTruthy();
     expect(screen.getByText("16 remaining")).toBeTruthy();
     expect(screen.queryByText("Annual Leave")).toBeNull();
 

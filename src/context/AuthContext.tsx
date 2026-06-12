@@ -15,6 +15,7 @@ export interface User {
     | "head_hr"
     | "branch_hr"
     | "department_hr"
+    | "department_head"
     | "hr_manager"
     | "hr_executive"
     | "employee";
@@ -35,6 +36,7 @@ interface AuthContextType {
     | "head_hr"
     | "branch_hr"
     | "department_hr"
+    | "department_head"
     | "hr_manager"
     | "hr_executive"
     | "employee";
@@ -47,6 +49,7 @@ interface AuthContextType {
       | "head_hr"
       | "branch_hr"
       | "department_hr"
+      | "department_head"
       | "hr_manager"
       | "hr_executive"
       | "employee",
@@ -74,7 +77,11 @@ export function mapRole(backendRole: string = ""): User["role"] {
   if (normalizedKey === "head_hr" || normalizedKey === "headoffice_hr")
     return "head_hr";
   if (normalizedKey === "branch_hr") return "branch_hr";
-  if (normalizedKey === "department_hr" || normalizedKey === "dept_hr")
+  if (normalizedKey === "department_head") return "department_head";
+  if (
+    normalizedKey === "department_hr" ||
+    normalizedKey === "dept_hr"
+  )
     return "department_hr";
   if (normalizedKey === "hr_manager" || normalizedKey === "hr")
     return "hr_manager";

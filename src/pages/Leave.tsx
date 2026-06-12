@@ -7,6 +7,7 @@ import { useEmployees } from "../hooks/useEmployees";
 import { useLeaveTypes } from "../hooks/useConfig";
 import { getStatusColor } from "../services/api";
 import { apiClient } from "../services/apiClient";
+import { useAuthStore } from "../store/useAuthStore";
 
 const API_ORIGIN = String(apiClient.defaults?.baseURL || "http://localhost:3001/api").replace(/\/api\/?$/, "");
 
@@ -72,6 +73,10 @@ export default function Leave() {
   const { data: employees = [] } = useEmployees();
   const { data: leaveTypes = [] } = useLeaveTypes();
   const { showToast } = useToastContext();
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+  const canCreateLeave = hasPermission("leave:write");
+  const canReviewLeave = hasPermission("leave:approve") || hasPermission("leave:department_approve");
+  const canEarlyReturnLeave = hasPermission("leave:approve");
   const [tab, setTab] = useState("balances");
   const [expandedEmployeeId, setExpandedEmployeeId] = useState("");
   const [newModal, setNewModal] = useState(false);
@@ -221,9 +226,11 @@ export default function Leave() {
           <div className="pg-greet">Leave Management</div>
           <div className="pg-sub">Review live leave requests, balances, approvals, and early returns.</div>
         </div>
-        <button className="btn btn-primary" onClick={() => setNewModal(true)}>
-          <Plus size={13} /> New Leave Request
-        </button>
+        {canCreateLeave && (
+          <button className="btn btn-primary" onClick={() => setNewModal(true)}>
+            <Plus size={13} /> New Leave Request
+          </button>
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 14, marginBottom: 18 }}>
@@ -699,25 +706,26 @@ export default function Leave() {
                       {/* Applied date */}
                       <div className="mono" style={{ fontSize: 10.5, color: "var(--t4)", marginBottom: 16 }}>Applied {formatDate(detail.appliedOn)}</div>
 
-                      {/* Action buttons */}
-                      <div style={{ display: "flex", gap: 10 }}>
-                        <button
-                          className="btn btn-success"
-                          onClick={() => confirmApprove(detail)}
-                          disabled={saving}
-                          style={{ flex: 1, justifyContent: "center", borderRadius: 10, padding: "10px 16px", fontSize: 12.5 }}
-                        >
-                          <Check size={14} /> Approve
-                        </button>
-                        <button
-                          className="btn btn-danger"
-                          onClick={() => setRejectModal(detail)}
-                          disabled={saving}
-                          style={{ flex: 1, justifyContent: "center", borderRadius: 10, padding: "10px 16px", fontSize: 12.5 }}
-                        >
-                          <X size={14} /> Reject
-                        </button>
-                      </div>
+                      {canReviewLeave && (
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button
+                            className="btn btn-success"
+                            onClick={() => confirmApprove(detail)}
+                            disabled={saving}
+                            style={{ flex: 1, justifyContent: "center", borderRadius: 10, padding: "10px 16px", fontSize: 12.5 }}
+                          >
+                            <Check size={14} /> Approve
+                          </button>
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => setRejectModal(detail)}
+                            disabled={saving}
+                            style={{ flex: 1, justifyContent: "center", borderRadius: 10, padding: "10px 16px", fontSize: 12.5 }}
+                          >
+                            <X size={14} /> Reject
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -890,7 +898,7 @@ export default function Leave() {
                     <td><span className={`pill ${getStatusColor(row.status)}`}>{row.status}</span></td>
                     <td>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                        {row.status === "Pending" && (
+                        {row.status === "Pending" && canReviewLeave && (
                           <>
                             <button className="ico-btn" title="Approve" onClick={() => confirmApprove(row)} disabled={saving}>
                               <Check size={13} />
@@ -900,7 +908,7 @@ export default function Leave() {
                             </button>
                           </>
                         )}
-                        {row.status === "Approved" && (
+                        {row.status === "Approved" && canEarlyReturnLeave && (
                           <button className="btn btn-sm btn-ghost" onClick={() => setEarlyModal(row)}>
                             <RotateCcw size={12} /> Early Return
                           </button>

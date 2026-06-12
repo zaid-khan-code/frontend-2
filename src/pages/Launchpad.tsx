@@ -47,28 +47,28 @@ const modules: ModuleCard[] = [
     description: "Broadcast updates to branch and departments",
     to: "/announcements",
     icon: Megaphone,
-    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "hr_manager", "hr_executive", "employee"],
+    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive", "employee"],
   },
   {
     title: "Calendar Events",
     description: "View holidays, events, and birthday markers",
     to: "/calendar",
     icon: CalendarRange,
-    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "hr_manager", "hr_executive", "employee"],
+    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive", "employee"],
   },
   {
     title: "Directory",
     description: "Find employees and contact people quickly",
     to: "/directory",
     icon: MapPin,
-    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "hr_manager", "hr_executive", "employee"],
+    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive", "employee"],
   },
   {
     title: "Penalty",
     description: "Apply and review employee penalties",
     to: "/penalty",
     icon: AlertTriangle,
-    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "hr_manager", "hr_executive"],
+    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive"],
   },
   {
     title: "Penalty Workflow",
@@ -79,7 +79,7 @@ const modules: ModuleCard[] = [
   },
 ];
 
-const hrRoles = new Set(["hr", "head_hr", "branch_hr", "department_hr", "hr_manager", "hr_executive"]);
+const hrRoles = new Set(["hr", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive"]);
 
 function roleMatches(module: ModuleCard, role: string) {
   if (module.roles.includes(role)) return true;
@@ -125,7 +125,9 @@ export default function Launchpad() {
               <div className="ct-ico blue">
                 <module.icon size={16} />
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--t1)" }}>{module.title}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--t1)" }}>
+                {activeRole === "department_head" && module.title === "Employees" ? "Department Team" : module.title}
+              </div>
             </div>
             <p style={{ color: "var(--t3)", fontSize: 12 }}>{module.description}</p>
             {module.disabled && <span className="pill pill-steel">Coming Soon</span>}
@@ -133,7 +135,7 @@ export default function Launchpad() {
         ))}
       </div>
 
-      {activeRole !== "employee" && (
+      {activeRole !== "employee" && activeRole !== "department_head" && (
         <div className="card" style={{ marginTop: 16 }}>
           <div className="ct" style={{ marginBottom: 8 }}>
             <div className="ct-ico teal">

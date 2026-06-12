@@ -311,7 +311,7 @@ export default function Attendance() {
   const isSuperAdmin = role === "super_admin";
   const isEmployee = role === "employee";
   const canRead =
-    isSuperAdmin || permissions.includes("attendance:read") || isEmployee;
+    isSuperAdmin || permissions.includes("attendance:read") || permissions.includes("attendance:department_read") || isEmployee;
   const canWrite =
     !isEmployee && (isSuperAdmin || permissions.includes("attendance:write"));
   const canSubmit =

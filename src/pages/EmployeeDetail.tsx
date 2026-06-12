@@ -30,6 +30,7 @@ import { useToastContext } from "../context/ToastContext";
 import { useAttendanceReport } from "../hooks/useAttendance";
 import { useAllowanceTypes, usePenaltyRules, useRoles } from "../hooks/useConfig";
 import { useEmployee, useEmployeeActions, useEmployeeFinance } from "../hooks/useEmployees";
+import { renderCredentialTemplate, useCredentialTemplate } from "../hooks/useAccounts";
 import { useLeaveBalances, useLeaves } from "../hooks/useLeaves";
 import { usePenalties } from "../hooks/usePenalties";
 import { useRbac } from "../hooks/useRbac";
@@ -329,16 +330,24 @@ function buildCredentialsWhatsappUrl({
   email,
   password,
   phone,
+  template,
 }: {
   employeeId: string;
   employeeName: string;
   email: string;
   password: string;
   phone: string;
+  template?: string;
 }) {
   const whatsappPhone = normalizeWhatsappPhone(phone);
   if (!whatsappPhone || !email || !password) return "";
-  const message = `Welcome to ESSPL HR.\n\nHello ${employeeName},\n\nYour employee login account has been created.\n\nEmployee ID: ${employeeId}\nEmail: ${email}\nPassword: ${password}\n\nLogin here: ${window.location.origin}/login\n\nPlease change your password after first login.`;
+  const message = renderCredentialTemplate(template, {
+    employeeId,
+    employeeName,
+    email,
+    password,
+    loginUrl: `${window.location.origin}/login`,
+  });
   return `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
 }
 
@@ -618,6 +627,7 @@ export default function EmployeeDetail() {
   const { data: penaltyRows = [], isLoading: penaltiesLoading, isError: penaltiesError, propose: proposePenalty } = usePenalties(employeeId ? { employee_id: employeeId } : undefined);
   const { data: penaltyRules = [] } = usePenaltyRules();
   const { data: roles = [] } = useRoles();
+  const { data: credentialTemplateData } = useCredentialTemplate();
 
   const profilePhotoUrl = useMemo(() => {
     const photo = attachments.find((item: any) => item?.kind === "profile_photo" && String(item?.mime_type || "").startsWith("image/"));
@@ -679,6 +689,7 @@ export default function EmployeeDetail() {
     email: credentialEmail || accountEmail || employee?.email || "",
     password: tempPassword || "",
     phone: credentialPhone || employee?.phone || "",
+    template: credentialTemplateData?.template,
   });
 
   const handleResendCredentials = async () => {

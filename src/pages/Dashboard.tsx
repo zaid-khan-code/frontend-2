@@ -5,6 +5,7 @@ import { useNavigate, Navigate } from "react-router-dom";
 import { useDashboardMetrics } from "../hooks/useDashboard";
 import { useEmployees } from "../hooks/useEmployees";
 import { useLeaves } from "../hooks/useLeaves";
+import { useAuthStore } from "../store/useAuthStore";
 import {
   Users,
   UserCheck,
@@ -20,7 +21,6 @@ import {
   ShieldAlert,
   FileText,
   Target,
-  Award,
   Clock,
   ChevronLeft,
   ChevronRight,
@@ -239,6 +239,29 @@ const initialsFor = (name = "?") =>
     .slice(0, 2)
     .toUpperCase();
 
+function parseLocalDate(value?: string) {
+  if (!value) return null;
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function eachDateInRange(startValue?: string, endValue?: string) {
+  const start = parseLocalDate(startValue);
+  const end = parseLocalDate(endValue || startValue);
+  if (!start || !end || end < start) return [];
+  const dates: Date[] = [];
+  const cursor = new Date(start);
+  while (cursor <= end && dates.length < 370) {
+    dates.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
 const roleLabels: Record<string, string> = {
   super_admin: "Super Admin",
   head_hr: "Head HR",
@@ -280,27 +303,33 @@ function MiniCalendar({
   const birthdayDates = new Set<number>();
   employees.forEach((emp) => {
     if (!emp.dob && !emp.date_of_birth) return;
-    const dob = new Date(emp.dob || emp.date_of_birth);
+    const dob = parseLocalDate(emp.dob || emp.date_of_birth);
+    if (!dob) return;
     if (dob.getMonth() === viewMonth) birthdayDates.add(dob.getDate());
   });
 
   const eventDates = new Set<number>();
   events.forEach((ev: any) => {
-    if (!ev || !ev.date) return;
-    const d = new Date(ev.date);
-    if (d.getMonth() === viewMonth && d.getFullYear() === viewYear)
-      eventDates.add(d.getDate());
+    eachDateInRange(ev?.start_date || ev?.date, ev?.end_date || ev?.date).forEach((date) => {
+      if (date.getMonth() === viewMonth && date.getFullYear() === viewYear) {
+        eventDates.add(date.getDate());
+      }
+    });
   });
 
   const monthEvents = events.filter((ev: any) => {
-    if (!ev || !ev.date) return false;
-    const d = new Date(ev.date);
-    return d.getMonth() === viewMonth && d.getFullYear() === viewYear;
+    const start = parseLocalDate(ev?.start_date || ev?.date);
+    const end = parseLocalDate(ev?.end_date || ev?.date);
+    if (!start || !end) return false;
+    const monthStart = new Date(viewYear, viewMonth, 1);
+    const monthEnd = new Date(viewYear, viewMonth + 1, 0);
+    return start <= monthEnd && end >= monthStart;
   });
 
   const monthBirthdays = employees.filter((emp) => {
     if (!emp.dob && !emp.date_of_birth) return false;
-    const dob = new Date(emp.dob || emp.date_of_birth);
+    const dob = parseLocalDate(emp.dob || emp.date_of_birth);
+    if (!dob) return false;
     return dob.getMonth() === viewMonth;
   });
 
@@ -462,7 +491,7 @@ function MiniCalendar({
             Events this month
           </div>
           {monthEvents.map((ev: any, i: number) => {
-            const d = new Date(ev.date);
+            const d = parseLocalDate(ev.start_date || ev.date);
             const color =
               ev.type === "holiday"
                 ? "#ef4444"
@@ -500,7 +529,7 @@ function MiniCalendar({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {d.getDate()} {MONTH_NAMES[d.getMonth()].slice(0, 3)}
+                  {d ? `${d.getDate()} ${MONTH_NAMES[d.getMonth()].slice(0, 3)}` : ""}
                 </span>
               </div>
             );
@@ -528,7 +557,8 @@ function MiniCalendar({
             Birthdays this month
           </div>
           {monthBirthdays.map((emp, i) => {
-            const dob = new Date(emp.dob || emp.date_of_birth);
+            const dob = parseLocalDate(emp.dob || emp.date_of_birth);
+            if (!dob) return null;
             const ini = emp.name
               .split(" ")
               .map((n: string) => n[0])
@@ -596,6 +626,7 @@ export default function Dashboard() {
   const { data: leaveRequests = [] } = useLeaves();
   const { data: metrics } = useDashboardMetrics("6m");
   const { data: calendarApiEvents = [] } = useCalendarEvents();
+  const canAddEmployee = useAuthStore((state) => state.hasPermission("employees:write"));
   const navigate = useNavigate();
 
   // Role-based redirect check
@@ -934,15 +965,16 @@ export default function Dashboard() {
     }));
   }, [metrics]);
 
-  // Top performers ──
-  const topP = useMemo(() => {
-    if (!Array.isArray(metrics?.top_performers)) return [];
-    return metrics.top_performers.map((p: any, index: number) => ({
-      name: p.name || p.employee_name || "Employee",
-      dept: p.department || p.department_name || "-",
-      score: Number(p.score ?? p.performance_score ?? 0),
-      ini: initialsFor(p.name || p.employee_name || "Employee"),
-      color: p.color || AV_COLORS[index % AV_COLORS.length],
+  // Department heads
+  const departmentHeads = useMemo(() => {
+    if (!Array.isArray(metrics?.department_heads)) return [];
+    return metrics.department_heads.map((head: any, index: number) => ({
+      employeeId: head.employee_id || "",
+      name: head.name || head.employee_name || "Department Head",
+      department: head.department_name || head.department || "Department not assigned",
+      location: head.work_location_name || head.location_name || "",
+      ini: initialsFor(head.name || head.employee_name || "Department Head"),
+      color: head.color || AV_COLORS[index % AV_COLORS.length],
     }));
   }, [metrics]);
 
@@ -952,8 +984,8 @@ export default function Dashboard() {
       return metrics.upcoming_birthdays.map((b: any, idx: number) => ({
         name: b.name,
         dept: b.department || "—",
-        date: new Date(b.date_of_birth),
-        daysUntil: b.days_until,
+        date: parseLocalDate(b.next_birthday || b.date_of_birth) || new Date(),
+        daysUntil: Number(b.days_until ?? 0),
         ini: (b.name || "?")
           .split(" ")
           .map((n: string) => n[0])
@@ -979,12 +1011,13 @@ export default function Dashboard() {
     }[] = [];
     source.forEach((emp: any, idx: number) => {
       if (!emp.dob && !emp.date_of_birth) return;
-      const dob = new Date(emp.dob || emp.date_of_birth);
+      const dob = parseLocalDate(emp.dob || emp.date_of_birth);
+      if (!dob) return;
       let bday = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
       if (bday < today)
         bday = new Date(today.getFullYear() + 1, dob.getMonth(), dob.getDate());
       const days = Math.ceil((bday.getTime() - today.getTime()) / 86400000);
-      list.push({
+      if (days <= 30) list.push({
         name: emp.name,
         dept: emp.department || "—",
         date: bday,
@@ -1257,26 +1290,28 @@ export default function Dashboard() {
               )}
             </div>
 
-            <button
-              className="nb"
-              onClick={() => navigate("/employees/add")}
-              style={{
-                background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-                border: "none",
-                borderRadius: 30,
-                padding: "9px 20px",
-                color: "#fff",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                boxShadow: "0 4px 14px rgba(99,102,241,.4)",
-              }}
-            >
-              <Plus size={13} /> Add Employee
-            </button>
+            {canAddEmployee && (
+              <button
+                className="nb"
+                onClick={() => navigate("/employees/add")}
+                style={{
+                  background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                  border: "none",
+                  borderRadius: 30,
+                  padding: "9px 20px",
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  boxShadow: "0 4px 14px rgba(99,102,241,.4)",
+                }}
+              >
+                <Plus size={13} /> Add Employee
+              </button>
+            )}
           </div>
         </div>
 
@@ -1911,7 +1946,7 @@ export default function Dashboard() {
           </WCard>
         </div>
 
-        {/* ══ 3-COL: Pending Actions + Urgent Alerts + Top Performers ════════ */}
+        {/* 3-COL: Pending Actions + Urgent Alerts + Department Heads */}
         <div
           style={{
             display: "grid",
@@ -2027,61 +2062,72 @@ export default function Dashboard() {
 
           <WCard>
             <SHead
-              icon={<Award size={14} color="#f59e0b" />}
-              title="Top Performers"
+              icon={<UserCheck size={14} color="#0f766e" />}
+              title="Department Heads"
               right={
-                <Chip bg="#fefce8" fg="#ca8a04">
-                  This Month
+                <Chip bg="#ecfdf5" fg="#047857">
+                  {departmentHeads.length}
                 </Chip>
               }
             />
-            {topP.length === 0 ? (
-              <EmptyState>No performance ranking available.</EmptyState>
-            ) : topP.map((p, i) => (
-              <div
-                key={i}
-                className="rh"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 6px",
-                  borderBottom:
-                    i < topP.length - 1 ? "1px solid #f3f4f6" : "none",
-                }}
-              >
-                <div
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 8,
-                    background: p.color,
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: i < 3 ? 14 : 9,
-                    fontWeight: 700,
-                    flexShrink: 0,
-                  }}
-                >
-                  {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : p.ini}
-                </div>
-                <div style={{ flex: 1 }}>
+            {departmentHeads.length === 0 ? (
+              <EmptyState>No department heads assigned.</EmptyState>
+            ) : (
+              <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                {departmentHeads.map((head, i) => (
                   <div
-                    style={{ fontSize: 11, fontWeight: 600, color: "#1e1b4b" }}
+                    key={i}
+                    className="rh"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "9px 6px",
+                      borderBottom:
+                        i < departmentHeads.length - 1 ? "1px solid #f3f4f6" : "none",
+                    }}
                   >
-                    {p.name}
+                    <div
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: 8,
+                        background: head.color,
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 9,
+                        fontWeight: 700,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {head.ini}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{ fontSize: 11, fontWeight: 600, color: "#1e1b4b" }}
+                      >
+                        {head.name}
+                      </div>
+                      <div style={{ fontSize: 9, color: "#6b7280" }}>
+                        {head.department}
+                      </div>
+                      {head.location ? (
+                        <div style={{ fontSize: 9, color: "#9ca3af", marginTop: 2 }}>
+                          {head.location}
+                        </div>
+                      ) : null}
+                    </div>
+                    <span
+                      style={{ fontSize: 10, fontWeight: 800, color: "#0f766e" }}
+                    >
+                      {head.employeeId}
+                    </span>
                   </div>
-                  <div style={{ fontSize: 9, color: "#9ca3af" }}>{p.dept}</div>
-                </div>
-                <span
-                  style={{ fontSize: 13, fontWeight: 800, color: "#10b981" }}
-                >
-                  {p.score}%
-                </span>
+                ))}
               </div>
-            ))}
+            )}
           </WCard>
         </div>
 
@@ -2117,31 +2163,35 @@ export default function Dashboard() {
             />
             {activity.length === 0 ? (
               <EmptyState>No recent activity available.</EmptyState>
-            ) : activity.map((a, i) => (
-              <div
-                key={i}
-                className="rh"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 6px",
-                  borderBottom:
-                    i < activity.length - 1 ? "1px solid #f3f4f6" : "none",
-                }}
-              >
-                <Av ini={a.ini} color={a.color} size={32} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, color: "#374151" }}>{a.text}</div>
-                  <div style={{ fontSize: 9, color: "#d1d5db", marginTop: 2 }}>
-                    {a.time} · {a.by}
+            ) : (
+              <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                {activity.map((a, i) => (
+                  <div
+                    key={i}
+                    className="rh"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "9px 6px",
+                      borderBottom:
+                        i < activity.length - 1 ? "1px solid #f3f4f6" : "none",
+                    }}
+                  >
+                    <Av ini={a.ini} color={a.color} size={32} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, color: "#374151" }}>{a.text}</div>
+                      <div style={{ fontSize: 9, color: "#d1d5db", marginTop: 2 }}>
+                        {a.time} · {a.by}
+                      </div>
+                    </div>
+                    <Chip bg={a.cBg} fg={a.cFg}>
+                      {a.chip}
+                    </Chip>
                   </div>
-                </div>
-                <Chip bg={a.cBg} fg={a.cFg}>
-                  {a.chip}
-                </Chip>
+                ))}
               </div>
-            ))}
+            )}
           </WCard>
 
           <WCard>
@@ -2151,58 +2201,62 @@ export default function Dashboard() {
             />
             {combinedAnnouncements.length === 0 ? (
               <EmptyState>No calendar announcements available.</EmptyState>
-            ) : combinedAnnouncements.map((a: any, i: number) => (
-              <div
-                key={i}
-                style={{
-                  padding: "10px 0",
-                  borderBottom:
-                    i < combinedAnnouncements.length - 1
-                      ? "1px solid #f3f4f6"
-                      : "none",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    gap: 8,
-                  }}
-                >
-                  <span
+            ) : (
+              <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                {combinedAnnouncements.map((a: any, i: number) => (
+                  <div
+                    key={i}
                     style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "#1e1b4b",
-                      lineHeight: 1.3,
+                      padding: "10px 0",
+                      borderBottom:
+                        i < combinedAnnouncements.length - 1
+                          ? "1px solid #f3f4f6"
+                          : "none",
                     }}
                   >
-                    {a.title}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 9,
-                      color: "#d1d5db",
-                      whiteSpace: "nowrap",
-                      marginTop: 2,
-                    }}
-                  >
-                    {a.date}
-                  </span>
-                </div>
-                <p
-                  style={{
-                    margin: "4px 0 0",
-                    fontSize: 10,
-                    color: "#9ca3af",
-                    lineHeight: 1.55,
-                  }}
-                >
-                  {a.text}
-                </p>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "#1e1b4b",
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {a.title}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 9,
+                          color: "#d1d5db",
+                          whiteSpace: "nowrap",
+                          marginTop: 2,
+                        }}
+                      >
+                        {a.date}
+                      </span>
+                    </div>
+                    <p
+                      style={{
+                        margin: "4px 0 0",
+                        fontSize: 10,
+                        color: "#9ca3af",
+                        lineHeight: 1.55,
+                      }}
+                    >
+                      {a.text}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </WCard>
         </div>
 
@@ -2239,6 +2293,8 @@ export default function Dashboard() {
               }
               events={calendarApiEvents.map((g: any) => ({
                 date: g.date,
+                start_date: g.start_date || g.date,
+                end_date: g.end_date || g.start_date || g.date,
                 title: g.title || g.type,
                 type: g.type,
               }))}

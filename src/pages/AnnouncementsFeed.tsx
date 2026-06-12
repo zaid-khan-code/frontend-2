@@ -17,7 +17,9 @@ function formatDate(value?: string) {
 
 export default function AnnouncementsFeed() {
   const { announcements, isLoading, isError } = useAnnouncements({ active: true });
-  const canManageAnnouncements = useAuthStore((state) => state.hasPermission("announcements:write"));
+  const canManageAnnouncements = useAuthStore(
+    (state) => state.hasPermission("announcements:write") || state.hasPermission("announcements:department_write"),
+  );
 
   return (
     <div>
