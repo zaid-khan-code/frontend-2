@@ -871,7 +871,7 @@ export default function Leave() {
                         <span style={{ fontWeight: 600 }}>Approved by</span>{" "}
                         <span style={{ color: "var(--t2)", fontWeight: 700 }}>{row.approvedBy || "Not provided"}</span>
                       </div>
-                      {(isActive || isUpcoming) && (
+                      {(isActive || isUpcoming) && canEarlyReturnLeave && (
                         <button
                           className="btn btn-sm btn-ghost"
                           onClick={(e) => { e.stopPropagation(); setEarlyModal(row); }}

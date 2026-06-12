@@ -24,6 +24,12 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  UserPlus,
+  LogIn,
+  Settings,
+  DollarSign,
+  Briefcase,
+  CheckCircle,
 } from "lucide-react";
 import {
   PieChart,
@@ -170,6 +176,94 @@ const Av = ({
     {ini}
   </div>
 );
+
+const chipColorForType = (type: string) => {
+  const normalizedType = String(type).toLowerCase();
+  if (normalizedType.includes("auth")) {
+    return { bg: "rgba(99,102,241,0.08)", fg: "#6366f1" };
+  } else if (normalizedType.includes("leave") || normalizedType.includes("wallet")) {
+    return { bg: "rgba(13,148,136,0.08)", fg: "#0d9488" };
+  } else if (normalizedType.includes("attendance")) {
+    return { bg: "rgba(37,99,235,0.08)", fg: "#2563eb" };
+  } else if (normalizedType.includes("employees") || normalizedType.includes("employee")) {
+    if (normalizedType.includes("salary") || normalizedType.includes("allowance")) {
+      return { bg: "rgba(217,119,6,0.08)", fg: "#d97706" };
+    }
+    return { bg: "rgba(5,150,105,0.08)", fg: "#059669" };
+  } else if (normalizedType.includes("penalties") || normalizedType.includes("penalty")) {
+    return { bg: "rgba(220,38,38,0.08)", fg: "#dc2626" };
+  } else if (normalizedType.includes("announcement")) {
+    return { bg: "rgba(245,158,11,0.08)", fg: "#f59e0b" };
+  } else if (normalizedType.includes("calendar")) {
+    return { bg: "rgba(99,102,241,0.08)", fg: "#6366f1" };
+  } else if (normalizedType.includes("config") || normalizedType.includes("setting")) {
+    return { bg: "rgba(71,85,105,0.08)", fg: "#475569" };
+  } else if (normalizedType.includes("account")) {
+    return { bg: "rgba(3,105,161,0.08)", fg: "#0369a1" };
+  }
+  return { bg: "#f3f4f6", fg: "#6b7280" };
+};
+
+const ActivityIcon = ({ type }: { type: string }) => {
+  const normalizedType = String(type).toLowerCase();
+  
+  let IconComponent = Activity;
+  let color = "#6b7280"; // default slate
+
+  if (normalizedType.includes("auth")) {
+    IconComponent = LogIn;
+    color = "#6366f1"; // Indigo
+  } else if (normalizedType.includes("leave") || normalizedType.includes("wallet")) {
+    IconComponent = CalendarDays;
+    color = "#0d9488"; // Teal
+  } else if (normalizedType.includes("attendance")) {
+    IconComponent = Clock;
+    color = "#2563eb"; // Blue
+  } else if (normalizedType.includes("employees") || normalizedType.includes("employee")) {
+    if (normalizedType.includes("salary") || normalizedType.includes("allowance")) {
+      IconComponent = DollarSign;
+      color = "#d97706"; // Amber
+    } else if (normalizedType.includes("attachment") || normalizedType.includes("document")) {
+      IconComponent = FileText;
+      color = "#7c3aed"; // Purple
+    } else {
+      IconComponent = UserPlus;
+      color = "#059669"; // Green
+    }
+  } else if (normalizedType.includes("penalties") || normalizedType.includes("penalty")) {
+    IconComponent = AlertTriangle;
+    color = "#dc2626"; // Red
+  } else if (normalizedType.includes("announcement")) {
+    IconComponent = Megaphone;
+    color = "#f59e0b"; // Orange/Amber
+  } else if (normalizedType.includes("calendar")) {
+    IconComponent = CalendarDays;
+    color = "#6366f1"; // Indigo
+  } else if (normalizedType.includes("config") || normalizedType.includes("setting")) {
+    IconComponent = Settings;
+    color = "#475569"; // Slate
+  } else if (normalizedType.includes("account")) {
+    IconComponent = UserCheck;
+    color = "#0369a1"; // Sky
+  }
+
+  return (
+    <div
+      style={{
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        background: `${color}10`, // 10% opacity hex tint
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      <IconComponent size={16} style={{ color }} />
+    </div>
+  );
+};
 
 const WCard = ({
   children,
@@ -708,7 +802,10 @@ export default function Dashboard() {
   );
 
   // ── Real data ──
-  const totalEmp = metrics?.total_employees ?? filteredEmployees?.length ?? 0;
+  const totalEmp = Math.max(
+    Number(metrics?.total_employees ?? 0),
+    filteredEmployees?.length ?? 0,
+  );
   const activeEmp =
     metrics?.present_today ??
     filteredEmployees?.filter((e: any) => e.status === "active").length ??
@@ -952,17 +1049,22 @@ export default function Dashboard() {
   // ── Activity ──
   const activity = useMemo(() => {
     if (!Array.isArray(metrics?.recent_activity)) return [];
-    return metrics.recent_activity.map((a: any, index: number) => ({
-      ini:
-        a.ini || initialsFor(a.employee_name || a.name || a.text || "Activity"),
-      color: a.color || AV_COLORS[index % AV_COLORS.length],
-      text: a.text || a.message || "Activity recorded",
-      time: a.time || a.created_at || "",
-      by: a.by || a.actor_name || "System",
-      chip: a.chip || a.type || "Update",
-      cBg: a.cBg || "#eff6ff",
-      cFg: a.cFg || "#2563eb",
-    }));
+    return metrics.recent_activity.map((a: any, index: number) => {
+      const type = a.type || a.chip || "system";
+      const colors = chipColorForType(type);
+      return {
+        ini:
+          a.ini || initialsFor(a.employee_name || a.name || a.text || "Activity"),
+        color: a.color || AV_COLORS[index % AV_COLORS.length],
+        text: a.text || a.message || "Activity recorded",
+        time: a.time || a.created_at || "",
+        by: a.by || a.actor_name || "System",
+        chip: a.chip || a.type || "Update",
+        cBg: colors.bg,
+        cFg: colors.fg,
+        activityIcon: type,
+      };
+    });
   }, [metrics]);
 
   // Department heads
@@ -2178,7 +2280,7 @@ export default function Dashboard() {
                         i < activity.length - 1 ? "1px solid #f3f4f6" : "none",
                     }}
                   >
-                    <Av ini={a.ini} color={a.color} size={32} />
+                    <ActivityIcon type={a.activityIcon} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 11, color: "#374151" }}>{a.text}</div>
                       <div style={{ fontSize: 9, color: "#d1d5db", marginTop: 2 }}>

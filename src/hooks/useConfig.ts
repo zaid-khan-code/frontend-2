@@ -24,11 +24,12 @@ export function createConfigHook<T>(
   const queryParams = options.includeInactive ? { include_inactive: true } : undefined;
   const queryKey = ["config", entityName, queryParams || {}];
 
-  return function useEntityConfig() {
+  return function useEntityConfig(queryOptions: { enabled?: boolean } = {}) {
     const queryClient = useQueryClient();
 
     const query = useQuery({
       queryKey,
+      enabled: queryOptions.enabled ?? true,
       queryFn: async () => {
         const { data } = queryParams
           ? await apiClient.get(`/config/${entityName}`, { params: queryParams })

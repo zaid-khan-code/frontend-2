@@ -33,6 +33,7 @@ import {
 import DecisionBanner from "../components/common/DecisionBanner";
 import { useToastContext } from "../context/ToastContext";
 import { renderCredentialTemplate, useCredentialTemplate } from "../hooks/useAccounts";
+import { useAuthStore } from "../store/useAuthStore";
 
 // ─── Attractive CSS matching Dashboard aesthetic ──────────────────────────────
 const S = `
@@ -590,6 +591,7 @@ export default function AddEmployee() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
   const { data: credentialTemplateData } = useCredentialTemplate();
+  const hasPermission = useAuthStore((state) => state.hasPermission);
 
   const { data: deptData = [] } = useDepartments();
   const { data: empTypeData = [] } = useEmploymentTypes();
@@ -597,7 +599,9 @@ export default function AddEmployee() {
   const { data: wModeData = [] } = useWorkModes();
   const { data: wLocData = [] } = useWorkLocations();
   const { data: shiftsData = [] } = useShifts();
-  const { data: allowanceTypeData = [] } = useAllowanceTypes();
+  const { data: allowanceTypeData = [] } = useAllowanceTypes({
+    enabled: hasPermission("allowances:read"),
+  });
   const { data: roleData = [] } = useRoles();
   const { data: provinceOptions = [], create: createProvince } = useLocations({ kind: "province" });
 

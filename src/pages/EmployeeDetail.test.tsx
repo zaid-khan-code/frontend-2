@@ -342,6 +342,7 @@ describe("EmployeeDetail", () => {
       target: { value: "role-employee" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create login account" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
 
     await waitFor(() => {
       expect(createAccountMock).toHaveBeenCalledWith({
@@ -367,6 +368,7 @@ describe("EmployeeDetail", () => {
       target: { value: "Increment" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add salary history" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
 
     await waitFor(() => {
       expect(addSalaryRevisionMock).toHaveBeenCalledWith({
@@ -485,6 +487,7 @@ describe("EmployeeDetail", () => {
     fireEvent.click(screen.getByLabelText("Percentage"));
     fireEvent.click(screen.getByLabelText("Active"));
     fireEvent.click(screen.getByRole("button", { name: "Save allowances" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
 
     await waitFor(() => {
       expect(updateAllowancesMock).toHaveBeenCalledWith({

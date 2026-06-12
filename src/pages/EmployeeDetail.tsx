@@ -37,6 +37,7 @@ import { useRbac } from "../hooks/useRbac";
 import { useEmployeeAttachments } from "../hooks/useEmployeeAttachments";
 import { apiClient } from "../services/apiClient";
 import { formatPKR, getStatusColor } from "../services/api";
+import { useAuthStore } from "../store/useAuthStore";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const API_ORIGIN = String(apiClient.defaults.baseURL || "http://localhost:3001/api").replace(/\/api\/?$/, "");
@@ -573,6 +574,7 @@ export default function EmployeeDetail() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
   const { can } = useRbac();
+  const hasPermission = useAuthStore((state) => state.hasPermission);
   const [tab, setTab] = useState("personal");
   const [windowOffset, setWindowOffset] = useState<0 | 6>(0);
   const [resendModalOpen, setResendModalOpen] = useState(false);
@@ -596,6 +598,8 @@ export default function EmployeeDetail() {
   const [credentialEmail, setCredentialEmail] = useState("");
   const [credentialPhone, setCredentialPhone] = useState("");
   const [allowanceDrafts, setAllowanceDrafts] = useState<Array<{ allowance_type_id: string; amount: string; is_percentage: boolean; is_active: boolean }>>([]);
+  const [pendingAction, setPendingAction] = useState<null | "create_account" | "resend_credentials" | "add_salary_revision" | "save_allowances" | "add_penalty">(null);
+  const [actionSubmitting, setActionSubmitting] = useState(false);
 
   const {
     data: rawEmployee,
@@ -611,7 +615,9 @@ export default function EmployeeDetail() {
   const employee = useMemo(() => (rawEmployee ? normalizeEmployee(rawEmployee) : null), [rawEmployee]);
   const employeeId = employee?.id || id || "";
   const { data: finance = null } = useEmployeeFinance(employeeId);
-  const { data: allowanceTypes = [] } = useAllowanceTypes();
+  const { data: allowanceTypes = [] } = useAllowanceTypes({
+    enabled: hasPermission("allowances:read"),
+  });
   const { updateAllowances, isUpdatingSection: isUpdatingAllowances } = useEmployeeActions(employeeId);
   const canManageEmployees = can("resend_credentials") || can("edit_employee") || can("create_employee");
   const canViewAttachments = can("view_employee_attachments") || canManageEmployees;
@@ -628,6 +634,9 @@ export default function EmployeeDetail() {
   const { data: penaltyRules = [] } = usePenaltyRules();
   const { data: roles = [] } = useRoles();
   const { data: credentialTemplateData } = useCredentialTemplate();
+  const canWriteSalary = can("salary:write");
+  const canWriteAllowances = can("allowances:write");
+  const canManageCompensation = canWriteSalary || canWriteAllowances;
 
   const profilePhotoUrl = useMemo(() => {
     const photo = attachments.find((item: any) => item?.kind === "profile_photo" && String(item?.mime_type || "").startsWith("image/"));
@@ -691,6 +700,36 @@ export default function EmployeeDetail() {
     phone: credentialPhone || employee?.phone || "",
     template: credentialTemplateData?.template,
   });
+
+  const openActionConfirm = (action: typeof pendingAction) => {
+    setPendingAction(action);
+  };
+
+  const closeActionConfirm = () => {
+    if (actionSubmitting) return;
+    setPendingAction(null);
+  };
+
+  const confirmAction = async () => {
+    if (!pendingAction) return;
+    setActionSubmitting(true);
+    try {
+      if (pendingAction === "create_account") {
+        await handleCreateAccount();
+      } else if (pendingAction === "resend_credentials") {
+        await handleResendCredentials();
+      } else if (pendingAction === "add_salary_revision") {
+        await handleAddSalaryRevision();
+      } else if (pendingAction === "save_allowances") {
+        await handleSaveAllowances();
+      } else if (pendingAction === "add_penalty") {
+        await handleAddPenalty();
+      }
+      setPendingAction(null);
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
 
   const handleResendCredentials = async () => {
     if (!employeeId) return;
@@ -837,7 +876,7 @@ export default function EmployeeDetail() {
     );
   }
 
-  const hasLoginAccount = employee.email !== "Not provided";
+  const hasLoginAccount = Boolean(employee.accountInfo?.id || employee.accountInfo?.email || employee.email !== "Not provided");
   const tabs = [
     { key: "personal", label: "Personal & Contact", icon: UserRound },
     { key: "job", label: "Job & Employment", icon: BriefcaseBusiness },
@@ -1342,186 +1381,196 @@ export default function EmployeeDetail() {
               )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {!hasLoginAccount && (
-                  <button className="btn btn-primary" onClick={handleCreateAccount} disabled={isCreatingAccount}>
+                  <button className="btn btn-primary" onClick={() => openActionConfirm("create_account")} disabled={isCreatingAccount}>
                     {isCreatingAccount ? "Creating..." : "Create login account"}
                   </button>
                 )}
                 {can("resend_credentials") && (
-                  <button className="btn btn-secondary" onClick={handleResendCredentials} disabled={isResendingCredentials}>
+                  <button className="btn btn-secondary" onClick={() => openActionConfirm("resend_credentials")} disabled={isResendingCredentials}>
                     {isResendingCredentials ? "Sending..." : "Resend Credentials"}
                   </button>
                 )}
               </div>
             </div>
 
-            <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
-              <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Add Salary History</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-                <label className="form-group" style={{ margin: 0 }}>
-                  <span className="form-label">Base Salary</span>
-                  <input className="input" type="number" min="0" value={salaryAmount} onChange={(event) => setSalaryAmount(event.target.value)} placeholder="125000" />
-                </label>
-                <label className="form-group" style={{ margin: 0 }}>
-                  <span className="form-label">Currency</span>
-                  <select className="input select-input" value={salaryCurrency} onChange={(event) => setSalaryCurrency(event.target.value)}>
-                    <option value="PKR">PKR</option>
-                    <option value="USD">USD</option>
-                  </select>
-                </label>
-                <label className="form-group" style={{ margin: 0 }}>
-                  <span className="form-label">Effective From</span>
-                  <input className="input" type="date" value={salaryEffectiveFrom} onChange={(event) => setSalaryEffectiveFrom(event.target.value)} />
-                </label>
-                <label className="form-group" style={{ margin: 0 }}>
-                  <span className="form-label">Revision Type</span>
-                  <select
-                    className="input select-input"
-                    value={salaryRevisionType}
-                    onChange={(event) => {
-                      const nextValue = event.target.value;
-                      setSalaryRevisionType(nextValue);
-                      if (nextValue === "Initial" || nextValue === "") {
-                        setSalaryRevisionPercent("");
-                        setSalaryRevisionReason("");
-                      }
-                    }}
-                  >
-                    <option value="">Select option</option>
-                    {salaryRevisionTypes.map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </label>
-                {showSalaryRevisionDetails && (
-                  <>
-                    <label className="form-group" style={{ margin: 0 }}>
-                      <span className="form-label">Revision Percent</span>
-                      <input className="input" type="number" step="0.01" value={salaryRevisionPercent} onChange={(event) => setSalaryRevisionPercent(event.target.value)} placeholder="Optional" />
-                    </label>
-                    <label className="form-group" style={{ margin: 0 }}>
-                      <span className="form-label">Revision Reason</span>
-                      <input className="input" value={salaryRevisionReason} onChange={(event) => setSalaryRevisionReason(event.target.value)} placeholder="Optional note" />
-                    </label>
-                  </>
-                )}
-              </div>
-              <div>
-                <button className="btn btn-primary" onClick={handleAddSalaryRevision} disabled={isAddingSalaryRevision}>
-                  {isAddingSalaryRevision ? "Saving..." : "Add salary history"}
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Allowance Management</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button className="btn btn-secondary btn-sm" onClick={handleAddAllowanceRow}>
-                    Add allowance row
-                  </button>
-                  <button className="btn btn-primary btn-sm" onClick={handleSaveAllowances} disabled={isUpdatingAllowances}>
-                    {isUpdatingAllowances ? "Saving..." : "Save allowances"}
-                  </button>
-                </div>
-              </div>
-              {allowanceDrafts.length ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {allowanceDrafts.map((row, index) => (
-                    <div
-                      key={`${row.allowance_type_id || "row"}-${index}`}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(220px, 1.4fr) minmax(140px, 0.8fr) minmax(100px, 0.6fr) minmax(90px, 0.5fr) auto",
-                        gap: 10,
-                        alignItems: "end",
+            {canWriteSalary && (
+              <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Add Salary History</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Base Salary</span>
+                    <input className="input" type="number" min="0" value={salaryAmount} onChange={(event) => setSalaryAmount(event.target.value)} placeholder="125000" />
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Currency</span>
+                    <select className="input select-input" value={salaryCurrency} onChange={(event) => setSalaryCurrency(event.target.value)}>
+                      <option value="PKR">PKR</option>
+                      <option value="USD">USD</option>
+                    </select>
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Effective From</span>
+                    <input className="input" type="date" value={salaryEffectiveFrom} onChange={(event) => setSalaryEffectiveFrom(event.target.value)} />
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Revision Type</span>
+                    <select
+                      className="input select-input"
+                      value={salaryRevisionType}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        setSalaryRevisionType(nextValue);
+                        if (nextValue === "Initial" || nextValue === "") {
+                          setSalaryRevisionPercent("");
+                          setSalaryRevisionReason("");
+                        }
                       }}
                     >
+                      <option value="">Select option</option>
+                      {salaryRevisionTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {showSalaryRevisionDetails && (
+                    <>
                       <label className="form-group" style={{ margin: 0 }}>
-                        <span className="form-label">Allowance Type</span>
-                        <select
-                          className="input select-input"
-                          value={row.allowance_type_id}
-                          onChange={(event) => {
-                            const next = event.target.value;
-                            setAllowanceDrafts((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, allowance_type_id: next } : item,
-                              ),
-                            );
-                          }}
-                        >
-                          <option value="">Select allowance type</option>
-                          {allowanceTypes.map((type: any) => (
-                            <option key={type.id} value={type.id}>
-                              {type.field_name || type.name || type.title}
-                            </option>
-                          ))}
-                        </select>
+                        <span className="form-label">Revision Percent</span>
+                        <input className="input" type="number" step="0.01" value={salaryRevisionPercent} onChange={(event) => setSalaryRevisionPercent(event.target.value)} placeholder="Optional" />
                       </label>
                       <label className="form-group" style={{ margin: 0 }}>
-                        <span className="form-label">Amount</span>
-                        <input
-                          className="input"
-                          type="number"
-                          min="0"
-                          value={row.amount}
-                          onChange={(event) => {
-                            const next = event.target.value;
-                            setAllowanceDrafts((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, amount: next } : item,
-                              ),
-                            );
-                          }}
-                        />
+                        <span className="form-label">Revision Reason</span>
+                        <input className="input" value={salaryRevisionReason} onChange={(event) => setSalaryRevisionReason(event.target.value)} placeholder="Optional note" />
                       </label>
-                      <label className="form-group" style={{ margin: 0, paddingBottom: 2 }}>
-                        <span className="form-label">Percentage</span>
-                        <input
-                          type="checkbox"
-                          checked={row.is_percentage}
-                          onChange={(event) => {
-                            const checked = event.target.checked;
-                            setAllowanceDrafts((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, is_percentage: checked } : item,
-                              ),
-                            );
-                          }}
-                        />
-                      </label>
-                      <label className="form-group" style={{ margin: 0, paddingBottom: 2 }}>
-                        <span className="form-label">Active</span>
-                        <input
-                          type="checkbox"
-                          checked={row.is_active}
-                          onChange={(event) => {
-                            const checked = event.target.checked;
-                            setAllowanceDrafts((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, is_active: checked } : item,
-                              ),
-                            );
-                          }}
-                        />
-                      </label>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() =>
-                          setAllowanceDrafts((current) => current.filter((_, itemIndex) => itemIndex !== index))
-                        }
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
+                    </>
+                  )}
                 </div>
-              ) : (
-                <p style={{ fontSize: 12, color: "var(--t3)", margin: 0 }}>
-                  Add allowance rows here to update the employee's allowance package.
-                </p>
-              )}
-            </div>
+                <div>
+                  <button className="btn btn-primary" onClick={() => openActionConfirm("add_salary_revision")} disabled={isAddingSalaryRevision}>
+                    {isAddingSalaryRevision ? "Saving..." : "Add salary history"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {canWriteAllowances && (
+              <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Allowance Management</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button className="btn btn-secondary btn-sm" onClick={handleAddAllowanceRow}>
+                      Add allowance row
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={() => openActionConfirm("save_allowances")} disabled={isUpdatingAllowances}>
+                      {isUpdatingAllowances ? "Saving..." : "Save allowances"}
+                    </button>
+                  </div>
+                </div>
+                {allowanceDrafts.length ? (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {allowanceDrafts.map((row, index) => (
+                      <div
+                        key={`${row.allowance_type_id || "row"}-${index}`}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "minmax(220px, 1.4fr) minmax(140px, 0.8fr) minmax(100px, 0.6fr) minmax(90px, 0.5fr) auto",
+                          gap: 10,
+                          alignItems: "end",
+                        }}
+                      >
+                        <label className="form-group" style={{ margin: 0 }}>
+                          <span className="form-label">Allowance Type</span>
+                          <select
+                            className="input select-input"
+                            value={row.allowance_type_id}
+                            onChange={(event) => {
+                              const next = event.target.value;
+                              setAllowanceDrafts((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, allowance_type_id: next } : item,
+                                ),
+                              );
+                            }}
+                          >
+                            <option value="">Select allowance type</option>
+                            {allowanceTypes.map((type: any) => (
+                              <option key={type.id} value={type.id}>
+                                {type.field_name || type.name || type.title}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="form-group" style={{ margin: 0 }}>
+                          <span className="form-label">Amount</span>
+                          <input
+                            className="input"
+                            type="number"
+                            min="0"
+                            value={row.amount}
+                            onChange={(event) => {
+                              const next = event.target.value;
+                              setAllowanceDrafts((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, amount: next } : item,
+                                ),
+                              );
+                            }}
+                          />
+                        </label>
+                        <label className="form-group" style={{ margin: 0, paddingBottom: 2 }}>
+                          <span className="form-label">Percentage</span>
+                          <input
+                            type="checkbox"
+                            checked={row.is_percentage}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              setAllowanceDrafts((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, is_percentage: checked } : item,
+                                ),
+                              );
+                            }}
+                          />
+                        </label>
+                        <label className="form-group" style={{ margin: 0, paddingBottom: 2 }}>
+                          <span className="form-label">Active</span>
+                          <input
+                            type="checkbox"
+                            checked={row.is_active}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              setAllowanceDrafts((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, is_active: checked } : item,
+                                ),
+                              );
+                            }}
+                          />
+                        </label>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() =>
+                            setAllowanceDrafts((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 12, color: "var(--t3)", margin: 0 }}>
+                    Add allowance rows here to update the employee's allowance package.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!canManageCompensation && (
+              <div style={{ padding: 13, border: "1px dashed var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)", color: "var(--t2)", fontSize: 12 }}>
+                Compensation editing is not available for your role.
+              </div>
+            )}
 
             <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
               <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Upload profile photo/documents</div>
@@ -1603,7 +1652,39 @@ export default function EmployeeDetail() {
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
           <button className="btn btn-secondary" onClick={() => setPenaltyModalOpen(false)}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleAddPenalty}>Submit for Review</button>
+          <button className="btn btn-primary" onClick={() => openActionConfirm("add_penalty")}>Submit for Review</button>
+        </div>
+      </Modal>
+
+      <Modal open={pendingAction !== null} onClose={closeActionConfirm} title="Confirm action">
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(220,38,38,.08)", display: "grid", placeItems: "center", color: "#dc2626", flexShrink: 0 }}>
+            <AlertTriangle size={16} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, color: "var(--t1)", marginBottom: 4 }}>
+              {pendingAction === "create_account" && "Create login account"}
+              {pendingAction === "resend_credentials" && "Resend credentials"}
+              {pendingAction === "add_salary_revision" && "Add salary history"}
+              {pendingAction === "save_allowances" && "Save allowances"}
+              {pendingAction === "add_penalty" && "Submit penalty for review"}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--t2)", lineHeight: 1.5 }}>
+              {pendingAction === "create_account" && "This will create a login account for the employee and generate a temporary password."}
+              {pendingAction === "resend_credentials" && "This will generate fresh credentials and open the share dialog."}
+              {pendingAction === "add_salary_revision" && "This will write a salary history record for the employee."}
+              {pendingAction === "save_allowances" && "This will update the employee's allowance package."}
+              {pendingAction === "add_penalty" && "This will send the penalty proposal for review."}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <button className="btn btn-secondary" onClick={closeActionConfirm} disabled={actionSubmitting}>
+            Cancel
+          </button>
+          <button className="btn btn-primary" onClick={confirmAction} disabled={actionSubmitting}>
+            {actionSubmitting ? "Working..." : "Confirm"}
+          </button>
         </div>
       </Modal>
     </div>
