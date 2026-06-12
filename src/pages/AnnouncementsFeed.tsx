@@ -1,8 +1,6 @@
 import React from "react";
 import { Megaphone } from "lucide-react";
-import { Link } from "react-router-dom";
 import { useAnnouncements } from "../hooks/useAnnouncements";
-import { useAuthStore } from "../store/useAuthStore";
 
 function formatDate(value?: string) {
   if (!value) return "Not provided";
@@ -17,9 +15,6 @@ function formatDate(value?: string) {
 
 export default function AnnouncementsFeed() {
   const { announcements, isLoading, isError } = useAnnouncements({ active: true });
-  const canManageAnnouncements = useAuthStore(
-    (state) => state.hasPermission("announcements:write") || state.hasPermission("announcements:department_write"),
-  );
 
   return (
     <div>
@@ -28,11 +23,6 @@ export default function AnnouncementsFeed() {
           <div className="pg-greet">Announcements</div>
           <div className="pg-sub">Official organization updates from the backend announcement feed.</div>
         </div>
-        {canManageAnnouncements && (
-          <Link className="btn btn-primary" to="/announcements/manage">
-            Manage Announcements
-          </Link>
-        )}
       </div>
 
       <div className="card">

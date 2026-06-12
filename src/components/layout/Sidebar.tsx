@@ -57,6 +57,11 @@ export default function Sidebar() {
   };
 
   const initials = getUserInitials(user?.username || "");
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to logout?")) {
+      logout();
+    }
+  };
 
   const superAdminLinks: SidebarLink[] = [
     // Active/Enabled first
@@ -251,6 +256,7 @@ export default function Sidebar() {
             <NavLink
               key={link.to}
               to={link.to}
+              end={link.to === "/announcements"}
               className={({ isActive }) => `nav-a ${isActive ? "active" : ""}`}
             >
               <link.icon size={14} className="nav-ico" />
@@ -351,11 +357,11 @@ export default function Sidebar() {
 
       <div className="sb-bottom">
         <div className="sb-user">
-          <div className="sb-chip" onClick={logout}>
+          <div className="sb-chip" onClick={handleLogout} role="button" tabIndex={0}>
             <div className="sb-av">{initials}</div>
             <div>
-              <div className="sb-un">{user?.username}</div>
-              <div className="sb-ur">{activeRole}</div>
+              <div className="sb-un">Logout</div>
+              <div className="sb-ur">End current session</div>
             </div>
             <LogOut
               size={14}

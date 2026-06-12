@@ -91,6 +91,7 @@ export default function Leave() {
   const [newTo, setNewTo] = useState("");
   const [newReason, setNewReason] = useState("");
   const [selectedPendingId, setSelectedPendingId] = useState("");
+  const [approvedSubTab, setApprovedSubTab] = useState<"upcoming" | "completed">("upcoming");
 
   const rows = useMemo(() => {
     return serverLeaves.map((leave: any) => {
@@ -116,6 +117,11 @@ export default function Leave() {
   }, [serverLeaves]);
 
   const filteredRows = tab === "all" ? rows : rows.filter((row: any) => row.status.toLowerCase() === tab);
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const approvedRows = rows.filter((row: any) => row.status === "Approved");
+  const upcomingApprovedRows = approvedRows.filter((row: any) => String(row.to).slice(0, 10) >= todayKey);
+  const completedApprovedRows = approvedRows.filter((row: any) => String(row.to).slice(0, 10) < todayKey);
+  const approvedVisibleRows = approvedSubTab === "completed" ? completedApprovedRows : upcomingApprovedRows;
   const counts = {
     total: rows.length,
     pending: rows.filter((row: any) => row.status === "Pending").length,
@@ -737,16 +743,39 @@ export default function Leave() {
         <div className="card">
           <div className="ch">
             <div className="ct">Approved Leave Requests</div>
-            <span className="mono" style={{ fontSize: 11, color: "var(--t4)" }}>{filteredRows.length} total</span>
+            <span className="mono" style={{ fontSize: 11, color: "var(--t4)" }}>{approvedRows.length} total</span>
           </div>
-          {filteredRows.length === 0 ? (
+          {approvedRows.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: "var(--t3)" }}>
               <Check size={32} style={{ margin: "0 auto 8px", opacity: 0.4 }} />
               <div style={{ fontSize: 13 }}>No approved leave requests</div>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12 }}>
-              {filteredRows.map((row: any) => {
+            <>
+              <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+                {[
+                  { key: "upcoming", label: "Upcoming", count: upcomingApprovedRows.length },
+                  { key: "completed", label: "Completed", count: completedApprovedRows.length },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={`tab ${approvedSubTab === item.key ? "active" : ""}`}
+                    onClick={() => setApprovedSubTab(item.key as "upcoming" | "completed")}
+                  >
+                    {item.label} ({item.count})
+                  </button>
+                ))}
+              </div>
+
+              {approvedVisibleRows.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 40, color: "var(--t3)" }}>
+                  <Check size={32} style={{ margin: "0 auto 8px", opacity: 0.4 }} />
+                  <div style={{ fontSize: 13 }}>No {approvedSubTab} approved leave requests</div>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12 }}>
+                  {approvedVisibleRows.map((row: any) => {
                 const today = new Date().toISOString().slice(0, 10);
                 const fromDate = String(row.from).slice(0, 10);
                 const toDate = String(row.to).slice(0, 10);
@@ -854,8 +883,10 @@ export default function Leave() {
                     </div>
                   </div>
                 );
-              })}
-            </div>
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       ) : (

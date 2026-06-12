@@ -26,10 +26,24 @@ function unwrap(data: any) {
 }
 
 export function useAccounts() {
+  return useAccountsQuery();
+}
+
+function useAccountsQuery(params?: {
+  search?: string;
+  role_id?: string;
+  department_id?: string;
+  status?: "all" | "active" | "inactive";
+}) {
   return useQuery({
-    queryKey: ["accounts"],
+    queryKey: ["accounts", params || {}],
     queryFn: async () => {
-      const { data } = await apiClient.get("/accounts");
+      const cleanParams = params
+        ? Object.fromEntries(
+            Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ""),
+          )
+        : undefined;
+      const { data } = await apiClient.get("/accounts", { params: cleanParams });
       return unwrap(data) ?? [];
     },
   });
@@ -46,6 +60,8 @@ export function useUpdateAccountStatus() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["employee"] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
     },
   });
 }
@@ -72,4 +88,13 @@ export function useUpdateCredentialTemplate() {
       queryClient.invalidateQueries({ queryKey: ["accounts", "credential-template"] });
     },
   });
+}
+
+export function useFilteredAccounts(params?: {
+  search?: string;
+  role_id?: string;
+  department_id?: string;
+  status?: "all" | "active" | "inactive";
+}) {
+  return useAccountsQuery(params);
 }

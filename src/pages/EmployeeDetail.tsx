@@ -503,7 +503,7 @@ function ContactCards({ source }: { source: any }) {
   const contacts = [
     {
       label: "Primary",
-      name: source?.e_contact_1_full_name || source?.primary_contact || "Primary contact",
+      name: source?.e_contact_1_full_name || "Primary contact",
       relation: source?.e_contact_1_relation,
       phone: source?.e_contact_1_phone || source?.contact_1,
       code: source?.e_contact_1_phone_country_code,
