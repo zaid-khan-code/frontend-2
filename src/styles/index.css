@@ -1065,3 +1065,114 @@ tbody tr:nth-child(odd) { background: #ffffff; }
 }
 .wizard-toggle.active { background: var(--p); color: #fff; }
 .wizard-toggle:hover:not(.active) { background: var(--hover); }
+
+/* Glassmorphism Design Styles */
+.glass-container {
+  padding: 4px 0;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--r);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04), 
+              inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  padding: 24px;
+  margin-bottom: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.08), 
+              inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+/* Premium Gradient Headers */
+.gradient-header-wrapper {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(14, 165, 233, 0.08) 100%);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: var(--r);
+  padding: 24px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.gradient-header-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.1) 0%, transparent 40%),
+              radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.08) 0%, transparent 40%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.gradient-header-content {
+  position: relative;
+  z-index: 1;
+}
+
+.gradient-header-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.gradient-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(90deg, #1e3a8a 0%, #2563eb 50%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 6px;
+}
+
+.gradient-subtitle {
+  font-size: 13px;
+  color: var(--t3);
+  font-weight: 500;
+}
+
+/* Card metrics customization for glass style */
+.glass-metric-card {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--r);
+  padding: 20px;
+  box-shadow: 0 4px 20px 0 rgba(31, 38, 135, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px 0 rgba(31, 38, 135, 0.06);
+}
+
+.glass-metric-title {
+  font-size: 10.5px;
+  color: var(--t4);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.glass-metric-value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}

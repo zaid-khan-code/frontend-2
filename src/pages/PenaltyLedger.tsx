@@ -27,6 +27,10 @@ export default function PenaltyLedger() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
     employee_id: "",
@@ -54,10 +58,27 @@ export default function PenaltyLedger() {
     [serverPenalties],
   );
 
-  const filtered = penalties.filter((row) => {
-    const haystack = `${row.employeeName} ${row.employeeId} ${row.rule} ${row.reason}`.toLowerCase();
-    return !search || haystack.includes(search.toLowerCase());
-  });
+  const filtered = useMemo(() => {
+    return penalties.filter((row) => {
+      if (filterFrom && row.date < filterFrom) return false;
+      if (filterTo && row.date > filterTo) return false;
+      const haystack = `${row.employeeName} ${row.employeeId} ${row.rule} ${row.reason}`.toLowerCase();
+      return !search || haystack.includes(search.toLowerCase());
+    });
+  }, [penalties, search, filterFrom, filterTo]);
+
+  // Reset page when any filters change
+  React.useEffect(() => {
+    setPage(1);
+  }, [statusFilter, employeeFilter, search, filterFrom, filterTo]);
+
+  // Pagination logic
+  const paginated = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page]);
+
+  const hasMore = page * pageSize < filtered.length;
 
   const approvedTotal = filtered
     .filter((row) => row.status === "approved")
@@ -84,50 +105,72 @@ export default function PenaltyLedger() {
   };
 
   return (
-    <div>
-      <div className="pg-head">
-        <div>
-          <div className="pg-greet">Penalty</div>
-          <div className="pg-sub">Track proposed, approved, rejected, and acknowledged penalties from the backend.</div>
+    <div className="glass-container">
+      <div className="gradient-header-wrapper">
+        <div className="gradient-header-content">
+          <div className="gradient-title">Penalty Ledger</div>
+          <div className="gradient-subtitle">Track proposed, approved, rejected, and acknowledged penalties from the backend.</div>
         </div>
         {canPropose && (
-          <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
-            <Plus size={13} /> Apply Penalty
-          </button>
+          <div className="gradient-header-actions">
+            <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
+              <Plus size={13} /> Apply Penalty
+            </button>
+          </div>
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 12 }}>
-        <div className="card">
-          <div style={{ fontSize: 11, color: "var(--t3)", fontWeight: 800, textTransform: "uppercase" }}>Records</div>
-          <div style={{ fontSize: 24, fontWeight: 800 }}>{filtered.length}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 20, maxWidth: 900 }}>
+        <div className="glass-metric-card">
+          <div className="glass-metric-title">Records</div>
+          <div className="glass-metric-value">{filtered.length}</div>
         </div>
-        <div className="card">
-          <div style={{ fontSize: 11, color: "var(--t3)", fontWeight: 800, textTransform: "uppercase" }}>Approved Amount</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: "#c62828" }}>{formatPKR(approvedTotal)}</div>
+        <div className="glass-metric-card">
+          <div className="glass-metric-title">Approved Amount</div>
+          <div className="glass-metric-value" style={{ color: "#e11d48" }}>{formatPKR(approvedTotal)}</div>
         </div>
-        <div className="card">
-          <div style={{ fontSize: 11, color: "var(--t3)", fontWeight: 800, textTransform: "uppercase" }}>Acknowledged</div>
-          <div style={{ fontSize: 24, fontWeight: 800 }}>{filtered.filter((row) => row.acknowledged).length}</div>
+        <div className="glass-metric-card">
+          <div className="glass-metric-title">Acknowledged</div>
+          <div className="glass-metric-value">{filtered.filter((row) => row.acknowledged).length}</div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="ch">
-          <div className="ct">Penalty Records</div>
-          <div style={{ display: "flex", gap: 8 }}>
+      <div className="glass-card" style={{ padding: "20px" }}>
+        <div style={{ marginBottom: 16 }}>
+          <h3 style={{ fontSize: "16px", fontWeight: 700, color: "var(--t1)", marginBottom: 12 }}>Penalty Records</h3>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", background: "rgba(15, 23, 42, 0.02)", padding: "12px 16px", borderRadius: "8px", border: "1px solid rgba(0,0,0,0.04)" }}>
+            <div className="input-wrap" style={{ width: 220, margin: 0 }}>
+              <Search size={13} />
+              <input className="input" placeholder="Search employee or rule..." value={search} onChange={(event) => setSearch(event.target.value)} />
+            </div>
             <input
               className="input"
-              style={{ width: 150 }}
+              style={{ width: 140 }}
               placeholder="Employee ID"
               value={employeeFilter}
               onChange={(event) => setEmployeeFilter(event.target.value)}
             />
-            <div className="input-wrap" style={{ width: 220 }}>
-              <Search size={13} />
-              <input className="input" placeholder="Search employee or rule..." value={search} onChange={(event) => setSearch(event.target.value)} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: "12px", color: "var(--t3)" }}>From:</span>
+              <input
+                type="date"
+                className="input"
+                style={{ width: 130 }}
+                value={filterFrom}
+                onChange={(event) => setFilterFrom(event.target.value)}
+              />
             </div>
-            <select className="input select-input" style={{ width: 150 }} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: "12px", color: "var(--t3)" }}>To:</span>
+              <input
+                type="date"
+                className="input"
+                style={{ width: 130 }}
+                value={filterTo}
+                onChange={(event) => setFilterTo(event.target.value)}
+              />
+            </div>
+            <select className="input select-input" style={{ width: 140 }} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="all">All Statuses</option>
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
@@ -140,40 +183,60 @@ export default function PenaltyLedger() {
           <div style={{ padding: 36, textAlign: "center", color: "var(--t3)" }}>Loading penalties...</div>
         ) : isError ? (
           <div style={{ padding: 36, textAlign: "center", color: "#dc2626" }}>Unable to load penalties.</div>
-        ) : filtered.length === 0 ? (
+        ) : paginated.length === 0 ? (
           <div style={{ padding: 36, textAlign: "center", color: "var(--t3)" }}>No penalties found.</div>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Employee</th><th>Date</th><th>Rule</th><th>Reason</th><th>Amount</th><th>Status</th><th>ACK</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <div style={{ fontWeight: 700 }}>{row.employeeName}</div>
-                    <div className="mono" style={{ fontSize: 10, color: "var(--t3)" }}>{row.employeeId}</div>
-                  </td>
-                  <td className="mono">{row.date || "-"}</td>
-                  <td>{row.rule}</td>
-                  <td>{row.reason}</td>
-                  <td className="mono">{formatPKR(row.amount)}</td>
-                  <td>
-                    <span className={`pill ${row.status === "approved" ? "pill-green" : row.status === "rejected" ? "pill-red" : "pill-amber"}`}>
-                      {row.status}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`pill ${row.acknowledged ? "pill-green" : "pill-steel"}`}>
-                      {row.acknowledged ? "Acknowledged" : "-"}
-                    </span>
-                  </td>
+          <>
+            <table style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th>Employee</th><th>Date</th><th>Rule</th><th>Reason</th><th>Amount</th><th>Status</th><th>ACK</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginated.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      <div style={{ fontWeight: 700 }}>{row.employeeName}</div>
+                      <div className="mono" style={{ fontSize: 10, color: "var(--t3)" }}>{row.employeeId}</div>
+                    </td>
+                    <td className="mono">{row.date || "-"}</td>
+                    <td>{row.rule}</td>
+                    <td>{row.reason}</td>
+                    <td className="mono">{formatPKR(row.amount)}</td>
+                    <td>
+                      <span className={`pill ${row.status === "approved" ? "pill-green" : row.status === "rejected" ? "pill-red" : "pill-amber"}`}>
+                        {row.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`pill ${row.acknowledged ? "pill-green" : "pill-steel"}`}>
+                        {row.acknowledged ? "Acknowledged" : "-"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Pagination block */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+              <span style={{ fontSize: "12px", color: "var(--t3)" }}>
+                Showing {Math.min(filtered.length, (page - 1) * pageSize + 1)}–{Math.min(filtered.length, page * pageSize)} of {filtered.length} records
+              </span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button className="btn btn-sm btn-secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                  ← Prev
+                </button>
+                <span style={{ fontSize: 13, color: "var(--t2)", minWidth: 80, textAlign: "center" }}>
+                  Page {page} of {Math.max(1, Math.ceil(filtered.length / pageSize))}
+                </span>
+                <button className="btn btn-sm btn-secondary" disabled={!hasMore} onClick={() => setPage(p => p + 1)}>
+                  Next →
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
