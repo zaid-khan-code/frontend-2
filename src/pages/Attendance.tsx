@@ -4,9 +4,11 @@ import {
   AttendanceStatus,
   useAcknowledgeAttendance,
   useApproveAttendanceUnlock,
+  useAttendanceCorrections,
   useAttendanceReport,
   useAttendanceSheet,
   useRequestAttendanceUnlock,
+  useReviewAttendanceCorrection,
   useSaveAttendanceSheet,
   useSubmitAttendanceSheet,
 } from "../hooks/useAttendance";
@@ -318,6 +320,7 @@ export default function Attendance() {
     !isEmployee && (isSuperAdmin || permissions.includes("attendance:submit_ho"));
   const canUnlock =
     !isEmployee && (isSuperAdmin || permissions.includes("attendance:unlock"));
+  const canReviewCorrections = canWrite || canSubmit || canUnlock;
   const authLocationId = String(getUserLocationId(authUser) || "");
   const shouldResolveHrLocation =
     !isEmployee && !isSuperAdmin && !authLocationId && canRead;
@@ -406,6 +409,11 @@ export default function Attendance() {
   const requestUnlock = useRequestAttendanceUnlock();
   const approveUnlock = useApproveAttendanceUnlock();
   const acknowledgeAttendance = useAcknowledgeAttendance();
+  const correctionsQuery = useAttendanceCorrections({
+    status: "submitted",
+    enabled: canReviewCorrections,
+  });
+  const reviewCorrection = useReviewAttendanceCorrection();
   const isGenerating = sheetQuery.isFetching;
   const actionBusy =
     isGenerating ||
@@ -413,7 +421,8 @@ export default function Attendance() {
     submitSheet.isPending ||
     requestUnlock.isPending ||
     approveUnlock.isPending ||
-    acknowledgeAttendance.isPending;
+    acknowledgeAttendance.isPending ||
+    reviewCorrection.isPending;
 
   useEffect(() => {
     if (sheetQuery.data) {
@@ -582,6 +591,26 @@ export default function Attendance() {
     try {
       await acknowledgeAttendance.mutateAsync(id);
       showToast("Attendance acknowledged.");
+    } catch (error) {
+      showToast(errorMessage(error), "error");
+    }
+  };
+
+  const handleReviewCorrection = async (
+    id: string,
+    decision: "approved" | "rejected",
+  ) => {
+    try {
+      await reviewCorrection.mutateAsync({
+        id,
+        decision,
+        review_note: null,
+      });
+      showToast(
+        decision === "approved"
+          ? "Attendance correction approved."
+          : "Attendance correction rejected.",
+      );
     } catch (error) {
       showToast(errorMessage(error), "error");
     }
@@ -954,6 +983,83 @@ export default function Attendance() {
           </div>
 
           <aside className="att-side">
+            {canReviewCorrections && (
+              <div className="att-card">
+                <h3><TimerReset />Correction requests</h3>
+                <p>
+                  Review employee-submitted attendance corrections before the
+                  sheet is updated.
+                </p>
+                {correctionsQuery.isLoading ? (
+                  <div className="att-empty" style={{ marginTop: 12 }}>
+                    Loading correction requests...
+                  </div>
+                ) : correctionsQuery.data?.length ? (
+                  <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+                    {correctionsQuery.data.map((request) => (
+                      <div
+                        key={request.id}
+                        style={{
+                          border: "1px solid #eef2f7",
+                          borderRadius: 14,
+                          padding: 12,
+                          background: "#f8fafc",
+                        }}
+                      >
+                        <div className="att-person">
+                          <span className="att-avatar">
+                            {initials(request.employee_name || request.employee_id)}
+                          </span>
+                          <div>
+                            <div className="att-name">
+                              {request.employee_name || request.employee_id}
+                            </div>
+                            <div className="att-muted">
+                              {request.employee_id} · {request.date}
+                            </div>
+                          </div>
+                        </div>
+                        <div
+                          className="att-muted"
+                          style={{ marginTop: 8, lineHeight: 1.5 }}
+                        >
+                          Requested in: {toTimeInput(request.requested_check_in) || "--"} ·
+                          Requested out: {toTimeInput(request.requested_check_out) || "--"}
+                        </div>
+                        <p style={{ marginTop: 8 }}>{request.reason}</p>
+                        <div className="att-actions" style={{ marginTop: 10 }}>
+                          <button
+                            className="att-btn primary"
+                            onClick={() => handleReviewCorrection(request.id, "approved")}
+                            disabled={actionBusy}
+                          >
+                            {reviewCorrection.isPending ? (
+                              <Loader2 className="att-spin" />
+                            ) : (
+                              <CheckCircle2 />
+                            )}
+                            Approve Correction
+                          </button>
+                          <button
+                            className="att-btn danger"
+                            onClick={() => handleReviewCorrection(request.id, "rejected")}
+                            disabled={actionBusy}
+                          >
+                            <XCircle />
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="att-empty" style={{ marginTop: 12 }}>
+                    No pending correction requests.
+                  </div>
+                )}
+              </div>
+            )}
+
             {!isEmployee && canWrite && (
               <div className="att-card">
                 <h3><LockKeyhole />Unlock workflow</h3>

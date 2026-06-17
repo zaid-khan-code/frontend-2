@@ -1,7 +1,7 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Attendance from "./Attendance";
 import { apiClient } from "../services/apiClient";
 import { useAuthStore } from "../store/useAuthStore";
@@ -143,6 +143,10 @@ const sheetResponse = {
 };
 
 describe("Attendance", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     useAuthStore.setState({
@@ -159,6 +163,26 @@ describe("Attendance", () => {
     vi.mocked(apiClient.get).mockImplementation((url: string) => {
       if (url === "/attendance/report") {
         return Promise.resolve({ data: { success: true, data: [] } });
+      }
+      if (url === "/attendance/corrections") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            data: [
+              {
+                id: "correction-1",
+                attendance_id: "attendance-1",
+                employee_id: "EMP001",
+                employee_name: "Ayesha Khan",
+                date: TODAY,
+                requested_check_in: "09:00:00",
+                requested_check_out: null,
+                reason: "Biometric device was delayed",
+                status: "submitted",
+              },
+            ],
+          },
+        });
       }
       if (url === "/dashboard/me") {
         return Promise.resolve({
@@ -206,22 +230,29 @@ describe("Attendance", () => {
       });
     });
 
-    expect(await screen.findByText("Ayesha Khan")).toBeTruthy();
-    expect(screen.getByText("Software Engineer")).toBeTruthy();
+    let attendanceTable = screen.getByRole("table");
+    await waitFor(() => {
+      expect(within(attendanceTable).getByText("Ayesha Khan")).toBeTruthy();
+    });
+    expect(within(attendanceTable).getByText("Software Engineer")).toBeTruthy();
     expect(screen.queryByText("Ahmed Raza")).toBeNull();
   });
 
   it("filters attendance rows by search, department, and shift", async () => {
     renderAttendance();
 
-    expect(await screen.findByText("Ayesha Khan")).toBeTruthy();
-    expect(screen.getByText("Bilal Khan")).toBeTruthy();
+    let attendanceTable = screen.getByRole("table");
+    await waitFor(() => {
+      expect(within(attendanceTable).getByText("Ayesha Khan")).toBeTruthy();
+    });
+    expect(within(attendanceTable).getByText("Bilal Khan")).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText(/search attendance/i), {
       target: { value: "bilal" },
     });
-    expect(screen.queryByText("Ayesha Khan")).toBeNull();
-    expect(screen.getByText("Bilal Khan")).toBeTruthy();
+    attendanceTable = screen.getByRole("table");
+    expect(within(attendanceTable).queryByText("Ayesha Khan")).toBeNull();
+    expect(within(attendanceTable).getByText("Bilal Khan")).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText(/search attendance/i), {
       target: { value: "" },
@@ -229,8 +260,9 @@ describe("Attendance", () => {
     fireEvent.change(screen.getByLabelText(/department/i), {
       target: { value: "department-1" },
     });
-    expect(screen.getByText("Ayesha Khan")).toBeTruthy();
-    expect(screen.queryByText("Bilal Khan")).toBeNull();
+    attendanceTable = screen.getByRole("table");
+    expect(within(attendanceTable).getByText("Ayesha Khan")).toBeTruthy();
+    expect(within(attendanceTable).queryByText("Bilal Khan")).toBeNull();
 
     fireEvent.change(screen.getByLabelText(/department/i), {
       target: { value: "" },
@@ -238,14 +270,18 @@ describe("Attendance", () => {
     fireEvent.change(screen.getByLabelText(/shift/i), {
       target: { value: "shift-2" },
     });
-    expect(screen.queryByText("Ayesha Khan")).toBeNull();
-    expect(screen.getByText("Bilal Khan")).toBeTruthy();
+    attendanceTable = screen.getByRole("table");
+    expect(within(attendanceTable).queryByText("Ayesha Khan")).toBeNull();
+    expect(within(attendanceTable).getByText("Bilal Khan")).toBeTruthy();
   });
 
   it("saves, submits, and requests unlock through the active backend routes", async () => {
     renderAttendance();
 
-    expect(await screen.findByText("Ayesha Khan")).toBeTruthy();
+    const attendanceTable = screen.getByRole("table");
+    await waitFor(() => {
+      expect(within(attendanceTable).getByText("Ayesha Khan")).toBeTruthy();
+    });
 
     expect(screen.getByText(/locked to head office karachi/i)).toBeTruthy();
     fireEvent.change(screen.getByLabelText(/status for emp001/i), {
@@ -285,6 +321,29 @@ describe("Attendance", () => {
         location_id: "location-1",
         reason: "Correction needed",
       });
+    });
+  });
+
+  it("lets HR review submitted attendance correction requests", async () => {
+    renderAttendance();
+
+    const attendanceTable = screen.getByRole("table");
+    await waitFor(() => {
+      expect(within(attendanceTable).getByText("Ayesha Khan")).toBeTruthy();
+    });
+    expect(await screen.findByText(/correction requests/i)).toBeTruthy();
+    expect(screen.getByText(/biometric device was delayed/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /approve correction/i }));
+
+    await waitFor(() => {
+      expect(apiClient.patch).toHaveBeenCalledWith(
+        "/attendance/corrections/correction-1/review",
+        {
+          decision: "approved",
+          review_note: null,
+        },
+      );
     });
   });
 
@@ -338,7 +397,10 @@ describe("Attendance", () => {
       });
     });
 
-    expect(await screen.findByText("Ayesha Khan")).toBeTruthy();
+    const attendanceTable = screen.getByRole("table");
+    await waitFor(() => {
+      expect(within(attendanceTable).getByText("Ayesha Khan")).toBeTruthy();
+    });
     expect(screen.queryByRole("button", { name: /save sheet/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /submit to ho/i })).toBeNull();
 

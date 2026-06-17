@@ -20,14 +20,21 @@ function normalizePenalty(p: any) {
 }
 
 export default function PenaltyWorkflow() {
-  const { data: serverPenalties = [], isLoading, isError, approve, reject } = usePenalties({ status: "pending" });
+  const [filterStatus, setFilterStatus] = useState<string>("pending");
+  
+  const queryParams = useMemo(() => {
+    const params: Record<string, string> = {};
+    if (filterStatus) {
+      params.status = filterStatus;
+    }
+    return params;
+  }, [filterStatus]);
+
+  const { data: serverPenalties = [], isLoading, isError, approve, reject } = usePenalties(queryParams);
   const { showToast } = useToastContext();
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
-
-  // Filter & pagination state
-  const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterFrom, setFilterFrom] = useState<string>("");
   const [filterTo, setFilterTo] = useState<string>("");
   const [filterQuery, setFilterQuery] = useState<string>("");

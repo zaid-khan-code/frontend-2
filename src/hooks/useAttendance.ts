@@ -67,6 +67,21 @@ export interface AttendanceReportParams {
   department_id?: string;
 }
 
+export interface AttendanceCorrectionRequest {
+  id: string;
+  attendance_id: string;
+  employee_id: string;
+  employee_name?: string;
+  date: string;
+  requested_check_in?: string | null;
+  requested_check_out?: string | null;
+  reason: string;
+  status: "submitted" | "approved" | "rejected" | string;
+  review_note?: string | null;
+  created_at?: string;
+  reviewed_at?: string | null;
+}
+
 function cleanParams<T extends Record<string, any>>(params?: T) {
   return Object.fromEntries(
     Object.entries(params || {}).filter(([, value]) => {
@@ -197,6 +212,68 @@ export function useAcknowledgeAttendance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["attendance"] });
       queryClient.invalidateQueries({ queryKey: ["employee_self_metrics"] });
+    },
+  });
+}
+
+export function useSubmitAttendanceCorrection() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      date: string;
+      requested_check_in?: string | null;
+      requested_check_out?: string | null;
+      reason: string;
+    }) => {
+      const { data } = await apiClient.post("/attendance/corrections", payload);
+      return data.data ?? data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["attendance_corrections"] });
+    },
+  });
+}
+
+export function useAttendanceCorrections(params?: {
+  status?: string;
+  employee_id?: string;
+  date?: string;
+  enabled?: boolean;
+}) {
+  const { enabled = true, ...filterParams } = params || {};
+  const requestParams = cleanParams(filterParams);
+
+  return useQuery({
+    queryKey: ["attendance_corrections", requestParams],
+    enabled,
+    queryFn: async () => {
+      const { data } = await apiClient.get("/attendance/corrections", {
+        params: requestParams,
+      });
+      const payload = data?.data ?? data;
+      return Array.isArray(payload) ? payload as AttendanceCorrectionRequest[] : [];
+    },
+  });
+}
+
+export function useReviewAttendanceCorrection() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      id: string;
+      decision: "approved" | "rejected";
+      review_note?: string | null;
+    }) => {
+      const { id, ...body } = payload;
+      const { data } = await apiClient.patch(`/attendance/corrections/${id}/review`, body);
+      return data.data ?? data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["attendance_corrections"] });
     },
   });
 }

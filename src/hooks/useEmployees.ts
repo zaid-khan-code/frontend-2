@@ -217,6 +217,27 @@ export function useEmployee(id?: string) {
     },
   });
 
+  const careerMovementMutation = useMutation({
+    mutationFn: async ({
+      employeeId,
+      payload,
+    }: {
+      employeeId: string;
+      payload: any;
+    }) => {
+      const { data } = await apiClient.post(
+        `/employees/${encodeURIComponent(employeeId)}/career-movements`,
+        payload,
+      );
+      return data.data ?? data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee", id] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-finance", id] });
+    },
+  });
+
   return {
     data: query.data,
     isLoading: query.isLoading,
@@ -227,6 +248,8 @@ export function useEmployee(id?: string) {
     isCreatingAccount: createAccountMutation.isPending,
     addSalaryRevision: salaryRevisionMutation.mutateAsync,
     isAddingSalaryRevision: salaryRevisionMutation.isPending,
+    addCareerMovement: careerMovementMutation.mutateAsync,
+    isAddingCareerMovement: careerMovementMutation.isPending,
   };
 }
 

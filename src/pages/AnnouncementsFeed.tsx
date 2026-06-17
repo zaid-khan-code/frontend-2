@@ -1,5 +1,5 @@
 import React from "react";
-import { Megaphone } from "lucide-react";
+import { CheckCircle2, Megaphone } from "lucide-react";
 import { useAnnouncements } from "../hooks/useAnnouncements";
 
 function formatDate(value?: string) {
@@ -14,7 +14,7 @@ function formatDate(value?: string) {
 }
 
 export default function AnnouncementsFeed() {
-  const { announcements, isLoading, isError } = useAnnouncements({ active: true });
+  const { announcements, isLoading, isError, markRead } = useAnnouncements({ active: true });
 
   return (
     <div>
@@ -58,6 +58,19 @@ export default function AnnouncementsFeed() {
                       Published {formatDate(post.created_at)}
                     </div>
                   </div>
+                  {post.is_read ? (
+                    <span className="pill green" style={{ alignSelf: "flex-start", display: "inline-flex", gap: 6, alignItems: "center" }}>
+                      <CheckCircle2 size={14} /> Read
+                    </span>
+                  ) : (
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => markRead.mutate(post.id)}
+                      disabled={markRead.isPending}
+                    >
+                      Mark as read
+                    </button>
+                  )}
                 </div>
                 <p style={{ color: "var(--t2)", lineHeight: 1.6, margin: "12px 0 0" }}>{post.body}</p>
               </article>

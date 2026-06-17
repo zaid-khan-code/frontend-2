@@ -19,6 +19,8 @@ export type Announcement = {
   target_designation_name?: string | null;
   target_department_names?: string[];
   target_designation_names?: string[];
+  is_read?: boolean;
+  read_at?: string | null;
 };
 
 export type AnnouncementPayload = {
@@ -76,10 +78,21 @@ export function useAnnouncements(params: Record<string, any> = {}) {
     },
   });
 
+  const markRead = useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await apiClient.post(`/announcements/${id}/read`);
+      return data?.data ?? data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["announcements"] });
+    },
+  });
+
   return {
     ...query,
     announcements: query.data || [],
     create,
     update,
+    markRead,
   };
 }
