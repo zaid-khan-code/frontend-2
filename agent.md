@@ -67,24 +67,11 @@ This file is the standing handoff document for future EMS work. Read it before m
 
 ### Department Head Role
 
-Enterprise approach:
-- Add a backend role and permissions for department-head scope.
-- Store each department head's department and optional location scope.
-- Apply backend filtering in employees, attendance, leave, and penalty proposal endpoints.
-- Allow department heads to view HR-level employee detail for their department only.
-- Allow penalty proposal only; Head Office HR remains reviewer/approver.
-- Keep termination, firing, salary control, and account creation under HR/Super Admin.
-
-This is standard ERP behavior when scoped manager approvals are needed. The main risk is data leakage, so backend scoping must be enforced server-side.
+Already implemented as a scoped role. Keep extending only when a route or UI still leaks broader HR access.
 
 ### Bulk Employee Upload
 
-Enterprise approach:
-- Provide CSV/XLSX template with employee, job, emergency contact, bank, medical, salary, allowance, and account columns.
-- Validate the full file before writing any rows.
-- Report row-level errors for duplicate employee ID, duplicate CNIC, invalid department/designation relation, invalid dates, invalid salary, and missing mandatory fields.
-- Use a backend import transaction with rollback on fatal errors.
-- Optionally support "validate only" preview before final import.
+Already implemented. Keep improving validation, preview editing, and post-import follow-up actions instead of rebuilding the flow.
 
 ## Standing Product Rules
 
