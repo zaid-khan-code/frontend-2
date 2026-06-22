@@ -1,8 +1,8 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import EmployeeDetail from "./EmployeeDetail";
 
 const useAttendanceReportMock = vi.hoisted(() => vi.fn());
@@ -14,8 +14,11 @@ const useEmployeeActionsMock = vi.hoisted(() => vi.fn());
 const resendCredentialsMock = vi.hoisted(() => vi.fn());
 const createAccountMock = vi.hoisted(() => vi.fn());
 const addSalaryRevisionMock = vi.hoisted(() => vi.fn());
+const addCareerMovementMock = vi.hoisted(() => vi.fn());
 const updateAllowancesMock = vi.hoisted(() => vi.fn());
 const employeeMock = vi.hoisted(() => vi.fn());
+let activeRole = "hr_executive";
+let canMock = (permission: string) => permission !== "delete_employee";
 
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
@@ -29,8 +32,8 @@ vi.mock("recharts", () => ({
 
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({
-    user: { role: "hr_executive", employeeId: "EMP017" },
-    activeRole: "hr_executive",
+    user: { role: activeRole, employeeId: "EMP017" },
+    activeRole,
   }),
 }));
 
@@ -39,7 +42,7 @@ vi.mock("../context/ToastContext", () => ({
 }));
 
 vi.mock("../hooks/useRbac", () => ({
-  useRbac: () => ({ can: (permission: string) => permission !== "delete_employee" }),
+  useRbac: () => ({ can: canMock }),
 }));
 
 vi.mock("../hooks/useEmployees", () => ({
@@ -52,6 +55,8 @@ vi.mock("../hooks/useEmployees", () => ({
     isCreatingAccount: false,
     addSalaryRevision: addSalaryRevisionMock,
     isAddingSalaryRevision: false,
+    addCareerMovement: addCareerMovementMock,
+    isAddingCareerMovement: false,
   }),
   useEmployeeFinance: (employeeId: string) => useEmployeeFinanceMock(employeeId),
   useEmployeeActions: (employeeId: string) => useEmployeeActionsMock(employeeId),
@@ -102,6 +107,24 @@ vi.mock("../hooks/useConfig", () => ({
       { id: "role-hr", role_name: "hr_executive" },
     ],
   }),
+  useDepartments: () => ({
+    data: [
+      { id: "department-admin", department_name: "Administration" },
+      { id: "department-it", department_name: "IT" },
+    ],
+  }),
+  useDesignations: () => ({
+    data: [
+      { id: "designation-admin", title: "Admin Officer" },
+      { id: "designation-engineer", title: "Engineer" },
+    ],
+  }),
+  useWorkLocations: () => ({
+    data: [
+      { id: "location-ho", name: "Head Office" },
+      { id: "location-lahore", location_name: "Lahore Office" },
+    ],
+  }),
 }));
 
 function renderEmployeeDetail() {
@@ -121,8 +144,14 @@ function renderEmployeeDetail() {
 }
 
 describe("EmployeeDetail", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    activeRole = "hr_executive";
+    canMock = (permission: string) => permission !== "delete_employee";
     employeeMock.mockReturnValue({
       employee_id: "EMP001",
       name: "Adeel Rahman",
@@ -213,6 +242,7 @@ describe("EmployeeDetail", () => {
     });
     createAccountMock.mockResolvedValue({ tempPassword: "Temp#1234", whatsappPhone: "03001234567" });
     addSalaryRevisionMock.mockResolvedValue({});
+    addCareerMovementMock.mockResolvedValue({});
     updateAllowancesMock.mockResolvedValue({});
   });
 
@@ -342,6 +372,7 @@ describe("EmployeeDetail", () => {
       target: { value: "role-employee" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create login account" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
 
     await waitFor(() => {
       expect(createAccountMock).toHaveBeenCalledWith({
@@ -367,6 +398,7 @@ describe("EmployeeDetail", () => {
       target: { value: "Increment" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add salary history" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
 
     await waitFor(() => {
       expect(addSalaryRevisionMock).toHaveBeenCalledWith({
@@ -411,9 +443,10 @@ describe("EmployeeDetail", () => {
 
     const revisionType = screen.getByLabelText("Revision Type") as HTMLSelectElement;
     expect(revisionType.value).toBe("");
-    expect(screen.getByRole("option", { name: "Select option" })).toBeTruthy();
+    const revisionOptions = Array.from(revisionType.options).map((option) => option.textContent);
+    expect(revisionOptions).toContain("Select option");
     ["Initial", "Promotion", "Demotion", "Increment", "Decrement", "Correction", "Market Adjustment"].forEach((option) => {
-      expect(screen.getByRole("option", { name: option })).toBeTruthy();
+      expect(revisionOptions).toContain(option);
     });
     expect(screen.queryByLabelText("Revision Percent")).toBeNull();
     expect(screen.queryByLabelText("Revision Reason")).toBeNull();
@@ -425,6 +458,61 @@ describe("EmployeeDetail", () => {
     fireEvent.change(revisionType, { target: { value: "Promotion" } });
     expect(screen.getByLabelText("Revision Percent")).toBeTruthy();
     expect(screen.getByLabelText("Revision Reason")).toBeTruthy();
+  });
+
+  it("creates a career movement with job and salary changes from the management tab", async () => {
+    renderEmployeeDetail();
+    fireEvent.click(screen.getByRole("button", { name: "Management" }));
+
+    fireEvent.change(screen.getByLabelText("Movement Type"), {
+      target: { value: "Promotion" },
+    });
+    fireEvent.change(screen.getByLabelText("Effective Date"), {
+      target: { value: "2026-07-01" },
+    });
+    fireEvent.change(screen.getByLabelText("New Department"), {
+      target: { value: "department-it" },
+    });
+    fireEvent.change(screen.getByLabelText("New Designation"), {
+      target: { value: "designation-engineer" },
+    });
+    fireEvent.change(screen.getByLabelText("New Work Location"), {
+      target: { value: "location-lahore" },
+    });
+    fireEvent.change(screen.getByLabelText("New Salary"), {
+      target: { value: "155000" },
+    });
+    fireEvent.change(screen.getByLabelText("Salary Percent"), {
+      target: { value: "10" },
+    });
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "Promoted to engineering lead" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save career movement" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+
+    await waitFor(() => {
+      expect(addCareerMovementMock).toHaveBeenCalledWith({
+        employeeId: "EMP001",
+        payload: {
+          movement_type: "Promotion",
+          effective_date: "2026-07-01",
+          department_id: "department-it",
+          designation_id: "designation-engineer",
+          work_location_id: "location-lahore",
+          reason: "Promoted to engineering lead",
+          salaryInfo: {
+            base_salary: 155000,
+            currency: "PKR",
+            effective_from: "2026-07-01",
+            revision_type: "Promotion",
+            revision_percent: 10,
+            revision_reason: "Promoted to engineering lead",
+          },
+        },
+      });
+    });
   });
 
   it("shows salary history in the compensation section", () => {
@@ -485,11 +573,31 @@ describe("EmployeeDetail", () => {
     fireEvent.click(screen.getByLabelText("Percentage"));
     fireEvent.click(screen.getByLabelText("Active"));
     fireEvent.click(screen.getByRole("button", { name: "Save allowances" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
 
     await waitFor(() => {
       expect(updateAllowancesMock).toHaveBeenCalledWith({
         allowances: [{ allowance_type_id: "allowance-fuel", amount: 2500, is_percentage: true, is_active: false }],
       });
     });
+  });
+
+  it("keeps department heads read-only for account, salary, allowance, and attachment writes", () => {
+    activeRole = "department_head";
+    canMock = (permission: string) =>
+      ["view_all_employees", "view_employee_attachments", "access_dashboard", "access_attendance", "access_leave", "access_penalties"].includes(permission);
+
+    renderEmployeeDetail();
+    fireEvent.click(screen.getByRole("button", { name: "Management" }));
+
+    expect(screen.queryByLabelText("Account Email")).toBeNull();
+    expect(screen.queryByLabelText("Account Role")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create login account" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Resend Credentials" })).toBeNull();
+    expect(screen.queryByLabelText("Base Salary")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add salary history" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add allowance row" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save allowances" })).toBeNull();
+    expect(screen.queryByText("Upload File")).toBeNull();
   });
 });

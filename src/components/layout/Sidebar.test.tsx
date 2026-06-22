@@ -1,10 +1,11 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Sidebar from "./Sidebar";
 
 let activeRole = "hr_manager";
+const logout = vi.fn();
 
 vi.mock("../../context/AuthContext", () => ({
   useAuth: () => ({
@@ -13,7 +14,7 @@ vi.mock("../../context/AuthContext", () => ({
       role: activeRole,
     },
     activeRole,
-    logout: vi.fn(),
+    logout,
   }),
 }));
 
@@ -45,6 +46,8 @@ function renderSidebar() {
 describe("Sidebar", () => {
   beforeEach(() => {
     activeRole = "hr_manager";
+    logout.mockReset();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
   it("shows employee self-service links for role users who are also employees", () => {
@@ -64,5 +67,31 @@ describe("Sidebar", () => {
     renderSidebar();
 
     expect(screen.queryByText("My Workspace")).toBeNull();
+  });
+
+  it("shows a Logout action and confirms before ending the session", () => {
+    renderSidebar();
+
+    fireEvent.click(screen.getByText("Logout"));
+
+    expect(window.confirm).toHaveBeenCalledWith("Are you sure you want to logout?");
+    expect(logout).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("manager@example.com")).toBeNull();
+  });
+
+  it("only marks Manage Announcements active on its route", () => {
+    activeRole = "department_head";
+
+    render(
+      <MemoryRouter initialEntries={["/announcements/manage"]}>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+
+    const announcements = screen.getByText("Announcements").closest("a");
+    const manage = screen.getByText("Manage Announcements").closest("a");
+
+    expect(announcements?.className).not.toContain("active");
+    expect(manage?.className).toContain("active");
   });
 });

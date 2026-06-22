@@ -1,8 +1,6 @@
 import React from "react";
-import { Megaphone } from "lucide-react";
-import { Link } from "react-router-dom";
+import { CheckCircle2, Megaphone } from "lucide-react";
 import { useAnnouncements } from "../hooks/useAnnouncements";
-import { useAuthStore } from "../store/useAuthStore";
 
 function formatDate(value?: string) {
   if (!value) return "Not provided";
@@ -16,8 +14,7 @@ function formatDate(value?: string) {
 }
 
 export default function AnnouncementsFeed() {
-  const { announcements, isLoading, isError } = useAnnouncements({ active: true });
-  const canManageAnnouncements = useAuthStore((state) => state.hasPermission("announcements:write"));
+  const { announcements, isLoading, isError, markRead } = useAnnouncements({ active: true });
 
   return (
     <div>
@@ -26,11 +23,6 @@ export default function AnnouncementsFeed() {
           <div className="pg-greet">Announcements</div>
           <div className="pg-sub">Official organization updates from the backend announcement feed.</div>
         </div>
-        {canManageAnnouncements && (
-          <Link className="btn btn-primary" to="/announcements/manage">
-            Manage Announcements
-          </Link>
-        )}
       </div>
 
       <div className="card">
@@ -66,6 +58,19 @@ export default function AnnouncementsFeed() {
                       Published {formatDate(post.created_at)}
                     </div>
                   </div>
+                  {post.is_read ? (
+                    <span className="pill green" style={{ alignSelf: "flex-start", display: "inline-flex", gap: 6, alignItems: "center" }}>
+                      <CheckCircle2 size={14} /> Read
+                    </span>
+                  ) : (
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => markRead.mutate(post.id)}
+                      disabled={markRead.isPending}
+                    >
+                      Mark as read
+                    </button>
+                  )}
                 </div>
                 <p style={{ color: "var(--t2)", lineHeight: 1.6, margin: "12px 0 0" }}>{post.body}</p>
               </article>

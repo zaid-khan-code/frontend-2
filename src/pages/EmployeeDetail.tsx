@@ -28,18 +28,28 @@ import {
 import Modal from "../components/common/Modal";
 import { useToastContext } from "../context/ToastContext";
 import { useAttendanceReport } from "../hooks/useAttendance";
-import { useAllowanceTypes, usePenaltyRules, useRoles } from "../hooks/useConfig";
+import {
+  useAllowanceTypes,
+  useDepartments,
+  useDesignations,
+  usePenaltyRules,
+  useRoles,
+  useWorkLocations,
+} from "../hooks/useConfig";
 import { useEmployee, useEmployeeActions, useEmployeeFinance } from "../hooks/useEmployees";
+import { renderCredentialTemplate, useCredentialTemplate } from "../hooks/useAccounts";
 import { useLeaveBalances, useLeaves } from "../hooks/useLeaves";
 import { usePenalties } from "../hooks/usePenalties";
 import { useRbac } from "../hooks/useRbac";
 import { useEmployeeAttachments } from "../hooks/useEmployeeAttachments";
 import { apiClient } from "../services/apiClient";
 import { formatPKR, getStatusColor } from "../services/api";
+import { useAuthStore } from "../store/useAuthStore";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const API_ORIGIN = String(apiClient.defaults.baseURL || "http://localhost:3001/api").replace(/\/api\/?$/, "");
 const salaryRevisionTypes = ["Initial", "Promotion", "Demotion", "Increment", "Decrement", "Correction", "Market Adjustment"];
+const careerMovementTypes = ["Promotion", "Demotion", "Transfer", "Department Change", "Designation Change", "Correction"];
 
 function firstValue(...values: any[]) {
   return values.find((value) => value !== undefined && value !== null && value !== "");
@@ -329,16 +339,24 @@ function buildCredentialsWhatsappUrl({
   email,
   password,
   phone,
+  template,
 }: {
   employeeId: string;
   employeeName: string;
   email: string;
   password: string;
   phone: string;
+  template?: string;
 }) {
   const whatsappPhone = normalizeWhatsappPhone(phone);
   if (!whatsappPhone || !email || !password) return "";
-  const message = `Welcome to ESSPL HR.\n\nHello ${employeeName},\n\nYour employee login account has been created.\n\nEmployee ID: ${employeeId}\nEmail: ${email}\nPassword: ${password}\n\nLogin here: ${window.location.origin}/login\n\nPlease change your password after first login.`;
+  const message = renderCredentialTemplate(template, {
+    employeeId,
+    employeeName,
+    email,
+    password,
+    loginUrl: `${window.location.origin}/login`,
+  });
   return `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
 }
 
@@ -351,11 +369,14 @@ function normalizeEmployee(raw: any) {
     dob: firstValue(raw?.personalInfo?.date_of_birth, raw?.date_of_birth),
     gender: text(firstValue(raw?.personalInfo?.gender, raw?.medicalInfo?.gender, raw?.gender)),
     department: text(firstValue(raw?.jobInfo?.department_name, raw?.department_name, raw?.department)),
+    departmentId: firstValue(raw?.jobInfo?.department_id, raw?.department_id),
     designation: text(firstValue(raw?.jobInfo?.designation_name, raw?.designation_title, raw?.designation_name, raw?.designation)),
+    designationId: firstValue(raw?.jobInfo?.designation_id, raw?.designation_id),
     employmentType: text(firstValue(raw?.jobInfo?.employment_type_name, raw?.employment_type_name)),
     jobStatus: text(firstValue(raw?.jobInfo?.job_status_name, raw?.job_status_name, raw?.status)),
     workMode: text(firstValue(raw?.jobInfo?.work_mode_name, raw?.work_mode_name)),
     workLocation: text(firstValue(raw?.jobInfo?.work_location_name, raw?.work_location_name)),
+    workLocationId: firstValue(raw?.jobInfo?.work_location_id, raw?.work_location_id),
     shift: text(firstValue(raw?.jobInfo?.shift_name, raw?.shift_name)),
     dateOfJoining: firstValue(raw?.jobInfo?.date_of_joining, raw?.date_of_joining),
     dateOfExit: firstValue(raw?.jobInfo?.date_of_exit, raw?.date_of_exit),
@@ -494,7 +515,7 @@ function ContactCards({ source }: { source: any }) {
   const contacts = [
     {
       label: "Primary",
-      name: source?.e_contact_1_full_name || source?.primary_contact || "Primary contact",
+      name: source?.e_contact_1_full_name || "Primary contact",
       relation: source?.e_contact_1_relation,
       phone: source?.e_contact_1_phone || source?.contact_1,
       code: source?.e_contact_1_phone_country_code,
@@ -564,6 +585,7 @@ export default function EmployeeDetail() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
   const { can } = useRbac();
+  const hasPermission = useAuthStore((state) => state.hasPermission);
   const [tab, setTab] = useState("personal");
   const [windowOffset, setWindowOffset] = useState<0 | 6>(0);
   const [resendModalOpen, setResendModalOpen] = useState(false);
@@ -584,9 +606,19 @@ export default function EmployeeDetail() {
   const [salaryRevisionType, setSalaryRevisionType] = useState("");
   const [salaryRevisionPercent, setSalaryRevisionPercent] = useState("");
   const [salaryRevisionReason, setSalaryRevisionReason] = useState("");
+  const [movementType, setMovementType] = useState("");
+  const [movementEffectiveDate, setMovementEffectiveDate] = useState(new Date().toISOString().slice(0, 10));
+  const [movementDepartmentId, setMovementDepartmentId] = useState("");
+  const [movementDesignationId, setMovementDesignationId] = useState("");
+  const [movementWorkLocationId, setMovementWorkLocationId] = useState("");
+  const [movementReason, setMovementReason] = useState("");
+  const [movementSalaryAmount, setMovementSalaryAmount] = useState("");
+  const [movementSalaryPercent, setMovementSalaryPercent] = useState("");
   const [credentialEmail, setCredentialEmail] = useState("");
   const [credentialPhone, setCredentialPhone] = useState("");
   const [allowanceDrafts, setAllowanceDrafts] = useState<Array<{ allowance_type_id: string; amount: string; is_percentage: boolean; is_active: boolean }>>([]);
+  const [pendingAction, setPendingAction] = useState<null | "create_account" | "resend_credentials" | "add_salary_revision" | "add_career_movement" | "save_allowances" | "add_penalty">(null);
+  const [actionSubmitting, setActionSubmitting] = useState(false);
 
   const {
     data: rawEmployee,
@@ -597,12 +629,19 @@ export default function EmployeeDetail() {
     isCreatingAccount,
     addSalaryRevision,
     isAddingSalaryRevision,
+    addCareerMovement,
+    isAddingCareerMovement,
   } = useEmployee(id);
 
   const employee = useMemo(() => (rawEmployee ? normalizeEmployee(rawEmployee) : null), [rawEmployee]);
   const employeeId = employee?.id || id || "";
   const { data: finance = null } = useEmployeeFinance(employeeId);
-  const { data: allowanceTypes = [] } = useAllowanceTypes();
+  const { data: allowanceTypes = [] } = useAllowanceTypes({
+    enabled: hasPermission("allowances:read"),
+  });
+  const { data: departments = [] } = useDepartments({ enabled: can("edit_employee") || can("create_employee") });
+  const { data: designations = [] } = useDesignations(movementDepartmentId || undefined);
+  const { data: workLocations = [] } = useWorkLocations({ enabled: can("edit_employee") || can("create_employee") });
   const { updateAllowances, isUpdatingSection: isUpdatingAllowances } = useEmployeeActions(employeeId);
   const canManageEmployees = can("resend_credentials") || can("edit_employee") || can("create_employee");
   const canViewAttachments = can("view_employee_attachments") || canManageEmployees;
@@ -618,6 +657,11 @@ export default function EmployeeDetail() {
   const { data: penaltyRows = [], isLoading: penaltiesLoading, isError: penaltiesError, propose: proposePenalty } = usePenalties(employeeId ? { employee_id: employeeId } : undefined);
   const { data: penaltyRules = [] } = usePenaltyRules();
   const { data: roles = [] } = useRoles();
+  const { data: credentialTemplateData } = useCredentialTemplate();
+  const canWriteSalary = can("salary:write");
+  const canWriteAllowances = can("allowances:write");
+  const canManageCompensation = canWriteSalary || canWriteAllowances;
+  const canWriteCareerMovement = can("edit_employee") || can("create_employee");
 
   const profilePhotoUrl = useMemo(() => {
     const photo = attachments.find((item: any) => item?.kind === "profile_photo" && String(item?.mime_type || "").startsWith("image/"));
@@ -679,7 +723,40 @@ export default function EmployeeDetail() {
     email: credentialEmail || accountEmail || employee?.email || "",
     password: tempPassword || "",
     phone: credentialPhone || employee?.phone || "",
+    template: credentialTemplateData?.template,
   });
+
+  const openActionConfirm = (action: typeof pendingAction) => {
+    setPendingAction(action);
+  };
+
+  const closeActionConfirm = () => {
+    if (actionSubmitting) return;
+    setPendingAction(null);
+  };
+
+  const confirmAction = async () => {
+    if (!pendingAction) return;
+    setActionSubmitting(true);
+    try {
+      if (pendingAction === "create_account") {
+        await handleCreateAccount();
+      } else if (pendingAction === "resend_credentials") {
+        await handleResendCredentials();
+      } else if (pendingAction === "add_salary_revision") {
+        await handleAddSalaryRevision();
+      } else if (pendingAction === "add_career_movement") {
+        await handleAddCareerMovement();
+      } else if (pendingAction === "save_allowances") {
+        await handleSaveAllowances();
+      } else if (pendingAction === "add_penalty") {
+        await handleAddPenalty();
+      }
+      setPendingAction(null);
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
 
   const handleResendCredentials = async () => {
     if (!employeeId) return;
@@ -771,6 +848,64 @@ export default function EmployeeDetail() {
     }
   };
 
+  const handleAddCareerMovement = async () => {
+    const parsedSalary = movementSalaryAmount === "" ? null : Number(movementSalaryAmount);
+    const parsedPercent = movementSalaryPercent === "" ? null : Number(movementSalaryPercent);
+    if (!employeeId || !movementType || !movementEffectiveDate || !movementReason.trim()) {
+      showToast("Movement type, effective date, and reason are mandatory.", "error");
+      return;
+    }
+    if (!movementDepartmentId && !movementDesignationId && !movementWorkLocationId && parsedSalary === null) {
+      showToast("At least one job or salary change is mandatory.", "error");
+      return;
+    }
+    if (parsedSalary !== null && (!Number.isFinite(parsedSalary) || parsedSalary < 0)) {
+      showToast("Movement salary must be a valid number.", "error");
+      return;
+    }
+    if (parsedPercent !== null && !Number.isFinite(parsedPercent)) {
+      showToast("Movement salary percent must be a valid number.", "error");
+      return;
+    }
+    try {
+      await addCareerMovement({
+        employeeId,
+        payload: {
+          movement_type: movementType,
+          effective_date: movementEffectiveDate,
+          department_id: movementDepartmentId || null,
+          designation_id: movementDesignationId || null,
+          work_location_id: movementWorkLocationId || null,
+          reason: movementReason.trim(),
+          salaryInfo:
+            parsedSalary === null
+              ? null
+              : {
+                  base_salary: parsedSalary,
+                  currency: employee?.currency === "Not provided" ? "PKR" : employee?.currency || "PKR",
+                  effective_from: movementEffectiveDate,
+                  revision_type:
+                    movementType === "Promotion" || movementType === "Demotion"
+                      ? movementType
+                      : "Correction",
+                  revision_percent: parsedPercent,
+                  revision_reason: movementReason.trim(),
+                },
+        },
+      });
+      setMovementType("");
+      setMovementDepartmentId("");
+      setMovementDesignationId("");
+      setMovementWorkLocationId("");
+      setMovementReason("");
+      setMovementSalaryAmount("");
+      setMovementSalaryPercent("");
+      showToast("Career movement saved successfully.");
+    } catch (error: any) {
+      showToast(error?.response?.data?.error?.message || "Failed to save career movement.", "error");
+    }
+  };
+
   const handleAttachmentFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -826,7 +961,7 @@ export default function EmployeeDetail() {
     );
   }
 
-  const hasLoginAccount = employee.email !== "Not provided";
+  const hasLoginAccount = Boolean(employee.accountInfo?.id || employee.accountInfo?.email || employee.email !== "Not provided");
   const tabs = [
     { key: "personal", label: "Personal & Contact", icon: UserRound },
     { key: "job", label: "Job & Employment", icon: BriefcaseBusiness },
@@ -1331,186 +1466,274 @@ export default function EmployeeDetail() {
               )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {!hasLoginAccount && (
-                  <button className="btn btn-primary" onClick={handleCreateAccount} disabled={isCreatingAccount}>
+                  <button className="btn btn-primary" onClick={() => openActionConfirm("create_account")} disabled={isCreatingAccount}>
                     {isCreatingAccount ? "Creating..." : "Create login account"}
                   </button>
                 )}
                 {can("resend_credentials") && (
-                  <button className="btn btn-secondary" onClick={handleResendCredentials} disabled={isResendingCredentials}>
+                  <button className="btn btn-secondary" onClick={() => openActionConfirm("resend_credentials")} disabled={isResendingCredentials}>
                     {isResendingCredentials ? "Sending..." : "Resend Credentials"}
                   </button>
                 )}
               </div>
             </div>
 
-            <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
-              <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Add Salary History</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-                <label className="form-group" style={{ margin: 0 }}>
-                  <span className="form-label">Base Salary</span>
-                  <input className="input" type="number" min="0" value={salaryAmount} onChange={(event) => setSalaryAmount(event.target.value)} placeholder="125000" />
-                </label>
-                <label className="form-group" style={{ margin: 0 }}>
-                  <span className="form-label">Currency</span>
-                  <select className="input select-input" value={salaryCurrency} onChange={(event) => setSalaryCurrency(event.target.value)}>
-                    <option value="PKR">PKR</option>
-                    <option value="USD">USD</option>
-                  </select>
-                </label>
-                <label className="form-group" style={{ margin: 0 }}>
-                  <span className="form-label">Effective From</span>
-                  <input className="input" type="date" value={salaryEffectiveFrom} onChange={(event) => setSalaryEffectiveFrom(event.target.value)} />
-                </label>
-                <label className="form-group" style={{ margin: 0 }}>
-                  <span className="form-label">Revision Type</span>
-                  <select
-                    className="input select-input"
-                    value={salaryRevisionType}
-                    onChange={(event) => {
-                      const nextValue = event.target.value;
-                      setSalaryRevisionType(nextValue);
-                      if (nextValue === "Initial" || nextValue === "") {
-                        setSalaryRevisionPercent("");
-                        setSalaryRevisionReason("");
-                      }
-                    }}
-                  >
-                    <option value="">Select option</option>
-                    {salaryRevisionTypes.map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </label>
-                {showSalaryRevisionDetails && (
-                  <>
-                    <label className="form-group" style={{ margin: 0 }}>
-                      <span className="form-label">Revision Percent</span>
-                      <input className="input" type="number" step="0.01" value={salaryRevisionPercent} onChange={(event) => setSalaryRevisionPercent(event.target.value)} placeholder="Optional" />
-                    </label>
-                    <label className="form-group" style={{ margin: 0 }}>
-                      <span className="form-label">Revision Reason</span>
-                      <input className="input" value={salaryRevisionReason} onChange={(event) => setSalaryRevisionReason(event.target.value)} placeholder="Optional note" />
-                    </label>
-                  </>
-                )}
-              </div>
-              <div>
-                <button className="btn btn-primary" onClick={handleAddSalaryRevision} disabled={isAddingSalaryRevision}>
-                  {isAddingSalaryRevision ? "Saving..." : "Add salary history"}
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Allowance Management</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button className="btn btn-secondary btn-sm" onClick={handleAddAllowanceRow}>
-                    Add allowance row
-                  </button>
-                  <button className="btn btn-primary btn-sm" onClick={handleSaveAllowances} disabled={isUpdatingAllowances}>
-                    {isUpdatingAllowances ? "Saving..." : "Save allowances"}
-                  </button>
-                </div>
-              </div>
-              {allowanceDrafts.length ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {allowanceDrafts.map((row, index) => (
-                    <div
-                      key={`${row.allowance_type_id || "row"}-${index}`}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(220px, 1.4fr) minmax(140px, 0.8fr) minmax(100px, 0.6fr) minmax(90px, 0.5fr) auto",
-                        gap: 10,
-                        alignItems: "end",
+            {canWriteCareerMovement && (
+              <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Career Movement</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Movement Type</span>
+                    <select className="input select-input" value={movementType} onChange={(event) => setMovementType(event.target.value)}>
+                      <option value="">Select option</option>
+                      {careerMovementTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Effective Date</span>
+                    <input className="input" type="date" value={movementEffectiveDate} onChange={(event) => setMovementEffectiveDate(event.target.value)} />
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">New Department</span>
+                    <select
+                      className="input select-input"
+                      value={movementDepartmentId}
+                      onChange={(event) => {
+                        setMovementDepartmentId(event.target.value);
+                        setMovementDesignationId("");
                       }}
                     >
-                      <label className="form-group" style={{ margin: 0 }}>
-                        <span className="form-label">Allowance Type</span>
-                        <select
-                          className="input select-input"
-                          value={row.allowance_type_id}
-                          onChange={(event) => {
-                            const next = event.target.value;
-                            setAllowanceDrafts((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, allowance_type_id: next } : item,
-                              ),
-                            );
-                          }}
-                        >
-                          <option value="">Select allowance type</option>
-                          {allowanceTypes.map((type: any) => (
-                            <option key={type.id} value={type.id}>
-                              {type.field_name || type.name || type.title}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="form-group" style={{ margin: 0 }}>
-                        <span className="form-label">Amount</span>
-                        <input
-                          className="input"
-                          type="number"
-                          min="0"
-                          value={row.amount}
-                          onChange={(event) => {
-                            const next = event.target.value;
-                            setAllowanceDrafts((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, amount: next } : item,
-                              ),
-                            );
-                          }}
-                        />
-                      </label>
-                      <label className="form-group" style={{ margin: 0, paddingBottom: 2 }}>
-                        <span className="form-label">Percentage</span>
-                        <input
-                          type="checkbox"
-                          checked={row.is_percentage}
-                          onChange={(event) => {
-                            const checked = event.target.checked;
-                            setAllowanceDrafts((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, is_percentage: checked } : item,
-                              ),
-                            );
-                          }}
-                        />
-                      </label>
-                      <label className="form-group" style={{ margin: 0, paddingBottom: 2 }}>
-                        <span className="form-label">Active</span>
-                        <input
-                          type="checkbox"
-                          checked={row.is_active}
-                          onChange={(event) => {
-                            const checked = event.target.checked;
-                            setAllowanceDrafts((current) =>
-                              current.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, is_active: checked } : item,
-                              ),
-                            );
-                          }}
-                        />
-                      </label>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() =>
-                          setAllowanceDrafts((current) => current.filter((_, itemIndex) => itemIndex !== index))
-                        }
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
+                      <option value="">No change ({employee.department})</option>
+                      {departments.map((department: any) => (
+                        <option key={department.id} value={department.id}>
+                          {department.department_name || department.name || department.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">New Designation</span>
+                    <select className="input select-input" value={movementDesignationId} onChange={(event) => setMovementDesignationId(event.target.value)}>
+                      <option value="">No change ({employee.designation})</option>
+                      {designations.map((designation: any) => (
+                        <option key={designation.id} value={designation.id}>
+                          {designation.title || designation.name || designation.designation_name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">New Work Location</span>
+                    <select className="input select-input" value={movementWorkLocationId} onChange={(event) => setMovementWorkLocationId(event.target.value)}>
+                      <option value="">No change ({employee.workLocation})</option>
+                      {workLocations.map((location: any) => (
+                        <option key={location.id} value={location.id}>
+                          {location.name || location.location_name || location.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">New Salary</span>
+                    <input className="input" type="number" min="0" value={movementSalaryAmount} onChange={(event) => setMovementSalaryAmount(event.target.value)} placeholder="Optional" />
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Salary Percent</span>
+                    <input className="input" type="number" step="0.01" value={movementSalaryPercent} onChange={(event) => setMovementSalaryPercent(event.target.value)} placeholder="Optional" />
+                  </label>
                 </div>
-              ) : (
-                <p style={{ fontSize: 12, color: "var(--t3)", margin: 0 }}>
-                  Add allowance rows here to update the employee's allowance package.
-                </p>
-              )}
-            </div>
+                <label className="form-group" style={{ margin: 0 }}>
+                  <span className="form-label">Reason</span>
+                  <textarea className="input" rows={3} value={movementReason} onChange={(event) => setMovementReason(event.target.value)} placeholder="Explain the movement decision" />
+                </label>
+                <div>
+                  <button className="btn btn-primary" onClick={() => openActionConfirm("add_career_movement")} disabled={isAddingCareerMovement}>
+                    {isAddingCareerMovement ? "Saving..." : "Save career movement"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {canWriteSalary && (
+              <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Add Salary History</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Base Salary</span>
+                    <input className="input" type="number" min="0" value={salaryAmount} onChange={(event) => setSalaryAmount(event.target.value)} placeholder="125000" />
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Currency</span>
+                    <select className="input select-input" value={salaryCurrency} onChange={(event) => setSalaryCurrency(event.target.value)}>
+                      <option value="PKR">PKR</option>
+                      <option value="USD">USD</option>
+                    </select>
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Effective From</span>
+                    <input className="input" type="date" value={salaryEffectiveFrom} onChange={(event) => setSalaryEffectiveFrom(event.target.value)} />
+                  </label>
+                  <label className="form-group" style={{ margin: 0 }}>
+                    <span className="form-label">Revision Type</span>
+                    <select
+                      className="input select-input"
+                      value={salaryRevisionType}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        setSalaryRevisionType(nextValue);
+                        if (nextValue === "Initial" || nextValue === "") {
+                          setSalaryRevisionPercent("");
+                          setSalaryRevisionReason("");
+                        }
+                      }}
+                    >
+                      <option value="">Select option</option>
+                      {salaryRevisionTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {showSalaryRevisionDetails && (
+                    <>
+                      <label className="form-group" style={{ margin: 0 }}>
+                        <span className="form-label">Revision Percent</span>
+                        <input className="input" type="number" step="0.01" value={salaryRevisionPercent} onChange={(event) => setSalaryRevisionPercent(event.target.value)} placeholder="Optional" />
+                      </label>
+                      <label className="form-group" style={{ margin: 0 }}>
+                        <span className="form-label">Revision Reason</span>
+                        <input className="input" value={salaryRevisionReason} onChange={(event) => setSalaryRevisionReason(event.target.value)} placeholder="Optional note" />
+                      </label>
+                    </>
+                  )}
+                </div>
+                <div>
+                  <button className="btn btn-primary" onClick={() => openActionConfirm("add_salary_revision")} disabled={isAddingSalaryRevision}>
+                    {isAddingSalaryRevision ? "Saving..." : "Add salary history"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {canWriteAllowances && (
+              <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                  <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Allowance Management</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button className="btn btn-secondary btn-sm" onClick={handleAddAllowanceRow}>
+                      Add allowance row
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={() => openActionConfirm("save_allowances")} disabled={isUpdatingAllowances}>
+                      {isUpdatingAllowances ? "Saving..." : "Save allowances"}
+                    </button>
+                  </div>
+                </div>
+                {allowanceDrafts.length ? (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {allowanceDrafts.map((row, index) => (
+                      <div
+                        key={`${row.allowance_type_id || "row"}-${index}`}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "minmax(220px, 1.4fr) minmax(140px, 0.8fr) minmax(100px, 0.6fr) minmax(90px, 0.5fr) auto",
+                          gap: 10,
+                          alignItems: "end",
+                        }}
+                      >
+                        <label className="form-group" style={{ margin: 0 }}>
+                          <span className="form-label">Allowance Type</span>
+                          <select
+                            className="input select-input"
+                            value={row.allowance_type_id}
+                            onChange={(event) => {
+                              const next = event.target.value;
+                              setAllowanceDrafts((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, allowance_type_id: next } : item,
+                                ),
+                              );
+                            }}
+                          >
+                            <option value="">Select allowance type</option>
+                            {allowanceTypes.map((type: any) => (
+                              <option key={type.id} value={type.id}>
+                                {type.field_name || type.name || type.title}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="form-group" style={{ margin: 0 }}>
+                          <span className="form-label">Amount</span>
+                          <input
+                            className="input"
+                            type="number"
+                            min="0"
+                            value={row.amount}
+                            onChange={(event) => {
+                              const next = event.target.value;
+                              setAllowanceDrafts((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, amount: next } : item,
+                                ),
+                              );
+                            }}
+                          />
+                        </label>
+                        <label className="form-group" style={{ margin: 0, paddingBottom: 2 }}>
+                          <span className="form-label">Percentage</span>
+                          <input
+                            type="checkbox"
+                            checked={row.is_percentage}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              setAllowanceDrafts((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, is_percentage: checked } : item,
+                                ),
+                              );
+                            }}
+                          />
+                        </label>
+                        <label className="form-group" style={{ margin: 0, paddingBottom: 2 }}>
+                          <span className="form-label">Active</span>
+                          <input
+                            type="checkbox"
+                            checked={row.is_active}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              setAllowanceDrafts((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, is_active: checked } : item,
+                                ),
+                              );
+                            }}
+                          />
+                        </label>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() =>
+                            setAllowanceDrafts((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 12, color: "var(--t3)", margin: 0 }}>
+                    Add allowance rows here to update the employee's allowance package.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!canManageCompensation && (
+              <div style={{ padding: 13, border: "1px dashed var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)", color: "var(--t2)", fontSize: 12 }}>
+                Compensation editing is not available for your role.
+              </div>
+            )}
 
             <div style={{ display: "grid", gap: 10, padding: 13, border: "1px solid var(--br2)", borderRadius: 12, background: "rgba(248,250,252,.72)" }}>
               <div style={{ fontSize: 13, fontWeight: 900, color: "var(--t1)" }}>Upload profile photo/documents</div>
@@ -1592,7 +1815,41 @@ export default function EmployeeDetail() {
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
           <button className="btn btn-secondary" onClick={() => setPenaltyModalOpen(false)}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleAddPenalty}>Submit for Review</button>
+          <button className="btn btn-primary" onClick={() => openActionConfirm("add_penalty")}>Submit for Review</button>
+        </div>
+      </Modal>
+
+      <Modal open={pendingAction !== null} onClose={closeActionConfirm} title="Confirm action">
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(220,38,38,.08)", display: "grid", placeItems: "center", color: "#dc2626", flexShrink: 0 }}>
+            <AlertTriangle size={16} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, color: "var(--t1)", marginBottom: 4 }}>
+              {pendingAction === "create_account" && "Create login account"}
+              {pendingAction === "resend_credentials" && "Resend credentials"}
+              {pendingAction === "add_salary_revision" && "Add salary history"}
+              {pendingAction === "add_career_movement" && "Save career movement"}
+              {pendingAction === "save_allowances" && "Save allowances"}
+              {pendingAction === "add_penalty" && "Submit penalty for review"}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--t2)", lineHeight: 1.5 }}>
+              {pendingAction === "create_account" && "This will create a login account for the employee and generate a temporary password."}
+              {pendingAction === "resend_credentials" && "This will generate fresh credentials and open the share dialog."}
+              {pendingAction === "add_salary_revision" && "This will write a salary history record for the employee."}
+              {pendingAction === "add_career_movement" && "This will update the employee career record and optionally write salary history."}
+              {pendingAction === "save_allowances" && "This will update the employee's allowance package."}
+              {pendingAction === "add_penalty" && "This will send the penalty proposal for review."}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <button className="btn btn-secondary" onClick={closeActionConfirm} disabled={actionSubmitting}>
+            Cancel
+          </button>
+          <button className="btn btn-primary" onClick={confirmAction} disabled={actionSubmitting}>
+            {actionSubmitting ? "Working..." : "Confirm"}
+          </button>
         </div>
       </Modal>
     </div>

@@ -185,27 +185,15 @@ Known recurring warnings:
 
 ### Audit Logs Expansion
 
-- Audit Logs must cover every persistent action currently supported by the app, including login, logout, employee changes, leave request/approval/rejection, attendance actions, attendance sheet generation, penalties, announcements, calendar events, configuration changes, uploads, and bulk imports.
-- Audit Logs are visible only to Super Admin.
-- Audit Logs are immutable: no edit and no delete actions, including for Super Admin.
-- Audit Log screens must support filtering by module/tab, action type, actor, target employee, status, and date range where data exists.
-- Future modules must include audit logging as a mandatory backend requirement before being considered complete.
+Audit Logs already cover the major persistent write flows and the UI now exposes actor and record filters. Keep extending coverage for any new write path, and keep the log read-only and Super Admin only.
 
 ### Department Head Role
 
-- Add backend role and permissions for scoped department/location reads.
-- Store department head department and optional location scope.
-- Apply backend filtering in employees, attendance, leave, and penalty proposal endpoints.
-- Allow penalty proposal only; Head Office HR remains reviewer/approver.
-- Keep termination, firing, salary control, and account creation under HR/Super Admin.
+Department Head is already implemented as a scoped role. Continue only where a route or UI surface still leaks broader HR access.
 
 ### Bulk Employee Upload
 
-- Provide CSV/XLSX template with employee, job, emergency contact, bank, medical, salary, allowance, and account columns.
-- Validate the full file before writing rows.
-- Report row-level errors for duplicate employee ID, duplicate CNIC, invalid department/designation relation, invalid dates, invalid salary, and missing mandatory fields.
-- Use a backend import transaction with rollback on fatal errors.
-- Optionally support validate-only preview before final import.
+Bulk upload already exists. Keep tightening validation, preview editing, and post-import follow-up actions.
 
 ## Final Response Rules For Future Agents
 

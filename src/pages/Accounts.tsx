@@ -1,291 +1,238 @@
-import React, { useState } from 'react';
-import { useData } from '../context/DataContext';
-import { ShieldCheck, ShieldOff, Users, UserCheck, UserX, KeyRound } from 'lucide-react';
-import Modal from '../components/common/Modal';
-import { useToastContext } from '../context/ToastContext';
+import React, { useEffect, useMemo, useState } from "react";
+import { Filter, KeyRound, Save, Search, ShieldCheck, ShieldOff, Users, UserCheck, UserX, X } from "lucide-react";
+import Modal from "../components/common/Modal";
+import { useToastContext } from "../context/ToastContext";
+import { useDepartments, useRoles } from "../hooks/useConfig";
+import {
+  useCredentialTemplate,
+  useFilteredAccounts,
+  useUpdateAccountStatus,
+  useUpdateCredentialTemplate,
+} from "../hooks/useAccounts";
 
-// ─── CSS ──────────────────────────────────────────────────────────────────────
 const CSS = `
-  @keyframes fadeUp {
-    from { opacity:0; transform:translateY(12px); }
-    to   { opacity:1; transform:translateY(0); }
-  }
-
-  .acc-page {
-    font-family:'Segoe UI',system-ui,sans-serif;
-    padding:24px 30px;
-    background:#f0f2f8;
-    min-height:100vh;
-  }
-
-  .acc-card {
-    background:#fff;
-    border-radius:16px;
-    box-shadow:0 1px 12px rgba(30,27,75,.07);
-    animation:fadeUp .35s ease both;
-  }
-
-  /* ── Stats ── */
-  .acc-stats {
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:12px;
-    margin-bottom:14px;
-  }
-  @media(max-width:900px){ .acc-stats{ grid-template-columns:repeat(2,1fr); } }
-
-  .acc-stat {
-    background:#fff;
-    border:0.5px solid #e5e7eb;
-    border-radius:14px;
-    padding:14px 16px;
-    display:flex; align-items:center; gap:12px;
-    animation:fadeUp .35s ease both;
-  }
-  .acc-stat-icon {
-    width:42px; height:42px; border-radius:11px;
-    display:flex; align-items:center; justify-content:center; flex-shrink:0;
-  }
-  .acc-stat-lbl   { font-size:10px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.06em; margin-bottom:2px; }
-  .acc-stat-val   { font-size:20px; font-weight:800; font-family:monospace; }
-  .acc-stat-sub   { font-size:10px; color:#9ca3af; margin-top:1px; }
-
-  /* ── Table ── */
-  .acc-table { width:100%; border-collapse:collapse; }
-  .acc-table thead tr { border-bottom:1.5px solid #f1f5f9; }
-  .acc-table th {
-    text-align:left; padding:10px 14px;
-    font-size:10px; font-weight:700; color:#9ca3af;
-    letter-spacing:.07em; text-transform:uppercase; white-space:nowrap;
-  }
-  .acc-table td {
-    padding:11px 14px; font-size:12px; color:#374151;
-    border-bottom:0.5px solid #f8fafc; vertical-align:middle;
-  }
-  .acc-table tbody tr { transition:background .12s; }
-  .acc-table tbody tr:hover td { background:#f8faff; }
-  .acc-table tbody tr:last-child td { border-bottom:none; }
-
-  /* ── Avatar ── */
-  .acc-avatar {
-    width:34px; height:34px; border-radius:10px;
-    color:#fff; display:flex; align-items:center; justify-content:center;
-    font-size:11px; font-weight:800; flex-shrink:0; letter-spacing:.03em;
-  }
-
-  /* ── Chips ── */
-  .acc-id-chip {
-    font-family:monospace; font-size:11px;
-    background:#f3f4f6; padding:2px 8px;
-    border-radius:6px; color:#374151; font-weight:600;
-  }
-  .acc-date-chip {
-    font-family:monospace; font-size:11px; color:#6b7280;
-    background:#f3f4f6; padding:2px 7px; border-radius:6px;
-  }
-
-  /* ── Pills ── */
-  .acc-pill {
-    display:inline-flex; align-items:center; gap:4px;
-    padding:3px 10px; border-radius:20px;
-    font-size:9px; font-weight:800; white-space:nowrap;
-  }
-  .acc-pill-active   { background:#d1fae5; color:#065f46; }
-  .acc-pill-inactive { background:#fee2e2; color:#991b1b; }
-  .acc-pill-hr       { background:#ede9fe; color:#3730a3; }
-  .acc-pill-super    { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
-
-  /* ── Status dot ── */
-  .acc-dot {
-    width:7px; height:7px; border-radius:50%;
-    display:inline-block; flex-shrink:0;
-  }
-
-  /* ── Buttons ── */
-  .acc-btn {
-    height:36px; border:none; border-radius:10px; padding:0 16px;
-    font-size:12px; font-weight:700; cursor:pointer;
-    display:inline-flex; align-items:center; gap:6px;
-    transition:opacity .15s,transform .15s; font-family:inherit;
-  }
-  .acc-btn:hover:not(:disabled) { opacity:.88; transform:translateY(-1px); }
-  .acc-btn:disabled { opacity:.4; cursor:not-allowed; transform:none; }
-  .acc-btn-primary  {
-    background:linear-gradient(135deg,#6366f1,#8b5cf6);
-    color:#fff; box-shadow:0 3px 10px rgba(99,102,241,.3);
-    border:none;
-  }
-  .acc-btn-secondary{ background:#f3f4f6; color:#374151; border:1.5px solid #e5e7eb; }
-  .acc-btn-deact    {
-    background:#fee2e2; color:#991b1b; border:0.5px solid #fecaca;
-    height:28px; padding:0 10px; font-size:11px; border-radius:8px;
-    cursor:pointer; display:inline-flex; align-items:center; gap:5px;
-    font-weight:700; font-family:inherit; transition:background .13s;
-  }
-  .acc-btn-deact:hover { background:#fecaca; }
-  .acc-btn-act      {
-    background:#d1fae5; color:#065f46; border:0.5px solid #a7f3d0;
-    height:28px; padding:0 10px; font-size:11px; border-radius:8px;
-    cursor:pointer; display:inline-flex; align-items:center; gap:5px;
-    font-weight:700; font-family:inherit; transition:background .13s;
-  }
-  .acc-btn-act:hover { background:#a7f3d0; }
-
-  /* ── Modal form ── */
-  .acc-sec-lbl {
-    font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
-    margin-bottom:8px; margin-top:16px; padding-bottom:5px;
-    border-bottom:1.5px dashed #f1f5f9;
-  }
-  .acc-form-row   { display:flex; gap:10px; flex-wrap:wrap; }
-  .acc-form-group { display:flex; flex-direction:column; gap:4px; flex:1; min-width:120px; margin-bottom:10px; }
-  .acc-form-label { font-size:11px; font-weight:700; color:#6b7280; }
-  .acc-input {
-    height:34px; border:0.5px solid #e5e7eb; border-radius:9px;
-    padding:0 11px; font-size:12px; background:#fff; color:#374151;
-    outline:none; font-family:inherit; width:100%; transition:border .15s;
-  }
-  .acc-input:focus { border-color:#6366f1; box-shadow:0 0 0 2px rgba(99,102,241,.15); }
-  .acc-input:disabled { background:#f9fafb; color:#9ca3af; }
-  .acc-select { cursor:pointer; }
-
-  /* ── Password strength ── */
-  .acc-pw-track { height:4px; border-radius:4px; background:#f3f4f6; margin-top:5px; overflow:hidden; }
-  .acc-pw-fill  { height:100%; border-radius:4px; transition:width .3s,background .3s; }
-
-  /* ── Info note ── */
-  .acc-info-note {
-    margin-top:12px; padding:10px 13px; border-radius:10px;
-    background:#ede9fe; border:0.5px solid #c7d2fe;
-    font-size:11px; color:#3730a3; font-weight:600;
-    display:flex; align-items:center; gap:8px;
-  }
-
-  /* ── Protected label ── */
-  .acc-protected {
-    font-size:11px; color:#9ca3af; font-style:italic;
-  }
-
-  /* ── Empty ── */
-  .acc-empty { text-align:center; padding:52px 20px; }
-
-  ::-webkit-scrollbar { height:4px; width:4px; }
-  ::-webkit-scrollbar-track { background:transparent; }
-  ::-webkit-scrollbar-thumb { background:#e2e8f0; border-radius:4px; }
+  .acc-page{font-family:'Segoe UI',system-ui,sans-serif;padding:24px 30px;background:#f0f2f8;min-height:100vh;}
+  .acc-card{background:#fff;border-radius:12px;box-shadow:0 1px 12px rgba(30,27,75,.07);}
+  .acc-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+  @media(max-width:900px){.acc-stats{grid-template-columns:repeat(2,1fr);}.acc-toolbar{grid-template-columns:1fr!important;}.acc-tools{grid-template-columns:1fr!important;}}
+  .acc-stat{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;}
+  .acc-stat-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .acc-stat-lbl{font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;}
+  .acc-stat-val{font-size:20px;font-weight:800;font-family:monospace;}
+  .acc-stat-sub{font-size:10px;color:#9ca3af;margin-top:1px;}
+  .acc-table{width:100%;border-collapse:collapse;}
+  .acc-table th{text-align:left;padding:10px 14px;font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid #f1f5f9;}
+  .acc-table td{padding:12px 14px;font-size:12px;color:#374151;border-bottom:1px solid #f8fafc;vertical-align:middle;}
+  .acc-table tbody tr:hover td{background:#f8faff;}
+  .acc-avatar{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;}
+  .acc-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:800;white-space:nowrap;}
+  .acc-pill-active{background:#d1fae5;color:#065f46;}
+  .acc-pill-inactive{background:#fee2e2;color:#991b1b;}
+  .acc-pill-role{background:#ede9fe;color:#3730a3;}
+  .acc-pill-super{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+  .acc-btn{height:30px;border:none;border-radius:8px;padding:0 11px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit;}
+  .acc-btn:disabled{opacity:.45;cursor:not-allowed;}
+  .acc-btn-act{background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;}
+  .acc-btn-deact{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+  .acc-btn-primary{height:36px;background:#4f46e5;color:#fff;}
+  .acc-input{height:36px;border:1px solid #dbe2ef;border-radius:10px;padding:0 12px;font:12px 'Segoe UI',system-ui,sans-serif;outline:none;background:#fff;color:#1e1b4b;}
+  .acc-input:focus{border-color:#818cf8;box-shadow:0 0 0 3px rgba(99,102,241,.12);}
+  .acc-textarea{width:100%;min-height:180px;border:1px solid #dbe2ef;border-radius:10px;padding:12px;font:12px/1.5 'Segoe UI',system-ui,sans-serif;resize:vertical;outline:none;}
+  .acc-help{font-size:11px;color:#64748b;margin-top:8px;line-height:1.5;}
+  .acc-toolbar{display:grid;grid-template-columns:minmax(220px,1.3fr) repeat(3,minmax(160px,.9fr)) auto;gap:10px;align-items:end;margin-bottom:14px;}
+  @media(max-width:1100px){.acc-toolbar{grid-template-columns:1fr 1fr;}}
+  @media(max-width:640px){.acc-toolbar{grid-template-columns:1fr;}}
+  .acc-muted{font-size:11px;color:#64748b;}
 `;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const getInitials = (name: string) =>
-  name.split(' ').filter(Boolean).map((p: string) => p[0]).join('').slice(0, 2).toUpperCase() || '?';
+function initials(value: string) {
+  return String(value || "?")
+    .split(/[ @._-]+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
-const avatarGradients = [
-  'linear-gradient(135deg,#6366f1,#8b5cf6)',
-  'linear-gradient(135deg,#ec4899,#db2777)',
-  'linear-gradient(135deg,#f97316,#f59e0b)',
-  'linear-gradient(135deg,#14b8a6,#06b6d4)',
-  'linear-gradient(135deg,#10b981,#34d399)',
-  'linear-gradient(135deg,#3b82f6,#6366f1)',
-];
-const nameGrad = (name: string) =>
-  avatarGradients[(name?.charCodeAt(0) || 0) % avatarGradients.length];
+function formatRole(value: string) {
+  return String(value || "Not provided").replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
-const pwStrength = (pw: string) => {
-  if (!pw)           return { label: '',        color: '#e5e7eb', pct: 0 };
-  if (pw.length < 4) return { label: 'Weak',    color: '#ef4444', pct: 20 };
-  if (pw.length < 7) return { label: 'Fair',    color: '#f97316', pct: 45 };
-  if (pw.length < 10)return { label: 'Good',    color: '#6366f1', pct: 72 };
-  return               { label: 'Strong',       color: '#10b981', pct: 100 };
-};
+function formatDate(value: any) {
+  if (!value) return "Not provided";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+  return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
 
-// ══════════════════════════════════════════════════════════════════════════════
+function unwrapDepartmentName(department: any) {
+  return department.department_name || department.name || department.title || department.label || "Department";
+}
+
+function unwrapRoleName(role: any) {
+  return role.role_name || role.name || role.display_name || role.label || "Role";
+}
+
 export default function Accounts() {
-  const { hrAccounts, setHrAccounts, employees } = useData();
-  const [modal,     setModal]     = useState(false);
-  const [saving,    setSaving]    = useState(false);
-  const [username,  setUsername]  = useState('');
-  const [password,  setPassword]  = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
-  const [linkedEmp, setLinkedEmp] = useState('');
   const { showToast } = useToastContext();
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
+  const [roleId, setRoleId] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [confirmAccount, setConfirmAccount] = useState<any>(null);
+  const [confirmAction, setConfirmAction] = useState<"activate" | "deactivate" | null>(null);
+  const [template, setTemplate] = useState("");
 
-  // ── Logic untouched ───────────────────────────────────────────────────────
-  const handleAdd = () => {
-    if (!username || !password) { showToast('Username and password are mandatory', 'error'); return; }
-    if (password !== confirmPw)  { showToast('Passwords do not match', 'error'); return; }
-    setSaving(true);
-    setTimeout(() => {
-      setHrAccounts((prev: any) => [...prev, {
-        id: 'ACC' + String(prev.length + 1).padStart(3, '0'),
-        username, role: 'hr',
-        linkedEmployee: linkedEmp || '-',
-        status: 'Active',
-        created: new Date().toISOString().split('T')[0],
-      }]);
-      setSaving(false); setModal(false); showToast('Account created');
-      setUsername(''); setPassword(''); setConfirmPw(''); setLinkedEmp('');
-    }, 500);
+  const { data: departments = [] } = useDepartments();
+  const { data: roles = [] } = useRoles();
+  const { data: accounts = [], isLoading, isError } = useFilteredAccounts({
+    search,
+    status,
+    role_id: roleId,
+    department_id: departmentId,
+  });
+  const updateStatus = useUpdateAccountStatus();
+  const { data: templateData } = useCredentialTemplate();
+  const updateTemplate = useUpdateCredentialTemplate();
+
+  useEffect(() => {
+    setTemplate(templateData?.template || "");
+  }, [templateData?.template]);
+
+  const departmentList = useMemo(() => departments.map((department: any) => ({ id: String(department.id), name: unwrapDepartmentName(department) })), [departments]);
+  const roleList = useMemo(() => roles.map((role: any) => ({ id: String(role.id), name: unwrapRoleName(role) })), [roles]);
+
+  const stats = useMemo(() => {
+    const total = accounts.length;
+    const active = accounts.filter((account: any) => account.is_active !== false).length;
+    const inactive = accounts.filter((account: any) => account.is_active === false).length;
+    const linked = accounts.filter((account: any) => Boolean(account.employee_id)).length;
+    return { total, active, inactive, linked };
+  }, [accounts]);
+
+  const confirmStatusChange = async () => {
+    if (!confirmAccount || !confirmAction) return;
+    try {
+      await updateStatus.mutateAsync({
+        accountId: confirmAccount.id,
+        isActive: confirmAction === "activate",
+      });
+      showToast("Account status updated");
+      setConfirmAccount(null);
+      setConfirmAction(null);
+    } catch (error: any) {
+      showToast(error?.response?.data?.error?.message || "Failed to update account", "error");
+    }
   };
 
-  const toggleStatus = (id: string) => {
-    setHrAccounts((prev: any) =>
-      prev.map((a: any) => a.id === id ? { ...a, status: a.status === 'Active' ? 'Inactive' : 'Active' } : a)
-    );
-    showToast('Account status updated');
+  const saveTemplate = async () => {
+    try {
+      await updateTemplate.mutateAsync(template);
+      showToast("WhatsApp credential message updated");
+    } catch (error: any) {
+      showToast(error?.response?.data?.error?.message || "Failed to update message template", "error");
+    }
   };
 
-  // ── Derived stats ─────────────────────────────────────────────────────────
-  const total    = hrAccounts.length;
-  const active   = hrAccounts.filter((a: any) => a.status === 'Active').length;
-  const inactive = hrAccounts.filter((a: any) => a.status === 'Inactive').length;
-  const linked   = hrAccounts.filter((a: any) => a.linkedEmployee && a.linkedEmployee !== '-').length;
-
-  const pw = pwStrength(password);
-  const pwMatch = confirmPw.length > 0 ? password === confirmPw : null;
-
-  // ──────────────────────────────────────────────────────────────────────────
   return (
     <>
       <style>{CSS}</style>
       <div className="acc-page">
-
-        {/* ── Page Header ── */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20, flexWrap:'wrap', gap:12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
           <div>
-            <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:'#1e1b4b' }}>HR Accounts</h1>
-            <p style={{ margin:'4px 0 0', fontSize:12, color:'#9ca3af' }}>
-              Manage system user accounts &nbsp;·&nbsp;
-              <span style={{ color:'#6366f1', fontWeight:700 }}>{total} account{total !== 1 ? 's' : ''}</span>
-            </p>
+            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: "#1e1b4b" }}>Accounts</h1>
+            <p style={{ margin: "4px 0 0", fontSize: 12, color: "#64748b" }}>Real system user accounts from the backend.</p>
           </div>
         </div>
 
-        {/* ── Stat Cards ── */}
+        <div className="acc-card" style={{ padding: 14, marginBottom: 14 }}>
+          <div className="acc-toolbar">
+            <label className="form-group" style={{ margin: 0 }}>
+              <span className="form-label">Search</span>
+              <div style={{ position: "relative" }}>
+                <Search size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+                <input
+                  className="acc-input"
+                  style={{ width: "100%", paddingLeft: 33 }}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search email, employee, role, or department"
+                />
+              </div>
+            </label>
+            <label className="form-group" style={{ margin: 0 }}>
+              <span className="form-label">Department</span>
+              <select className="acc-input" value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>
+                <option value="">All departments</option>
+                {departmentList.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-group" style={{ margin: 0 }}>
+              <span className="form-label">Role</span>
+              <select className="acc-input" value={roleId} onChange={(event) => setRoleId(event.target.value)}>
+                <option value="">All roles</option>
+                {roleList.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-group" style={{ margin: 0 }}>
+              <span className="form-label">Status</span>
+              <select className="acc-input" value={status} onChange={(event) => setStatus(event.target.value as any)}>
+                <option value="all">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <button
+              className="acc-btn acc-btn-deact"
+              style={{ height: 36, justifyContent: "center" }}
+              onClick={() => {
+                setSearch("");
+                setDepartmentId("");
+                setRoleId("");
+                setStatus("all");
+              }}
+            >
+              <X size={13} /> Clear
+            </button>
+          </div>
+          <div className="acc-muted">Filters are sent to the backend so the list stays aligned with permissions and department scope.</div>
+        </div>
+
         <div className="acc-stats">
-          {([
-            { icon:<Users size={18}/>,     bg:'#ede9fe', color:'#3730a3', label:'Total Accounts',   value: total,    sub:'All system users' },
-            { icon:<UserCheck size={18}/>, bg:'#d1fae5', color:'#065f46', label:'Active',            value: active,   sub:'Currently enabled' },
-            { icon:<UserX size={18}/>,     bg:'#fee2e2', color:'#991b1b', label:'Inactive',          value: inactive, sub:'Disabled accounts' },
-            { icon:<KeyRound size={18}/>,  bg:'#dbeafe', color:'#1e40af', label:'Linked Employees',  value: linked,   sub:'With employee mapping' },
-          ] as any[]).map((s, i) => (
-            <div className="acc-stat" key={i} style={{ animationDelay:`${i * 0.06}s` }}>
-              <div className="acc-stat-icon" style={{ background:s.bg, color:s.color }}>{s.icon}</div>
+          {[
+            { icon: <Users size={18} />, bg: "#ede9fe", color: "#3730a3", label: "Total Accounts", value: stats.total, sub: "All system users" },
+            { icon: <UserCheck size={18} />, bg: "#d1fae5", color: "#065f46", label: "Active", value: stats.active, sub: "Can sign in" },
+            { icon: <UserX size={18} />, bg: "#fee2e2", color: "#991b1b", label: "Inactive", value: stats.inactive, sub: "Blocked from sign in" },
+            { icon: <KeyRound size={18} />, bg: "#dbeafe", color: "#1e40af", label: "Employee Linked", value: stats.linked, sub: "Mapped to employee" },
+          ].map((stat) => (
+            <div className="acc-stat" key={stat.label}>
+              <div className="acc-stat-icon" style={{ background: stat.bg, color: stat.color }}>{stat.icon}</div>
               <div>
-                <div className="acc-stat-lbl">{s.label}</div>
-                <div className="acc-stat-val" style={{ color:s.color }}>{s.value}</div>
-                <div className="acc-stat-sub">{s.sub}</div>
+                <div className="acc-stat-lbl">{stat.label}</div>
+                <div className="acc-stat-val" style={{ color: stat.color }}>{stat.value}</div>
+                <div className="acc-stat-sub">{stat.sub}</div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* ── Table ── */}
-        <div className="acc-card" style={{ padding:0 }}>
-          <div style={{ overflowX:'auto' }}>
+        <div className="acc-tools" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(320px,.8fr)", gap: 14 }}>
+          <div className="acc-card" style={{ overflowX: "auto" }}>
             <table className="acc-table">
               <thead>
                 <tr>
                   <th>User</th>
                   <th>Role</th>
+                  <th>Department</th>
                   <th>Linked Employee</th>
                   <th>Status</th>
                   <th>Created</th>
@@ -293,189 +240,113 @@ export default function Accounts() {
                 </tr>
               </thead>
               <tbody>
-                {hrAccounts.length === 0 ? (
-                  <tr>
-                    <td colSpan={6}>
-                      <div className="acc-empty">
-                        <div style={{ fontSize:28, marginBottom:8 }}>🔐</div>
-                        <div style={{ fontSize:13, fontWeight:700, color:'#374151', marginBottom:4 }}>No accounts yet</div>
-                        <div style={{ fontSize:11, color:'#9ca3af' }}>Accounts are created during employee creation or promotion workflows.</div>
-                      </div>
-                    </td>
-                  </tr>
-                ) : hrAccounts.map((a: any) => {
-                  const isSuper = a.role === 'super_admin';
+                {isLoading ? (
+                  <tr><td colSpan={7} style={{ textAlign: "center", padding: 40 }}>Loading accounts...</td></tr>
+                ) : isError ? (
+                  <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "#991b1b" }}>Unable to load accounts.</td></tr>
+                ) : accounts.length === 0 ? (
+                  <tr><td colSpan={7} style={{ textAlign: "center", padding: 40 }}>No accounts found.</td></tr>
+                ) : accounts.map((account: any) => {
+                  const isSuper = account.role_name === "super_admin";
                   return (
-                    <tr key={a.id}>
-
-                      {/* User avatar + name */}
+                    <tr key={account.id}>
                       <td>
-                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                          <div
-                            className="acc-avatar"
-                            style={{ background: isSuper
-                              ? 'linear-gradient(135deg,#f97316,#eab308)'
-                              : nameGrad(a.username)
-                            }}
-                          >
-                            {getInitials(a.username)}
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div className="acc-avatar" style={isSuper ? { background: "linear-gradient(135deg,#f97316,#eab308)" } : undefined}>
+                            {initials(account.employee_name || account.email)}
                           </div>
                           <div>
-                            <div style={{ fontWeight:700, fontSize:12, color:'#1e1b4b' }}>{a.username}</div>
-                            <div style={{ fontSize:10, color:'#9ca3af', marginTop:1 }}>
-                              {isSuper ? 'System Administrator' : 'HR Personnel'}
-                            </div>
+                            <div style={{ fontWeight: 800, color: "#1e1b4b" }}>{account.email}</div>
+                            <div style={{ fontSize: 10, color: "#64748b" }}>{account.employee_name || "Account-only user"}</div>
                           </div>
                         </div>
                       </td>
-
-                      {/* Role pill */}
+                      <td><span className={`acc-pill ${isSuper ? "acc-pill-super" : "acc-pill-role"}`}>{formatRole(account.role_name)}</span></td>
+                      <td>{account.department_name || "All departments"}</td>
+                      <td>{account.linked_employee || (account.employee_id ? `${account.employee_id}` : "Account only")}</td>
                       <td>
-                        {isSuper
-                          ? <span className="acc-pill acc-pill-super">Super Admin</span>
-                          : <span className="acc-pill acc-pill-hr">{a.role || 'HR'}</span>
-                        }
-                      </td>
-
-                      {/* Linked employee */}
-                      <td>
-                        {a.linkedEmployee && a.linkedEmployee !== '-' ? (
-                          <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, color:'#1e1b4b' }}>
-                            <span style={{ width:7, height:7, borderRadius:'50%', background:'#6366f1', display:'inline-block', flexShrink:0 }} />
-                            {a.linkedEmployee}
-                          </span>
-                        ) : (
-                          <span style={{ fontSize:11, color:'#9ca3af', fontStyle:'italic' }}>— not linked</span>
-                        )}
-                      </td>
-
-                      {/* Status */}
-                      <td>
-                        <span className={`acc-pill ${a.status === 'Active' ? 'acc-pill-active' : 'acc-pill-inactive'}`}>
-                          <span
-                            className="acc-dot"
-                            style={{ background: a.status === 'Active' ? '#10b981' : '#ef4444' }}
-                          />
-                          {a.status}
+                        <span className={`acc-pill ${account.is_active === false ? "acc-pill-inactive" : "acc-pill-active"}`}>
+                          {account.is_active === false ? "Inactive" : "Active"}
                         </span>
                       </td>
-
-                      {/* Created */}
-                      <td><span className="acc-date-chip">{a.created}</span></td>
-
-                      {/* Actions */}
+                      <td>{formatDate(account.created_at)}</td>
                       <td>
                         {isSuper ? (
-                          <span className="acc-protected">Protected</span>
-                        ) : a.status === 'Active' ? (
-                          <button className="acc-btn-deact" onClick={() => toggleStatus(a.id)}>
-                            <ShieldOff size={11} /> Deactivate
-                          </button>
+                          <span style={{ fontSize: 11, color: "#94a3b8" }}>Protected</span>
                         ) : (
-                          <button className="acc-btn-act" onClick={() => toggleStatus(a.id)}>
-                            <ShieldCheck size={11} /> Activate
+                          <button
+                            className={`acc-btn ${account.is_active === false ? "acc-btn-act" : "acc-btn-deact"}`}
+                            disabled={updateStatus.isPending}
+                            onClick={() => {
+                              setConfirmAccount(account);
+                              setConfirmAction(account.is_active === false ? "activate" : "deactivate");
+                            }}
+                          >
+                            {account.is_active === false ? <ShieldCheck size={12} /> : <ShieldOff size={12} />}
+                            {account.is_active === false ? "Activate" : "Deactivate"}
                           </button>
                         )}
                       </td>
-
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
+
+          <div className="acc-card" style={{ padding: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <KeyRound size={16} color="#4f46e5" />
+              <h2 style={{ margin: 0, fontSize: 15, color: "#1e1b4b" }}>WhatsApp Credential Message</h2>
+            </div>
+            <textarea className="acc-textarea" value={template} onChange={(event) => setTemplate(event.target.value)} />
+            <div className="acc-help">
+              Use placeholders: {"{employeeName}"}, {"{employeeId}"}, {"{email}"}, {"{password}"}, {"{loginUrl}"}. The backend requires {"{email}"} and {"{password}"} so credentials are not accidentally omitted.
+            </div>
+            <button className="acc-btn acc-btn-primary" style={{ marginTop: 12 }} disabled={updateTemplate.isPending} onClick={saveTemplate}>
+              <Save size={13} /> Save Message
+            </button>
+          </div>
         </div>
-
-        {/* ══ Add Account Modal ═══════════════════════════════════════════════ */}
-        <Modal
-          open={modal}
-          onClose={() => setModal(false)}
-          title="Create Account"
-          footer={
-            <>
-              <button className="acc-btn acc-btn-secondary" onClick={() => setModal(false)}>Cancel</button>
-              <button className="acc-btn acc-btn-primary" onClick={handleAdd} disabled={saving}>
-                {saving ? 'Creating...' : 'Create Account'}
-              </button>
-            </>
-          }
-        >
-          {/* ── Credentials ── */}
-          <div className="acc-sec-lbl" style={{ color:'#3730a3', marginTop:0 }}>Credentials</div>
-
-          <div className="acc-form-group">
-            <label className="acc-form-label">Username</label>
-            <input
-              className="acc-input"
-              placeholder="e.g. hr.manager"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-            />
-          </div>
-
-          <div className="acc-form-row">
-            <div className="acc-form-group">
-              <label className="acc-form-label">Password</label>
-              <input
-                className="acc-input"
-                type="password"
-                placeholder="Enter password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-              />
-              {password && (
-                <>
-                  <div className="acc-pw-track">
-                    <div className="acc-pw-fill" style={{ width:`${pw.pct}%`, background:pw.color }} />
-                  </div>
-                  <div style={{ fontSize:10, fontWeight:700, color:pw.color, marginTop:2 }}>{pw.label}</div>
-                </>
-              )}
-            </div>
-            <div className="acc-form-group">
-              <label className="acc-form-label">Confirm Password</label>
-              <input
-                className="acc-input"
-                type="password"
-                placeholder="Re-enter password"
-                value={confirmPw}
-                onChange={e => setConfirmPw(e.target.value)}
-                style={{ borderColor: pwMatch === false ? '#ef4444' : undefined }}
-              />
-              {pwMatch === true  && <div style={{ fontSize:10, fontWeight:700, color:'#065f46', marginTop:2 }}>✓ Passwords match</div>}
-              {pwMatch === false && <div style={{ fontSize:10, fontWeight:700, color:'#991b1b', marginTop:2 }}>✕ Passwords do not match</div>}
-            </div>
-          </div>
-
-          {/* ── Account Setup ── */}
-          <div className="acc-sec-lbl" style={{ color:'#065f46' }}>Account Setup</div>
-
-          <div className="acc-form-group">
-            <label className="acc-form-label">Link to Employee (optional)</label>
-            <select
-              className="acc-input acc-select"
-              value={linkedEmp}
-              onChange={e => setLinkedEmp(e.target.value)}
-            >
-              <option value="">None — standalone account</option>
-              {employees.map((e: any) => (
-                <option key={e.id} value={`${e.id} - ${e.name}`}>{e.id} — {e.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="acc-form-group">
-            <label className="acc-form-label">Role</label>
-            <input className="acc-input" value="hr" disabled />
-          </div>
-
-          <div className="acc-info-note">
-            <KeyRound size={13} />
-            This account will have HR-level access. Super Admin privileges are assigned separately.
-          </div>
-        </Modal>
-
       </div>
+
+      <Modal
+        open={Boolean(confirmAccount && confirmAction)}
+        onClose={() => {
+          setConfirmAccount(null);
+          setConfirmAction(null);
+        }}
+        title={confirmAction === "activate" ? "Activate account" : "Deactivate account"}
+        wide={false}
+      >
+        <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ fontSize: 13, color: "#334155" }}>
+            {confirmAction === "activate"
+              ? "This account will be able to sign in again."
+              : "This account will be blocked from sign in until reactivated."}
+          </div>
+          <div className="acc-card" style={{ padding: 12, background: "#f8fafc" }}>
+            <div style={{ fontWeight: 800, color: "#1e1b4b" }}>{confirmAccount?.email}</div>
+            <div className="acc-muted">{confirmAccount?.employee_name || "Account-only user"}</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+          <button
+            className="acc-btn"
+            style={{ background: "#e2e8f0", color: "#334155" }}
+            onClick={() => {
+              setConfirmAccount(null);
+              setConfirmAction(null);
+            }}
+          >
+            Cancel
+          </button>
+          <button className={`acc-btn ${confirmAction === "activate" ? "acc-btn-act" : "acc-btn-deact"}`} onClick={confirmStatusChange}>
+            {confirmAction === "activate" ? <ShieldCheck size={12} /> : <ShieldOff size={12} />}
+            {confirmAction === "activate" ? "Activate" : "Deactivate"}
+          </button>
+        </div>
+      </Modal>
     </>
   );
 }

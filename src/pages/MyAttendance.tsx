@@ -3,7 +3,7 @@ import { Calendar, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { getStatusColor } from "../services/api";
 import Modal from "../components/common/Modal";
 import { useToastContext } from "../context/ToastContext";
-import { useAttendance } from "../hooks/useAttendance";
+import { useAttendance, useSubmitAttendanceCorrection } from "../hooks/useAttendance";
 import { useAuth } from "../context/AuthContext";
 
 function formatDateOnly(value?: string) {
@@ -42,6 +42,21 @@ function normalizeStatus(status?: string) {
   return status || "-";
 }
 
+function toApiTime(value?: string | null) {
+  if (!value) return null;
+  const short = String(value).slice(0, 5);
+  return short.length === 5 ? `${short}:00` : value;
+}
+
+function errorMessage(error: any) {
+  return (
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.message ||
+    error?.message ||
+    "Attendance correction request failed."
+  );
+}
+
 export default function MyAttendance() {
   const [regModal, setRegModal] = useState(false);
   const [regDate, setRegDate] = useState("");
@@ -53,6 +68,7 @@ export default function MyAttendance() {
   const { data: attendanceRows = [], isLoading } = useAttendance({
     employee_id: user?.employeeId,
   });
+  const submitCorrection = useSubmitAttendanceCorrection();
   const safeAttendanceRows = Array.isArray(attendanceRows) ? attendanceRows : [];
 
   const rows = useMemo(() => {
@@ -78,17 +94,31 @@ export default function MyAttendance() {
       !(a.ack || a.acknowledged || a.is_acknowledged),
   ).length;
 
-  const submitReg = () => {
-    if (!regDate || !regReason) {
-      showToast("Please fill all fields", "error");
+  const submitReg = async () => {
+    if (!regDate || !regReason.trim()) {
+      showToast("Date and reason are mandatory.", "error");
       return;
     }
-    showToast("Attendance correction workflow is coming soon.", "info");
-    setRegModal(false);
-    setRegDate("");
-    setRegReason("");
-    setRegIn("");
-    setRegOut("");
+    if (!regIn && !regOut) {
+      showToast("At least one corrected time is mandatory.", "error");
+      return;
+    }
+    try {
+      await submitCorrection.mutateAsync({
+        date: regDate,
+        requested_check_in: toApiTime(regIn),
+        requested_check_out: toApiTime(regOut),
+        reason: regReason.trim(),
+      });
+      showToast("Attendance correction request submitted.");
+      setRegModal(false);
+      setRegDate("");
+      setRegReason("");
+      setRegIn("");
+      setRegOut("");
+    } catch (error) {
+      showToast(errorMessage(error), "error");
+    }
   };
 
   const summaryCards = [
@@ -222,15 +252,20 @@ export default function MyAttendance() {
             <button className="btn btn-secondary" onClick={() => setRegModal(false)}>
               Cancel
             </button>
-            <button className="btn btn-primary" onClick={submitReg}>
-              Submit Request
+            <button
+              className="btn btn-primary"
+              onClick={submitReg}
+              disabled={submitCorrection.isPending}
+            >
+              {submitCorrection.isPending ? "Submitting..." : "Submit Request"}
             </button>
           </>
         }
       >
         <div className="form-group">
-          <label className="form-label">Date</label>
+          <label className="form-label" htmlFor="attendance-correction-date">Date</label>
           <input
+            id="attendance-correction-date"
             className="input"
             type="date"
             value={regDate}
@@ -239,8 +274,11 @@ export default function MyAttendance() {
         </div>
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">Correct Check-In</label>
+            <label className="form-label" htmlFor="attendance-correction-in">
+              Correct Check-In
+            </label>
             <input
+              id="attendance-correction-in"
               className="input mono"
               type="time"
               value={regIn}
@@ -248,8 +286,11 @@ export default function MyAttendance() {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Correct Check-Out</label>
+            <label className="form-label" htmlFor="attendance-correction-out">
+              Correct Check-Out
+            </label>
             <input
+              id="attendance-correction-out"
               className="input mono"
               type="time"
               value={regOut}
@@ -258,8 +299,11 @@ export default function MyAttendance() {
           </div>
         </div>
         <div className="form-group">
-          <label className="form-label">Reason *</label>
+          <label className="form-label" htmlFor="attendance-correction-reason">
+            Reason *
+          </label>
           <textarea
+            id="attendance-correction-reason"
             className="input"
             rows={3}
             value={regReason}

@@ -57,6 +57,11 @@ export default function Sidebar() {
   };
 
   const initials = getUserInitials(user?.username || "");
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to logout?")) {
+      logout();
+    }
+  };
 
   const superAdminLinks: SidebarLink[] = [
     // Active/Enabled first
@@ -101,8 +106,8 @@ export default function Sidebar() {
     },
   ];
 
-  // Head HR - Same as Superadmin (Full Company Access)
-  const headHrLinks: SidebarLink[] = superAdminLinks;
+  // Head HR - full active HR access without SuperAdmin-only disabled roadmap links
+  const headHrLinks: SidebarLink[] = superAdminLinks.filter((link) => !link.disabled);
 
   // Branch HR - Branch level access (no branch-dashboard link here)
   const branchHrLinks: SidebarLink[] = [
@@ -110,7 +115,6 @@ export default function Sidebar() {
     { to: "/employees", icon: Users, label: "Employees" },
     { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
     { to: "/leave", icon: CalendarDays, label: "Leave" },
-    { to: "/payroll", icon: DollarSign, label: "Payroll", disabled: true },
     { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
     { to: "/penalty", icon: ClipboardList, label: "Penalty" },
     { to: "/penalty-workflow", icon: CheckCircle2, label: "Penalty Submissions" },
@@ -125,10 +129,33 @@ export default function Sidebar() {
     { to: "/employees", icon: Users, label: "Employees" },
     { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
     { to: "/leave", icon: CalendarDays, label: "Leave" },
-    { to: "/payroll", icon: DollarSign, label: "Payroll", disabled: true },
     { to: "/leave-wallet", icon: Wallet, label: "Leave Wallet" },
     { to: "/penalty", icon: ClipboardList, label: "Penalty" },
     { to: "/penalty-workflow", icon: CheckCircle2, label: "Penalty Submissions" },
+    { to: "/announcements", icon: Zap, label: "Announcements" },
+    { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
+    { to: "/directory", icon: MapPin, label: "Directory" },
+  ];
+
+  const departmentHeadLinks: SidebarLink[] = [
+    { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/employees", icon: Users, label: "Department Team" },
+    { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
+    { to: "/leave", icon: CalendarDays, label: "Leave" },
+    { to: "/penalty", icon: ClipboardList, label: "Penalty" },
+    { to: "/announcements", icon: Zap, label: "Announcements" },
+    { to: "/announcements/manage", icon: Zap, label: "Manage Announcements" },
+    { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
+    { to: "/settings/calendar-events", icon: CalendarRange, label: "Manage Calendar Events" },
+    { to: "/directory", icon: MapPin, label: "Directory" },
+  ];
+
+  const ceoLinks: SidebarLink[] = [
+    { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/employees", icon: Users, label: "Employees" },
+    { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
+    { to: "/leave", icon: CalendarDays, label: "Leave" },
+    { to: "/penalty", icon: ClipboardList, label: "Penalty" },
     { to: "/announcements", icon: Zap, label: "Announcements" },
     { to: "/calendar", icon: CalendarRange, label: "Calendar Events" },
     { to: "/directory", icon: MapPin, label: "Directory" },
@@ -138,16 +165,20 @@ export default function Sidebar() {
   const mainLinks =
     activeRole === "super_admin"
       ? superAdminLinks
+      : activeRole === "ceo"
+        ? ceoLinks
       : activeRole === "head_hr"
         ? headHrLinks
         : activeRole === "hr_manager"
           ? headHrLinks
           : activeRole === "hr_executive"
             ? departmentHrLinks
-            : activeRole === "branch_hr"
+      : activeRole === "branch_hr"
               ? branchHrLinks
               : activeRole === "department_hr"
                 ? departmentHrLinks
+                : activeRole === "department_head"
+                ? departmentHeadLinks
                 : [];
 
   const { showToast } = useToastContext();
@@ -225,6 +256,7 @@ export default function Sidebar() {
             <NavLink
               key={link.to}
               to={link.to}
+              end={link.to === "/announcements"}
               className={({ isActive }) => `nav-a ${isActive ? "active" : ""}`}
             >
               <link.icon size={14} className="nav-ico" />
@@ -325,11 +357,11 @@ export default function Sidebar() {
 
       <div className="sb-bottom">
         <div className="sb-user">
-          <div className="sb-chip" onClick={logout}>
+          <div className="sb-chip" onClick={handleLogout} role="button" tabIndex={0}>
             <div className="sb-av">{initials}</div>
             <div>
-              <div className="sb-un">{user?.username}</div>
-              <div className="sb-ur">{activeRole}</div>
+              <div className="sb-un">Logout</div>
+              <div className="sb-ur">End current session</div>
             </div>
             <LogOut
               size={14}

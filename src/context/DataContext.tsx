@@ -171,6 +171,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       activeRole === 'head_hr' ||
       activeRole === 'branch_hr' ||
       activeRole === 'department_hr' ||
+      activeRole === 'department_head' ||
       activeRole === 'hr_manager' ||
       activeRole === 'hr_executive';
     if (!canFetchAll) return;

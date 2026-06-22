@@ -32,6 +32,8 @@ import {
 } from "lucide-react";
 import DecisionBanner from "../components/common/DecisionBanner";
 import { useToastContext } from "../context/ToastContext";
+import { renderCredentialTemplate, useCredentialTemplate } from "../hooks/useAccounts";
+import { useAuthStore } from "../store/useAuthStore";
 
 // ─── Attractive CSS matching Dashboard aesthetic ──────────────────────────────
 const S = `
@@ -588,6 +590,8 @@ function LocationCombo({
 export default function AddEmployee() {
   const navigate = useNavigate();
   const { showToast } = useToastContext();
+  const { data: credentialTemplateData } = useCredentialTemplate();
+  const hasPermission = useAuthStore((state) => state.hasPermission);
 
   const { data: deptData = [] } = useDepartments();
   const { data: empTypeData = [] } = useEmploymentTypes();
@@ -595,7 +599,9 @@ export default function AddEmployee() {
   const { data: wModeData = [] } = useWorkModes();
   const { data: wLocData = [] } = useWorkLocations();
   const { data: shiftsData = [] } = useShifts();
-  const { data: allowanceTypeData = [] } = useAllowanceTypes();
+  const { data: allowanceTypeData = [] } = useAllowanceTypes({
+    enabled: hasPermission("allowances:read"),
+  });
   const { data: roleData = [] } = useRoles();
   const { data: provinceOptions = [], create: createProvince } = useLocations({ kind: "province" });
 
@@ -1317,7 +1323,13 @@ export default function AddEmployee() {
     // If it doesn't start with a country code, assume Pakistan (92)
     const finalPhone = cleanPhone.length === 10 ? `92${cleanPhone}` : cleanPhone;
 
-    const message = `*Welcome to the Team!*\n\nHello ${fullName},\n\nYour HR account has been created. Here are your login credentials:\n\n*Email:* ${empEmail}\n*Password:* ${tempPassword}\n\nPlease login at: ${window.location.origin}/login\n\n_Note: For security, please change your password after your first login._`;
+    const message = renderCredentialTemplate(credentialTemplateData?.template, {
+      employeeName: fullName,
+      employeeId: employeeIdInput,
+      email: empEmail,
+      password: tempPassword,
+      loginUrl: `${window.location.origin}/login`,
+    });
     
     const whatsappUrl = `https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, "_blank");

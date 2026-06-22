@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Search, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CalendarEvent, CalendarEventFilters, toCalendarDateKey, useCalendarEvents } from "../hooks/useCalendarEvents";
+import { useAuthStore } from "../store/useAuthStore";
 
 const eventTypeColors: Record<string, string> = {
   holiday: "#ef4444",
@@ -92,6 +93,9 @@ function getDaysInMonth(date: Date, events: CalendarEvent[]) {
 }
 
 export default function Calendar() {
+  const canManageCalendar = useAuthStore(
+    (state) => state.hasPermission("calendar:write") || state.hasPermission("calendar:department_write"),
+  );
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [rangeMode, setRangeMode] = useState<RangeMode>("current");
@@ -146,9 +150,11 @@ export default function Calendar() {
           <div className="pg-greet">Calendar Events</div>
           <div className="pg-sub">View holidays and HR events from the backend calendar.</div>
         </div>
-        <Link className="btn btn-secondary" to="/settings/calendar-events">
-          <Settings size={15} /> Manage Calendar Events
-        </Link>
+        {canManageCalendar && (
+          <Link className="btn btn-secondary" to="/settings/calendar-events">
+            <Settings size={15} /> Manage Calendar Events
+          </Link>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>

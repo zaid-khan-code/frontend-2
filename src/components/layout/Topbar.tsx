@@ -72,6 +72,9 @@ export default function Topbar() {
   })();
 
   const pageName = (() => {
+    if (path === "/employees" && (auth as any)?.activeRole === "department_head") {
+      return "Department Team";
+    }
     if (routeNames[path]) return routeNames[path];
     // try longest-prefix match for routes like /employees/123 or /settings/whatever
     const keys = Object.keys(routeNames).sort((a, b) => b.length - a.length);
@@ -98,6 +101,7 @@ export default function Topbar() {
     branch_hr: "Branch HR",
     head_hr: "Head Office HR",
     department_hr: "Department HR",
+    department_head: "Department Head",
     employee: "Employee",
   };
   const displayRole =

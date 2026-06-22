@@ -112,6 +112,57 @@ describe("Leave", () => {
     expect(screen.queryByText("39b623d6-e275-45d2-b340-92a4df5f8d1f")).toBeNull();
   });
 
+  it("splits approved leaves into upcoming and completed sections", async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === "/leave-requests/balances/summary") return Promise.resolve({ data: { data: [] } });
+      if (url === "/leave-requests/balances") return Promise.resolve({ data: { data: [] } });
+      if (url === "/config/departments") return Promise.resolve({ data: { data: [] } });
+      return Promise.resolve({
+        data: {
+          data: [
+            {
+              id: "leave-completed",
+              employee_id: "EMP016",
+              employee_name: "Kamran Rafiq",
+              leave_type: "Annual Leave",
+              start_date: "2026-03-13",
+              end_date: "2026-03-18",
+              reason: "Family commitment",
+              status: "approved",
+              reviewed_by_name: "Ayesha Khan",
+              created_at: "2026-03-01",
+            },
+            {
+              id: "leave-upcoming",
+              employee_id: "EMP017",
+              employee_name: "Sana Malik",
+              leave_type: "Casual Leave",
+              start_date: "2026-07-10",
+              end_date: "2026-07-12",
+              reason: "Travel",
+              status: "approved",
+              reviewed_by_name: "Ayesha Khan",
+              created_at: "2026-06-01",
+            },
+          ],
+        },
+      });
+    });
+
+    renderLeave();
+    fireEvent.click(screen.getByRole("button", { name: "Approved" }));
+
+    expect(await screen.findByRole("button", { name: /Upcoming/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Completed/i })).toBeTruthy();
+    expect(screen.getByText("Sana Malik")).toBeTruthy();
+    expect(screen.queryByText("Kamran Rafiq")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Completed/i }));
+
+    expect(screen.getByText("Kamran Rafiq")).toBeTruthy();
+    expect(screen.queryByText("Sana Malik")).toBeNull();
+  });
+
   it("shows one compact balance row per employee and expands leave-type details", async () => {
     vi.mocked(apiClient.get).mockImplementation((url: string) => {
       if (url === "/leave-requests/balances/summary") {
@@ -144,7 +195,7 @@ describe("Leave", () => {
     expect(await screen.findByText("Adeel Rahman")).toBeTruthy();
     expect(screen.getByText("EMP001")).toBeTruthy();
     expect(screen.getByText("Administration")).toBeTruthy();
-    expect(screen.getByText("6 taken of 22")).toBeTruthy();
+    expect(screen.getByText("6 used of 22")).toBeTruthy();
     expect(screen.getByText("16 remaining")).toBeTruthy();
     expect(screen.queryByText("Annual Leave")).toBeNull();
 

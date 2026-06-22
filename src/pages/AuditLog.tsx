@@ -35,7 +35,9 @@ function exportCSV(data: AuditLogItem[]) {
     "Action",
     "Module",
     "Record",
-    "IP Address",
+    "Public IP",
+    "Private IP",
+    "Hostname",
     "Method",
     "Path",
     "Actor Employee",
@@ -50,6 +52,8 @@ function exportCSV(data: AuditLogItem[]) {
     log.module,
     log.recordId,
     log.ip_address || "",
+    log.private_ip_address || "",
+    log.hostname || "",
     log.method || "",
     log.path || "",
     log.actor_employee_id || "",
@@ -76,18 +80,28 @@ export default function AuditLog() {
   const [moduleFilter, setModuleFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [actorEmployeeId, setActorEmployeeId] = useState("");
+  const [recordId, setRecordId] = useState("");
 
   const { logs, isLoading, error } = useAuditLogs({
     search,
     action: actionFilter,
     module: moduleFilter,
+    actor_employee_id: actorEmployeeId,
+    entity_id: recordId,
     date_from: dateFrom,
     date_to: dateTo,
     limit: 300,
   });
 
-  const actions = useMemo(() => [...new Set(logs.map((log) => log.action).filter(Boolean))], [logs]);
-  const modules = useMemo(() => [...new Set(logs.map((log) => log.module).filter(Boolean))], [logs]);
+  const actions = useMemo(
+    () => [...new Set([...Object.keys(actionColors), ...logs.map((log) => log.action)].filter(Boolean))],
+    [logs],
+  );
+  const modules = useMemo(
+    () => [...new Set(["auth", "accounts", "employees", "attendance", "leave", "penalties", "announcements", "calendar-events", "config", ...logs.map((log) => log.module)].filter(Boolean))],
+    [logs],
+  );
 
   if (activeRole !== "super_admin") {
     return (
@@ -112,24 +126,49 @@ export default function AuditLog() {
 
       <div className="card" style={{ marginBottom: 12 }}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <input className="input" style={{ width: 220 }} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search actor, action, IP, path" />
-          <input className="input" type="date" style={{ width: 150 }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          <input className="input" type="date" style={{ width: 150 }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          <select className="input select-input" style={{ width: 190 }} value={actionFilter} onChange={(e) => setActionFilter(e.target.value)}>
+          <label className="form-group" style={{ margin: 0 }}>
+            <span className="form-label">Search</span>
+            <input className="input" style={{ width: 220 }} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Actor, action, IP, path" />
+          </label>
+          <label className="form-group" style={{ margin: 0 }}>
+            <span className="form-label">From</span>
+            <input className="input" type="date" style={{ width: 150 }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </label>
+          <label className="form-group" style={{ margin: 0 }}>
+            <span className="form-label">To</span>
+            <input className="input" type="date" style={{ width: 150 }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </label>
+          <label className="form-group" style={{ margin: 0 }}>
+            <span className="form-label">Action</span>
+            <select className="input select-input" style={{ width: 190 }} value={actionFilter} onChange={(e) => setActionFilter(e.target.value)}>
             <option value="">All Actions</option>
             {actions.map((action) => <option key={action}>{action}</option>)}
-          </select>
-          <select className="input select-input" style={{ width: 160 }} value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
+            </select>
+          </label>
+          <label className="form-group" style={{ margin: 0 }}>
+            <span className="form-label">Module</span>
+            <select className="input select-input" style={{ width: 160 }} value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
             <option value="">All Modules</option>
             {modules.map((module) => <option key={module}>{module}</option>)}
-          </select>
-          {(search || actionFilter || moduleFilter || dateFrom || dateTo) && (
+            </select>
+          </label>
+          <label className="form-group" style={{ margin: 0 }}>
+            <span className="form-label">Actor Employee</span>
+            <input className="input" style={{ width: 150 }} value={actorEmployeeId} onChange={(e) => setActorEmployeeId(e.target.value)} placeholder="EMP0001" />
+          </label>
+          <label className="form-group" style={{ margin: 0 }}>
+            <span className="form-label">Record ID</span>
+            <input className="input" style={{ width: 150 }} value={recordId} onChange={(e) => setRecordId(e.target.value)} placeholder="Target record" />
+          </label>
+          {(search || actionFilter || moduleFilter || dateFrom || dateTo || actorEmployeeId || recordId) && (
             <button className="btn btn-sm btn-ghost" onClick={() => {
               setSearch("");
               setActionFilter("");
               setModuleFilter("");
               setDateFrom("");
               setDateTo("");
+              setActorEmployeeId("");
+              setRecordId("");
             }}>
               Clear Filters
             </button>
@@ -165,7 +204,9 @@ export default function AuditLog() {
                 <th>Action</th>
                 <th>Module</th>
                 <th>Record</th>
-                <th>IP</th>
+                <th>Public IP</th>
+                <th>Private IP</th>
+                <th>Hostname</th>
                 <th>Method</th>
                 <th>Path</th>
                 <th></th>
@@ -184,13 +225,15 @@ export default function AuditLog() {
                     <td>{label(log.module)}</td>
                     <td className="mono">{label(log.recordId)}</td>
                     <td className="mono" style={{ fontSize: 11 }}>{label(log.ip_address)}</td>
+                    <td className="mono" style={{ fontSize: 11 }}>{label(log.private_ip_address)}</td>
+                    <td className="mono" style={{ fontSize: 11 }}>{label(log.hostname)}</td>
                     <td className="mono">{label(log.method)}</td>
                     <td className="mono" style={{ fontSize: 11, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>{label(log.path)}</td>
                     <td><Eye size={13} /></td>
                   </tr>
                   {expanded === log.id && (
                     <tr>
-                      <td colSpan={9} style={{ background: "var(--inp)", padding: 12 }}>
+                      <td colSpan={11} style={{ background: "var(--inp)", padding: 12 }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, fontSize: 12 }}>
                           <div>
                             <div style={{ fontWeight: 700, marginBottom: 8 }}>Identity</div>
@@ -198,7 +241,9 @@ export default function AuditLog() {
                             <div>Actor Employee ID: <span className="mono">{label(log.actor_employee_id)}</span></div>
                             <div>Actor Role ID: <span className="mono">{label(log.actor_role_id)}</span></div>
                             <div>Actor Email: <span className="mono">{label(log.actor_email)}</span></div>
-                            <div>IP Address: <span className="mono">{label(log.ip_address)}</span></div>
+                            <div>Public IP: <span className="mono">{label(log.ip_address)}</span></div>
+                            <div>Private IP: <span className="mono">{label(log.private_ip_address)}</span></div>
+                            <div>Hostname: <span className="mono">{label(log.hostname)}</span></div>
                             <div>User Agent: <span className="mono">{label(log.user_agent)}</span></div>
                             <div>Request ID: <span className="mono">{label(log.request_id)}</span></div>
                           </div>
