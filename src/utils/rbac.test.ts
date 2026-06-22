@@ -36,7 +36,10 @@ describe("rbac", () => {
   it("keeps department_head scoped and without employee creation access", () => {
     expect(normalizeRole("department_head")).toBe("department_head");
     expect(canPerformAction("department_head", "view_all_employees", [])).toBe(true);
+    expect(canPerformAction("department_head", "view_all_employees", ["employees:department_read"])).toBe(true);
     expect(canPerformAction("department_head", "create_employee", [])).toBe(false);
+    expect(canPerformAction("department_head", "edit_employee", ["employees:department_read"])).toBe(false);
+    expect(canPerformAction("department_head", "resend_credentials", ["employees:department_read"])).toBe(false);
   });
 
   it("keeps ceo read-only", () => {

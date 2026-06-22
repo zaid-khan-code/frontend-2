@@ -1,5 +1,8 @@
 import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
+import { getLocalIp, prewarmLocalIpDetection } from "../utils/getLocalIp";
+import { getHostname, prewarmHostnameDetection } from "../utils/getHostname";
+import { AUDIT_FEATURES } from "../config/audit";
 
 // Use env var or fallback to absolute API URL
 const baseURL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -20,6 +23,10 @@ const authSessionClient = axios.create({
   },
 });
 
+// Pre-warm detection on module load
+prewarmLocalIpDetection();
+prewarmHostnameDetection();
+
 export async function clearServerSessionSilently() {
   try {
     await authSessionClient.post("/auth/logout");
@@ -38,8 +45,8 @@ function routeToChangePassword() {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
-// Request interceptor: Attach Bearer token if available
-apiClient.interceptors.request.use((config) => {
+// Request interceptor: Attach Bearer token and client identity headers
+apiClient.interceptors.request.use(async (config) => {
   const url = config.url || "";
   const isPublicAuthRequest = url.endsWith("/auth/login");
   if (isPublicAuthRequest) {
@@ -51,6 +58,23 @@ apiClient.interceptors.request.use((config) => {
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Attach client identity headers for audit logging
+  if (config.headers) {
+    if (AUDIT_FEATURES.sendPrivateIp) {
+      const localIp = await getLocalIp();
+      if (localIp) {
+        config.headers["x-client-local-ip"] = localIp;
+      }
+    }
+    if (AUDIT_FEATURES.sendHostname) {
+      const hostname = await getHostname();
+      if (hostname) {
+        config.headers["x-client-hostname"] = hostname;
+      }
+    }
+  }
+
   return config;
 });
 

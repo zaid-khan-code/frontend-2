@@ -16,6 +16,8 @@ const createAccountMock = vi.hoisted(() => vi.fn());
 const addSalaryRevisionMock = vi.hoisted(() => vi.fn());
 const updateAllowancesMock = vi.hoisted(() => vi.fn());
 const employeeMock = vi.hoisted(() => vi.fn());
+let activeRole = "hr_executive";
+let canMock = (permission: string) => permission !== "delete_employee";
 
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
@@ -29,8 +31,8 @@ vi.mock("recharts", () => ({
 
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({
-    user: { role: "hr_executive", employeeId: "EMP017" },
-    activeRole: "hr_executive",
+    user: { role: activeRole, employeeId: "EMP017" },
+    activeRole,
   }),
 }));
 
@@ -39,7 +41,7 @@ vi.mock("../context/ToastContext", () => ({
 }));
 
 vi.mock("../hooks/useRbac", () => ({
-  useRbac: () => ({ can: (permission: string) => permission !== "delete_employee" }),
+  useRbac: () => ({ can: canMock }),
 }));
 
 vi.mock("../hooks/useEmployees", () => ({
@@ -123,6 +125,8 @@ function renderEmployeeDetail() {
 describe("EmployeeDetail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    activeRole = "hr_executive";
+    canMock = (permission: string) => permission !== "delete_employee";
     employeeMock.mockReturnValue({
       employee_id: "EMP001",
       name: "Adeel Rahman",
@@ -494,5 +498,24 @@ describe("EmployeeDetail", () => {
         allowances: [{ allowance_type_id: "allowance-fuel", amount: 2500, is_percentage: true, is_active: false }],
       });
     });
+  });
+
+  it("keeps department heads read-only for account, salary, allowance, and attachment writes", () => {
+    activeRole = "department_head";
+    canMock = (permission: string) =>
+      ["view_all_employees", "view_employee_attachments", "access_dashboard", "access_attendance", "access_leave", "access_penalties"].includes(permission);
+
+    renderEmployeeDetail();
+    fireEvent.click(screen.getByRole("button", { name: "Management" }));
+
+    expect(screen.queryByLabelText("Account Email")).toBeNull();
+    expect(screen.queryByLabelText("Account Role")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create login account" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Resend Credentials" })).toBeNull();
+    expect(screen.queryByLabelText("Base Salary")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add salary history" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add allowance row" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save allowances" })).toBeNull();
+    expect(screen.queryByText("Upload File")).toBeNull();
   });
 });

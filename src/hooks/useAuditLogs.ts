@@ -11,10 +11,12 @@ export type AuditLogItem = {
   recordId: string;
   summary: string;
   ip_address?: string | null;
+  private_ip_address?: string | null;
   user_agent?: string | null;
   method?: string | null;
   path?: string | null;
   request_id?: string | null;
+  hostname?: string | null;
   actor_user_id?: string | null;
   actor_employee_id?: string | null;
   actor_role_id?: string | null;
