@@ -44,6 +44,9 @@ describe("AuditLog", () => {
       ],
       isLoading: false,
       error: null,
+      page: 1,
+      limit: 50,
+      total: 1,
     });
   });
 
@@ -70,7 +73,8 @@ describe("AuditLog", () => {
       entity_id: "EMP0001",
       date_from: "2026-06-01",
       date_to: "2026-06-17",
-      limit: 300,
+      limit: 50,
+      page: 1,
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Clear Filters" }));
@@ -82,7 +86,8 @@ describe("AuditLog", () => {
       entity_id: "",
       date_from: "",
       date_to: "",
-      limit: 300,
+      limit: 50,
+      page: 1,
     });
   });
 

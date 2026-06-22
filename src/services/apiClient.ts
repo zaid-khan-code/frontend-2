@@ -49,17 +49,8 @@ function routeToChangePassword() {
 apiClient.interceptors.request.use(async (config) => {
   const url = config.url || "";
   const isPublicAuthRequest = url.endsWith("/auth/login");
-  if (isPublicAuthRequest) {
-    if (config.headers) delete config.headers.Authorization;
-    return config;
-  }
-
-  const token = useAuthStore.getState().token;
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  // Attach client identity headers for audit logging
+  
+  // Attach client identity headers for audit logging (including login requests)
   if (config.headers) {
     if (AUDIT_FEATURES.sendPrivateIp) {
       const localIp = await getLocalIp();
@@ -73,6 +64,16 @@ apiClient.interceptors.request.use(async (config) => {
         config.headers["x-client-hostname"] = hostname;
       }
     }
+  }
+
+  if (isPublicAuthRequest) {
+    if (config.headers) delete config.headers.Authorization;
+    return config;
+  }
+
+  const token = useAuthStore.getState().token;
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
 
   return config;

@@ -82,8 +82,10 @@ export default function AuditLog() {
   const [dateTo, setDateTo] = useState("");
   const [actorEmployeeId, setActorEmployeeId] = useState("");
   const [recordId, setRecordId] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
 
-  const { logs, isLoading, error } = useAuditLogs({
+  const { logs, isLoading, error, page: currentPage, total, limit } = useAuditLogs({
     search,
     action: actionFilter,
     module: moduleFilter,
@@ -91,8 +93,64 @@ export default function AuditLog() {
     entity_id: recordId,
     date_from: dateFrom,
     date_to: dateTo,
-    limit: 300,
+    page,
+    limit: pageSize,
   });
+
+  const totalPages = Math.ceil(total / limit) || 1;
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage);
+    }
+  };
+
+  const pagination = totalPages > 1 ? (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderTop: "1px solid var(--border)", marginTop: 12 }}>
+      <div style={{ fontSize: 12, color: "var(--t3)" }}>
+        Showing {((currentPage - 1) * limit) + 1} to {Math.min(currentPage * limit, total)} of {total} entries
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button
+          className="btn btn-sm btn-ghost"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          Previous
+        </button>
+        <span style={{ fontSize: 13, minWidth: 60, textAlign: "center" }}>
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          className="btn btn-sm btn-ghost"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          Next
+        </button>
+        <label className="form-group" style={{ margin: 0 }}>
+          <span className="form-label" style={{ marginRight: 8 }}>Per page:</span>
+          <select
+            className="input select-input"
+            style={{ width: 80 }}
+            value={limit}
+            onChange={(e) => {
+              const newLimit = Number(e.target.value);
+              const firstItemIndex = (currentPage - 1) * limit;
+              const newPage = Math.floor(firstItemIndex / newLimit) + 1;
+              handlePageChange(newPage);
+            }}
+          >
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={200}>200</option>
+            <option value={500}>500</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  ) : null;
 
   const actions = useMemo(
     () => [...new Set([...Object.keys(actionColors), ...logs.map((log) => log.action)].filter(Boolean))],
@@ -196,6 +254,7 @@ export default function AuditLog() {
             {isLoading ? "Loading audit logs..." : "No audit log entries match your filters."}
           </div>
         ) : (
+          <>
           <table>
             <thead>
               <tr>
@@ -264,6 +323,10 @@ export default function AuditLog() {
               ))}
             </tbody>
           </table>
+
+            {pagination}
+
+          </>
         )}
       </div>
     </div>
