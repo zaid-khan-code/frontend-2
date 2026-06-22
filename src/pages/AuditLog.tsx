@@ -35,7 +35,9 @@ function exportCSV(data: AuditLogItem[]) {
     "Action",
     "Module",
     "Record",
-    "IP Address",
+    "Public IP",
+    "Private IP",
+    "Hostname",
     "Method",
     "Path",
     "Actor Employee",
@@ -50,6 +52,8 @@ function exportCSV(data: AuditLogItem[]) {
     log.module,
     log.recordId,
     log.ip_address || "",
+    log.private_ip_address || "",
+    log.hostname || "",
     log.method || "",
     log.path || "",
     log.actor_employee_id || "",
@@ -200,7 +204,9 @@ export default function AuditLog() {
                 <th>Action</th>
                 <th>Module</th>
                 <th>Record</th>
-                <th>IP</th>
+                <th>Public IP</th>
+                <th>Private IP</th>
+                <th>Hostname</th>
                 <th>Method</th>
                 <th>Path</th>
                 <th></th>
@@ -219,13 +225,15 @@ export default function AuditLog() {
                     <td>{label(log.module)}</td>
                     <td className="mono">{label(log.recordId)}</td>
                     <td className="mono" style={{ fontSize: 11 }}>{label(log.ip_address)}</td>
+                    <td className="mono" style={{ fontSize: 11 }}>{label(log.private_ip_address)}</td>
+                    <td className="mono" style={{ fontSize: 11 }}>{label(log.hostname)}</td>
                     <td className="mono">{label(log.method)}</td>
                     <td className="mono" style={{ fontSize: 11, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>{label(log.path)}</td>
                     <td><Eye size={13} /></td>
                   </tr>
                   {expanded === log.id && (
                     <tr>
-                      <td colSpan={9} style={{ background: "var(--inp)", padding: 12 }}>
+                      <td colSpan={11} style={{ background: "var(--inp)", padding: 12 }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, fontSize: 12 }}>
                           <div>
                             <div style={{ fontWeight: 700, marginBottom: 8 }}>Identity</div>
@@ -233,7 +241,9 @@ export default function AuditLog() {
                             <div>Actor Employee ID: <span className="mono">{label(log.actor_employee_id)}</span></div>
                             <div>Actor Role ID: <span className="mono">{label(log.actor_role_id)}</span></div>
                             <div>Actor Email: <span className="mono">{label(log.actor_email)}</span></div>
-                            <div>IP Address: <span className="mono">{label(log.ip_address)}</span></div>
+                            <div>Public IP: <span className="mono">{label(log.ip_address)}</span></div>
+                            <div>Private IP: <span className="mono">{label(log.private_ip_address)}</span></div>
+                            <div>Hostname: <span className="mono">{label(log.hostname)}</span></div>
                             <div>User Agent: <span className="mono">{label(log.user_agent)}</span></div>
                             <div>Request ID: <span className="mono">{label(log.request_id)}</span></div>
                           </div>
