@@ -27,6 +27,13 @@ function label(value?: string | null) {
   return value && String(value).trim() ? value : "-";
 }
 
+function sanitizeCsvCell(value: any): string {
+  const s = String(value ?? "");
+  // Prefix with single quote to prevent spreadsheet formula execution (=, +, -, @)
+  if (/^[=\+\-\@]/.test(s)) return `'${s}`;
+  return s;
+}
+
 function exportCSV(data: AuditLogItem[]) {
   const header = [
     "Timestamp",
@@ -45,20 +52,20 @@ function exportCSV(data: AuditLogItem[]) {
     "Summary",
   ];
   const rows = data.map((log) => [
-    formatDate(log.timestamp),
-    log.user,
-    log.role,
-    log.action,
-    log.module,
-    log.recordId,
-    log.ip_address || "",
-    log.private_ip_address || "",
-    log.hostname || "",
-    log.method || "",
-    log.path || "",
-    log.actor_employee_id || "",
-    log.actor_email || "",
-    log.summary,
+    sanitizeCsvCell(formatDate(log.timestamp)),
+    sanitizeCsvCell(log.user),
+    sanitizeCsvCell(log.role),
+    sanitizeCsvCell(log.action),
+    sanitizeCsvCell(log.module),
+    sanitizeCsvCell(log.recordId),
+    sanitizeCsvCell(log.ip_address || ""),
+    sanitizeCsvCell(log.private_ip_address || ""),
+    sanitizeCsvCell(log.hostname || ""),
+    sanitizeCsvCell(log.method || ""),
+    sanitizeCsvCell(log.path || ""),
+    sanitizeCsvCell(log.actor_employee_id || ""),
+    sanitizeCsvCell(log.actor_email || ""),
+    sanitizeCsvCell(log.summary),
   ]);
   const csv = [header, ...rows]
     .map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(","))
@@ -83,7 +90,7 @@ export default function AuditLog() {
   const [actorEmployeeId, setActorEmployeeId] = useState("");
   const [recordId, setRecordId] = useState("");
   const [page, setPage] = useState(1);
-  const pageSize = 50;
+  const [pageSize, setPageSize] = useState(50);
 
   const { logs, isLoading, error, page: currentPage, total, limit } = useAuditLogs({
     search,
@@ -138,7 +145,8 @@ export default function AuditLog() {
               const newLimit = Number(e.target.value);
               const firstItemIndex = (currentPage - 1) * limit;
               const newPage = Math.floor(firstItemIndex / newLimit) + 1;
-              handlePageChange(newPage);
+              setPageSize(newLimit);
+              setPage(newPage);
             }}
           >
             <option value={25}>25</option>

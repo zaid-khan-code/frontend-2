@@ -41,11 +41,12 @@ export function useAuditLogs(params: Record<string, any> = {}) {
   const query = useQuery({
     queryKey: ["audit-activity-logs", cleanParams],
     queryFn: async () => {
-      const { data } = await apiClient.get("/audit/activity-logs", { params: cleanParams });
-      const items = normalizeAuditResponse(data);
-      const page = data?.page ?? 1;
-      const limit = data?.limit ?? cleanParams.limit ?? 100;
-      const total = data?.total ?? items.length;
+      const { data: response } = await apiClient.get("/audit/activity-logs", { params: cleanParams });
+      const body = response?.data || response;
+      const items = normalizeAuditResponse(response);
+      const page = body?.page ?? 1;
+      const limit = body?.limit ?? cleanParams.limit ?? 100;
+      const total = body?.total ?? items.length;
       return { items, page, limit, total };
     },
   });

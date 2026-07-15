@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -15,51 +15,51 @@ import { DataProvider } from "./context/DataContext";
 import MainLayout from "./layouts/MainLayout";
 import EmployeeLayout from "./layouts/EmployeeLayout";
 
-// Pages
-import Login from "./pages/Login";
-import ChangePassword from "./pages/ChangePassword";
-import Unauthorized from "./pages/Unauthorized";
-import Dashboard from "./pages/Dashboard";
-import Launchpad from "./pages/Launchpad";
-import Employees from "./pages/Employees";
-import EmployeeBulkUpload from "./pages/EmployeeBulkUpload";
-import AddEmployee from "./pages/AddEmployee";
+// Lazy-loaded pages — split at route boundaries for smaller bundles
+const Login = lazy(() => import("./pages/Login"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const Unauthorized = lazy(() => import("./pages/Unauthorized"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Launchpad = lazy(() => import("./pages/Launchpad"));
+const Employees = lazy(() => import("./pages/Employees"));
+const EmployeeBulkUpload = lazy(() => import("./pages/EmployeeBulkUpload"));
+const AddEmployeePage = lazy(() => import("./pages/AddEmployee"));
 import { EmployeeWizardProvider } from "./context/EmployeeWizardContext";
-import EmployeeDetail from "./pages/EmployeeDetail";
-import Attendance from "./pages/Attendance";
-import DutyRoster from "./pages/DutyRoster";
-import Leave from "./pages/Leave";
-import Payroll from "./pages/Payroll";
-import Promotions from "./pages/Promotions";
-import Accounts from "./pages/Accounts";
-import AuditLog from "./pages/AuditLog";
-import BranchHRDashboard from "./pages/BranchHRDashboard";
-import HeadOfficeHR from "./pages/HeadOfficeHR";
-import AttendanceReport from "./pages/AttendanceReport";
-import OverviewPage from "./pages/Overview";
-import SavedReports from "./pages/SavedReports";
-import PenaltyWorkflow from "./pages/PenaltyWorkflow";
-import LeaveCapacity from "./pages/LeaveCapacity";
-import AttendanceVerification from "./pages/AttendanceVerification";
-import LeaveWalletHistory from "./pages/LeaveWalletHistory";
-import PenaltyLedger from "./pages/PenaltyLedger";
-import AnnouncementsFeed from "./pages/AnnouncementsFeed";
-import Directory from "./pages/Directory";
-import EmployeeWidgets from "./pages/EmployeeWidgets";
-import Calendar from "./pages/Calendar";
+const EmployeeDetail = lazy(() => import("./pages/EmployeeDetail"));
+const Attendance = lazy(() => import("./pages/Attendance"));
+const DutyRoster = lazy(() => import("./pages/DutyRoster"));
+const Leave = lazy(() => import("./pages/Leave"));
+const Payroll = lazy(() => import("./pages/Payroll"));
+const Promotions = lazy(() => import("./pages/Promotions"));
+const Accounts = lazy(() => import("./pages/Accounts"));
+const AuditLog = lazy(() => import("./pages/AuditLog"));
+const BranchHRDashboard = lazy(() => import("./pages/BranchHRDashboard"));
+const HeadOfficeHR = lazy(() => import("./pages/HeadOfficeHR"));
+const AttendanceReport = lazy(() => import("./pages/AttendanceReport"));
+const OverviewPage = lazy(() => import("./pages/Overview"));
+const SavedReports = lazy(() => import("./pages/SavedReports"));
+const PenaltyWorkflow = lazy(() => import("./pages/PenaltyWorkflow"));
+const LeaveCapacity = lazy(() => import("./pages/LeaveCapacity"));
+const AttendanceVerification = lazy(() => import("./pages/AttendanceVerification"));
+const LeaveWalletHistory = lazy(() => import("./pages/LeaveWalletHistory"));
+const PenaltyLedger = lazy(() => import("./pages/PenaltyLedger"));
+const AnnouncementsFeed = lazy(() => import("./pages/AnnouncementsFeed"));
+const Directory = lazy(() => import("./pages/Directory"));
+const EmployeeWidgets = lazy(() => import("./pages/EmployeeWidgets"));
+const Calendar = lazy(() => import("./pages/Calendar"));
 import FeaturePlaceholder from "./components/FeaturePlaceholder";
-import CalendarEventsSettings from "./pages/settings/CalendarEventsSettings";
-import AnnouncementsSettings from "./pages/settings/AnnouncementsSettings";
+const CalendarEventsSettings = lazy(() => import("./pages/settings/CalendarEventsSettings"));
+const AnnouncementsSettings = lazy(() => import("./pages/settings/AnnouncementsSettings"));
 
 // Employee Specific Pages
-import MyDashboard from "./pages/MyDashboard";
-import MyAttendance from "./pages/MyAttendance";
-import MyPayslips from "./pages/MyPayslips";
-import MyLeave from "./pages/MyLeave";
-import MyPenalties from "./pages/MyPenalties";
-import MyProfile from "./pages/MyProfile";
+const MyDashboard = lazy(() => import("./pages/MyDashboard"));
+const MyAttendance = lazy(() => import("./pages/MyAttendance"));
+const MyPayslips = lazy(() => import("./pages/MyPayslips"));
+const MyLeave = lazy(() => import("./pages/MyLeave"));
+const MyPenalties = lazy(() => import("./pages/MyPenalties"));
+const MyProfile = lazy(() => import("./pages/MyProfile"));
 
-// Settings
+// Settings (kept static — small form pages)
 import {
   DepartmentsPage,
   DesignationsPage,
@@ -75,6 +75,10 @@ import {
   PenaltyRulesPage,
   RolesPage,
 } from "./pages/settings/AllSettings";
+
+function SuspenseFallback() {
+  return <div style={{ padding: 40, textAlign: "center", color: "var(--t3)" }}>Loading...</div>;
+}
 
 const EMPLOYEE_SELF_SERVICE_ROLES = [
   "employee",
@@ -183,6 +187,7 @@ const App = () => (
             v7_relativeSplatPath: true,
           }}
         >
+          <Suspense fallback={<SuspenseFallback />}>
           <Routes>
             {/* Public Route */}
             <Route path="/login" element={<Login />} />
@@ -230,7 +235,7 @@ const App = () => (
                     path="/employees/add"
                     element={
                       <EmployeeWizardProvider>
-                        <AddEmployee />
+                        <AddEmployeePage />
                       </EmployeeWizardProvider>
                     }
                   />
@@ -405,6 +410,7 @@ const App = () => (
             {/* 404 Redirect */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </ToastProvider>
     </DataProvider>

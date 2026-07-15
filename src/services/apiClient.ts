@@ -27,6 +27,22 @@ const authSessionClient = axios.create({
 prewarmLocalIpDetection();
 prewarmHostnameDetection();
 
+async function injectIdentityHeaders(config: any) {
+  if (!config.headers) return;
+  if (AUDIT_FEATURES.sendPrivateIp) {
+    const localIp = await getLocalIp();
+    if (localIp) {
+      config.headers["x-client-local-ip"] = localIp;
+    }
+  }
+  if (AUDIT_FEATURES.sendHostname) {
+    const hostname = await getHostname();
+    if (hostname) {
+      config.headers["x-client-hostname"] = hostname;
+    }
+  }
+}
+
 export async function clearServerSessionSilently() {
   try {
     await authSessionClient.post("/auth/logout");
@@ -45,26 +61,19 @@ function routeToChangePassword() {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
+// Apply identity header injection to both clients so silent logouts are also tracked
+authSessionClient.interceptors.request.use(async (config) => {
+  await injectIdentityHeaders(config);
+  return config;
+});
+
 // Request interceptor: Attach Bearer token and client identity headers
 apiClient.interceptors.request.use(async (config) => {
   const url = config.url || "";
   const isPublicAuthRequest = url.endsWith("/auth/login");
   
   // Attach client identity headers for audit logging (including login requests)
-  if (config.headers) {
-    if (AUDIT_FEATURES.sendPrivateIp) {
-      const localIp = await getLocalIp();
-      if (localIp) {
-        config.headers["x-client-local-ip"] = localIp;
-      }
-    }
-    if (AUDIT_FEATURES.sendHostname) {
-      const hostname = await getHostname();
-      if (hostname) {
-        config.headers["x-client-hostname"] = hostname;
-      }
-    }
-  }
+  await injectIdentityHeaders(config);
 
   if (isPublicAuthRequest) {
     if (config.headers) delete config.headers.Authorization;
