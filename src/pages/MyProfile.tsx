@@ -174,30 +174,11 @@ const salaryFields = [
   "revision_reason",
 ];
 
-const allowanceFields = [
-  "allowance_type_id",
-  "amount",
-];
-
 const employeeContactFields = [
   "primary_phone",
   "alternate_phone",
   "perment_address",
   "postal_address",
-];
-
-const emergencyFields = [
-  "e_contact_1_relation",
-  "e_contact_1_full_name",
-  "e_contact_1_phone",
-  "e_contact_1_phone_country_code",
-  "e_contact_1_email",
-  "e_contact_2_relation",
-  "e_contact_2_full_name",
-  "e_contact_2_phone",
-  "e_contact_2_phone_country_code",
-  "e_contact_2_email",
-  "primary_contact",
 ];
 
 const bankFields = [
@@ -345,6 +326,7 @@ function FieldGrid({
 
   return (
     <div
+      data-accent={accent}
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",

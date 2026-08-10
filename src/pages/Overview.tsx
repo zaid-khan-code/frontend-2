@@ -10,17 +10,6 @@ import { BRANCHES, EMP_DATA, INITIAL_LOCKS, nameGrad, getIni, SHARED_CSS } from 
 export default function OverviewPage() {
   const { activeRole } = useAuth();
 
-  // Guard: only SuperAdmin and Head HR can see this
-  if (activeRole !== 'super_admin' && activeRole !== 'head_hr') {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#94a3b8', flexDirection: 'column', gap: 12 }}>
-        <span style={{ fontSize: 40 }}></span>
-        <span style={{ fontSize: 14, fontWeight: 700 }}>Access Restricted</span>
-        <span style={{ fontSize: 12 }}>This page is only visible to SuperAdmin and Head HR.</span>
-      </div>
-    );
-  }
-
   // ── Aggregate all employees across all branches ──────────────────────────
   const allEmps = useMemo(() => Object.values(EMP_DATA).flat(), []);
 
@@ -52,6 +41,17 @@ export default function OverviewPage() {
     finalized: Object.values(INITIAL_LOCKS).filter(l => l.status === 'finalized').length,
     rejected:  Object.values(INITIAL_LOCKS).filter(l => l.status === 'rejected').length,
   }), []);
+
+  // Guard after all hooks so switching roles never changes hook order.
+  if (activeRole !== 'super_admin' && activeRole !== 'head_hr') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#94a3b8', flexDirection: 'column', gap: 12 }}>
+        <span style={{ fontSize: 40 }}></span>
+        <span style={{ fontSize: 14, fontWeight: 700 }}>Access Restricted</span>
+        <span style={{ fontSize: 12 }}>This page is only visible to SuperAdmin and Head HR.</span>
+      </div>
+    );
+  }
 
   const lockPillStyle: Record<string, React.CSSProperties> = {
     unlocked:      { background: '#eef2ff', color: '#4f46e5' },

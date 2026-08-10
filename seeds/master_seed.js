@@ -22,7 +22,6 @@ import bcrypt from 'bcrypt';
 import 'dotenv/config';
 import { seedEmployeesAndHR } from './master_seed_extend.js';
 
-const END_DATE = new Date('2026-05-12T00:00:00Z');
 const PORT = process.env.PORT || 3001;
 const BASE_URL = `http://localhost:${PORT}`;
 
@@ -452,7 +451,6 @@ async function seedViaPool(client) {
   const hrExecRoleId = roleIds.hr_executive;
   const employeeRoleId = roleIds.employee;
 
-  const allPermIds = Object.values(PERM);
   await client.query(
     `
     INSERT INTO role_permissions (role_id, permission_id)

@@ -1,7 +1,8 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarCheck, CalendarRange, LayoutGrid, Megaphone, ShieldCheck, Users, Wallet, AlertTriangle, MapPin } from "lucide-react";
+import { CalendarCheck, CalendarRange, FolderKanban, LayoutGrid, Megaphone, ShieldCheck, Users, Wallet, AlertTriangle, MapPin } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useAuthStore } from "../store/useAuthStore";
 
 type ModuleCard = {
   title: string;
@@ -9,10 +10,21 @@ type ModuleCard = {
   to: string;
   icon: React.ComponentType<{ size?: number }>;
   roles: string[];
+  permission?: string;
+  external?: boolean;
   disabled?: boolean;
 };
 
 const modules: ModuleCard[] = [
+  {
+    title: "Project Management",
+    description: "Plan projects, coordinate teams, and track delivery",
+    to: "/project-management",
+    icon: FolderKanban,
+    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive", "employee"],
+    permission: "project_management.access",
+    external: true,
+  },
   {
     title: "HR Dashboard",
     description: "Branch-wise people analytics and lock controls",
@@ -89,7 +101,12 @@ function roleMatches(module: ModuleCard, role: string) {
 export default function Launchpad() {
   const navigate = useNavigate();
   const { activeRole } = useAuth();
-  const visibleModules = modules.filter((module) => roleMatches(module, activeRole));
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+  const projectManagementUrl =
+    import.meta.env.VITE_PROJECT_MANAGEMENT_URL?.trim() || "/project-management";
+  const visibleModules = modules.filter(
+    (module) => roleMatches(module, activeRole) && (!module.permission || hasPermission(module.permission)),
+  );
 
   return (
     <div>
@@ -111,16 +128,9 @@ export default function Launchpad() {
           gap: 14,
         }}
       >
-        {visibleModules.map((module) => (
-          <button
-            key={module.title}
-            className="card"
-            onClick={() => {
-              if (!module.disabled) navigate(module.to);
-            }}
-            style={{ textAlign: "left", cursor: module.disabled ? "not-allowed" : "pointer", opacity: module.disabled ? 0.62 : 1 }}
-            disabled={module.disabled}
-          >
+        {visibleModules.map((module) => {
+          const content = (
+            <>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <div className="ct-ico blue">
                 <module.icon size={16} />
@@ -131,8 +141,36 @@ export default function Launchpad() {
             </div>
             <p style={{ color: "var(--t3)", fontSize: 12 }}>{module.description}</p>
             {module.disabled && <span className="pill pill-steel">Coming Soon</span>}
+            </>
+          );
+
+          if (module.external) {
+            return (
+              <a
+                key={module.title}
+                className="card"
+                href={module.title === "Project Management" ? projectManagementUrl : module.to}
+                style={{ display: "block", textAlign: "left", cursor: "pointer", textDecoration: "none" }}
+              >
+                {content}
+              </a>
+            );
+          }
+
+          return (
+            <button
+              key={module.title}
+              className="card"
+              onClick={() => {
+                if (!module.disabled) navigate(module.to);
+              }}
+              style={{ textAlign: "left", cursor: module.disabled ? "not-allowed" : "pointer", opacity: module.disabled ? 0.62 : 1 }}
+              disabled={module.disabled}
+            >
+              {content}
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {activeRole !== "employee" && activeRole !== "department_head" && (

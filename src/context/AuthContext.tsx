@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode, useEffect } from "react";
-import { useAuthStore, User as ZustandUser } from "../store/useAuthStore";
+import { useAuthStore } from "../store/useAuthStore";
 import {
   apiClient,
   clearServerSessionSilently,
@@ -121,37 +121,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const sessionRes = await apiClient.get("/auth/session");
         if (sessionRes.data?.success) {
           const udata = sessionRes.data.data;
-          const existingEmail = zUser?.email || "";
-          const existingEmployeeId = zUser?.employee_id;
-          let roleName = zUser?.role_name || zUser?.role || "employee";
+          const authState = useAuthStore.getState();
+          const existingEmail = authState.user?.email || "";
+          const existingEmployeeId = authState.user?.employee_id;
+          let roleName = authState.user?.role_name || authState.user?.role || "employee";
 
           // Fetch permissions (authoritative role_name)
           const permsRes = await apiClient.get("/auth/permissions");
           if (permsRes.data?.success) {
             const permData = permsRes.data.data || {};
             roleName = permData.role_name || roleName;
-            setPermissions(permData.permissions || []);
+            authState.setPermissions(permData.permissions || []);
           }
 
           // Refresh user data in store
-          setAuth({
+          authState.setAuth({
             email: udata.email || existingEmail,
             role: roleName || udata.role || "employee",
             role_name: roleName || udata.role,
             employee_id: resolveEmployeeId(udata, existingEmployeeId),
             must_change_password: !!udata.must_change_password,
           });
-          setMustChangePassword(!!udata.must_change_password);
+          authState.setMustChangePassword(!!udata.must_change_password);
         } else {
-          zLogout();
+          useAuthStore.getState().logout();
         }
       } catch (err) {
         if (isMustChangePasswordError(err)) {
           const authState = useAuthStore.getState();
           if (authState.user) {
-            setMustChangePassword(true);
+            authState.setMustChangePassword(true);
           } else {
-            setAuth(
+            authState.setAuth(
               {
                 email: "employee-session",
                 role: "employee",
@@ -164,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         authLog("Session restore failed", err);
-        zLogout();
+        useAuthStore.getState().logout();
       } finally {
         setLoading(false);
       }

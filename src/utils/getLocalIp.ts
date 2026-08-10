@@ -39,10 +39,6 @@ function isPrivateIp(ip: string): boolean {
   return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
 }
 
-function isMdnsName(candidate: string): boolean {
-  return /[a-f0-9-]{36}\.local/.test(candidate);
-}
-
 async function detectLocalIpViaWebRTC(): Promise<string | null> {
   try {
     // Use STUN servers to get more complete ICE candidates

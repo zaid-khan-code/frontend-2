@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import Sidebar from '../components/layout/Sidebar';
@@ -10,8 +10,6 @@ export default function MainLayout() {
   const { user, activeRole } = useAuth();
   const { globalDays } = useData();
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  const location = useLocation();
-
   // workflow banner removed per UI preference
 
   useEffect(() => {

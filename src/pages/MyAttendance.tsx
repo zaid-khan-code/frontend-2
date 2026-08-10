@@ -69,15 +69,14 @@ export default function MyAttendance() {
     employee_id: user?.employeeId,
   });
   const submitCorrection = useSubmitAttendanceCorrection();
-  const safeAttendanceRows = Array.isArray(attendanceRows) ? attendanceRows : [];
-
   const rows = useMemo(() => {
+    const safeAttendanceRows = Array.isArray(attendanceRows) ? attendanceRows : [];
     return [...safeAttendanceRows].sort((a: any, b: any) => {
       const da = new Date(a.date || a.attendance_date || a.created_at || 0).getTime();
       const db = new Date(b.date || b.attendance_date || b.created_at || 0).getTime();
       return db - da;
     });
-  }, [safeAttendanceRows]);
+  }, [attendanceRows]);
 
   const present = rows.filter((a: any) =>
     ["present", "late"].includes(String(a.status || "").toLowerCase()),

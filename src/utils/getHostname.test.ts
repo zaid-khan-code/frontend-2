@@ -59,7 +59,7 @@ describe('getHostname', () => {
   });
 
   it('clearHostnameCache resets the cache', async () => {
-    const hostname1 = await getHostname();
+    await getHostname();
     clearHostnameCache();
     // After clearing, a new ID might be generated (if TTL expired) or same returned
     // The cache clear just resets the in-memory cache

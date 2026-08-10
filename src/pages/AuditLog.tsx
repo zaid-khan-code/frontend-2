@@ -30,7 +30,7 @@ function label(value?: string | null) {
 function sanitizeCsvCell(value: any): string {
   const s = String(value ?? "");
   // Prefix with single quote to prevent spreadsheet formula execution (=, +, -, @)
-  if (/^[=\+\-\@]/.test(s)) return `'${s}`;
+  if (/^[=+@-]/.test(s)) return `'${s}`;
   return s;
 }
 

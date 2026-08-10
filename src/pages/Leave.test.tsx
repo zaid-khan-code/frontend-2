@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Leave from "./Leave";
 import { apiClient } from "../services/apiClient";
 
@@ -37,6 +37,8 @@ function renderLeave() {
 }
 
 describe("Leave", () => {
+  afterEach(() => vi.useRealTimers());
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(apiClient.get).mockImplementation((url: string) => {
@@ -113,6 +115,8 @@ describe("Leave", () => {
   });
 
   it("splits approved leaves into upcoming and completed sections", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-06-15T12:00:00.000Z"));
     vi.mocked(apiClient.get).mockImplementation((url: string) => {
       if (url === "/leave-requests/balances/summary") return Promise.resolve({ data: { data: [] } });
       if (url === "/leave-requests/balances") return Promise.resolve({ data: { data: [] } });

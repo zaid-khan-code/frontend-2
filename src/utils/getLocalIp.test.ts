@@ -11,7 +11,7 @@ class MockRTCPeerConnection {
   setLocalDescription = vi.fn().mockResolvedValue(undefined);
   close = vi.fn();
   
-  constructor(config?: { iceServers?: any[] }) {
+  constructor() {
     // When setLocalDescription is called, simulate ICE candidate generation
     setTimeout(() => {
       if (this.onicecandidate && iceCandidateHandler) {

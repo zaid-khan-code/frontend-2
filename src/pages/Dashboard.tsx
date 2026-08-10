@@ -28,8 +28,6 @@ import {
   LogIn,
   Settings,
   DollarSign,
-  Briefcase,
-  CheckCircle,
 } from "lucide-react";
 import {
   PieChart,
@@ -146,34 +144,6 @@ const Prog = ({ pct, color }: { pct: number; color: string }) => (
         transition: "width .8s ease",
       }}
     />
-  </div>
-);
-
-const Av = ({
-  ini,
-  color,
-  size = 32,
-}: {
-  ini: string;
-  color: string;
-  size?: number;
-}) => (
-  <div
-    style={{
-      width: size,
-      height: size,
-      borderRadius: size * 0.3,
-      background: color,
-      color: "#fff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: size * 0.29,
-      fontWeight: 700,
-      flexShrink: 0,
-    }}
-  >
-    {ini}
   </div>
 );
 
@@ -723,17 +693,6 @@ export default function Dashboard() {
   const canAddEmployee = useAuthStore((state) => state.hasPermission("employees:write"));
   const navigate = useNavigate();
 
-  // Role-based redirect check
-  if (activeRole === "employee") {
-    return <Navigate to="/my-dashboard" replace />;
-  }
-  if (activeRole === "branch_hr") {
-    return <Navigate to="/hr/branch-dashboard" replace />;
-  }
-  if (activeRole === "head_hr") {
-    return <Navigate to="/attendance-head-review" replace />;
-  }
-
   const [selectedBranch, setSelectedBranch] = useState<string>("All");
 
   const branches = useMemo(() => {
@@ -1135,6 +1094,17 @@ export default function Dashboard() {
     });
     return list.sort((a, b) => a.daysUntil - b.daysUntil);
   }, [filteredEmployees, employees, metrics]);
+
+  // Redirect only after all hooks so role changes keep a stable hook order.
+  if (activeRole === "employee") {
+    return <Navigate to="/my-dashboard" replace />;
+  }
+  if (activeRole === "branch_hr") {
+    return <Navigate to="/hr/branch-dashboard" replace />;
+  }
+  if (activeRole === "head_hr") {
+    return <Navigate to="/attendance-head-review" replace />;
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
@@ -1738,7 +1708,7 @@ export default function Dashboard() {
                     gap: 8,
                   }}
                 >
-                  {topDeptData.map((d, i) => {
+                  {topDeptData.map((d) => {
                     const pct = Math.round((d.value / Math.max(deptTotal, 1)) * 100);
                     return (
                       <div

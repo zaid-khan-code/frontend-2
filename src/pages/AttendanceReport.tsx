@@ -51,7 +51,7 @@ export default function AttendanceReport() {
     const file = event.target.files?.[0];
     if (!file) return;
     const text = await file.text();
-    setMessage(`Imported ${file.name}. Use this data for reference or manual reconciliation.`);
+    setMessage(`Imported ${file.name} (${text.length} characters). Use this data for reference or manual reconciliation.`);
   };
 
   return (

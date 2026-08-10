@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { useAuthStore } from '../store/useAuthStore';
 import { apiClient } from '../services/apiClient';
 import {
   employees as defaultEmployees, Employee,
@@ -222,13 +221,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
           },
         }));
         if (!cancelled) setEmployees(() => mapped as any);
-      } catch (e) {
+      } catch {
         // ignore — keep demo/local data
       }
     }
     loadFromBackend();
     return () => { cancelled = true; };
-  }, [user, setEmployees]);
+  }, [activeRole, user, setEmployees]);
 
   const addEmployee = useCallback((emp: Employee) => {
     setEmployees(prev => [...prev, emp]);

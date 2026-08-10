@@ -1,9 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
   AlertTriangle,
-  Calendar,
-  Clock,
-  Filter,
   Search,
   CheckCircle2,
 } from "lucide-react";

@@ -41,7 +41,10 @@ export default function MyDashboard() {
   const { data: myPenaltiesData } = useMyPenalties();
   const { data: calendarApiEvents = [] } = useCalendarEvents();
 
-  const leaveRequests = Array.isArray(myLeavesData) ? myLeavesData : [];
+  const leaveRequests = useMemo(
+    () => (Array.isArray(myLeavesData) ? myLeavesData : []),
+    [myLeavesData],
+  );
   const attendanceData = Array.isArray(myAttendanceData)
     ? myAttendanceData
     : [];
@@ -360,47 +363,6 @@ export default function MyDashboard() {
       });
     return events;
   }, [employees, calendarApiEvents, leaveRequests, calMonth, calYear]);
-
-  // Upcoming birthdays (next 30 days)
-  const upcomingBirthdays = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const birthdays: {
-      name: string;
-      date: Date;
-      daysUntil: number;
-      initials: string;
-    }[] = [];
-    employees.forEach((emp: any) => {
-      if (!emp.dob) return;
-      const dob = new Date(emp.dob);
-      let birthday = new Date(
-        today.getFullYear(),
-        dob.getMonth(),
-        dob.getDate(),
-      );
-      if (birthday < today) {
-        birthday = new Date(
-          today.getFullYear() + 1,
-          dob.getMonth(),
-          dob.getDate(),
-        );
-      }
-      const daysUntil = Math.ceil(
-        (birthday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      if (daysUntil <= 30) {
-        const nameParts = emp.name.split(" ");
-        const initials = nameParts
-          .map((n: string) => n[0])
-          .join("")
-          .slice(0, 2)
-          .toUpperCase();
-        birthdays.push({ name: emp.name, date: birthday, daysUntil, initials });
-      }
-    });
-    return birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
-  }, [employees]);
 
   const upcomingHolidays = useMemo(() => {
     const today = new Date();

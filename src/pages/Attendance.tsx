@@ -298,12 +298,6 @@ function getShiftName(row: AttendanceRow) {
   return row.shift?.name || (row as any).shift_name || (row as any).shiftName || "";
 }
 
-function uniqueSorted(values: string[]) {
-  return Array.from(
-    new Set(values.map((value) => String(value || "").trim()).filter(Boolean)),
-  ).sort((a, b) => a.localeCompare(b));
-}
-
 export default function Attendance() {
   const { showToast } = useToastContext();
   const authUser = useAuthStore((state) => state.user);
@@ -424,11 +418,10 @@ export default function Attendance() {
     acknowledgeAttendance.isPending ||
     reviewCorrection.isPending;
 
+  const sheetRows = sheetQuery.data?.rows;
   useEffect(() => {
-    if (sheetQuery.data) {
-      setLocalRows(sheetQuery.data.rows ?? []);
-    }
-  }, [sheetQuery.data?.rows]);
+    if (sheetRows) setLocalRows(sheetRows);
+  }, [sheetRows]);
 
   const sheetLocationId =
     effectiveLocationId || sheetQuery.data?.location_id || "";

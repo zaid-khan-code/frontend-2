@@ -144,7 +144,6 @@ export async function seedEmployeesAndHR(client, ctx) {
     SH,
     LT,
     AT,
-    roleIds,
     hrManagerRoleId,
     hrExecRoleId,
     employeeRoleId,
@@ -598,7 +597,6 @@ export async function seedEmployeesAndHR(client, ctx) {
     const dur = 1 + Math.floor(rng() * 14);
     const end = new Date(start);
     end.setUTCDate(end.getUTCDate() + dur);
-    const statusPool = ['pending', 'approved', 'rejected', 'cancelled'];
     const w = rng();
     const st = w < 0.6 ? 'approved' : w < 0.8 ? 'pending' : w < 0.92 ? 'rejected' : 'cancelled';
     const ltName = ltKeys[Math.floor(rng() * ltKeys.length)];

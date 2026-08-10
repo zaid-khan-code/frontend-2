@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
 import { formatPKR } from '../services/api';
-import { Plus, Calendar as CalendarIcon, Filter, TrendingUp, Award, Users, DollarSign, ChevronUp, History, Briefcase, Clock } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, Filter, TrendingUp, Award, Users, ChevronUp, History } from 'lucide-react';
 import Modal from '../components/common/Modal';
 import { useToastContext } from '../context/ToastContext';
 
@@ -299,7 +299,7 @@ export default function Promotions() {
                     </td>
                   </tr>
                 ) : filteredPromotions.map((p: any, i: number) => {
-                  const { diff, pct } = salaryDelta(p.oldSalary, p.newSalary);
+                  const { pct } = salaryDelta(p.oldSalary, p.newSalary);
                   return (
                     <tr key={i}>
                       {/* Employee */}

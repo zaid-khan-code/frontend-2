@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import Dashboard from "./Dashboard";
 
 const mockState = vi.hoisted(() => ({
+  activeRole: "hr_executive",
   employees: [] as any[],
   metrics: {
     total_employees: 0,
@@ -37,7 +38,7 @@ vi.mock("recharts", () => ({
 
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({
-    activeRole: "hr_executive",
+    activeRole: mockState.activeRole,
     user: {
       username: "RA",
       email: "rabia.aslam.emp017@esspl.com.pk",
@@ -70,6 +71,7 @@ vi.mock("../hooks/useCalendarEvents", () => ({
 
 describe("Dashboard", () => {
   beforeEach(() => {
+    mockState.activeRole = "hr_executive";
     mockState.employees = [];
     mockState.metrics = {
       total_employees: 0,
@@ -83,6 +85,22 @@ describe("Dashboard", () => {
       upcoming_birthdays: [],
     };
     mockState.calendarEvents = [];
+  });
+
+  it("handles a transition from the HR dashboard to a role-specific dashboard", () => {
+    const view = render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    );
+
+    mockState.activeRole = "employee";
+
+    expect(() => view.rerender(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>,
+    )).not.toThrow();
   });
 
   it("does not show prototype dashboard data for HR Executive users", () => {

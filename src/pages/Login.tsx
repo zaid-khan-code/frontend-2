@@ -33,7 +33,7 @@ export default function Login() {
         } else {
           setError(result.error);
         }
-      } catch (e) {
+      } catch {
         setError("Login failed");
       } finally {
         setLoading(false);

@@ -177,7 +177,7 @@ const DutyRosterPage: React.FC = () => {
 
   // ── State — all logic unchanged ──
   const [rosters,            setRosters]            = useState<DutyRoster[]>(safeRosters);
-  const [templates,          setTemplates]          = useState<DutyRosterTemplate[]>(safeTemplates);
+  const [templates]                                        = useState<DutyRosterTemplate[]>(safeTemplates);
   const [filteredRosters,    setFilteredRosters]    = useState<DutyRoster[]>(safeRosters);
   const [selectedDate,       setSelectedDate]       = useState(new Date().toISOString().split('T')[0]);
   const [selectedDepartment, setSelectedDepartment] = useState('All');
@@ -206,7 +206,7 @@ const DutyRosterPage: React.FC = () => {
     if (weeklyData.length === 0 && visibleEmployees.length > 0) {
       setWeeklyData(makeDefaultWeekly(visibleEmployees));
     }
-  }, [visibleEmployees]);
+  }, [visibleEmployees, weeklyData.length]);
 
   // Handlers
   const handleAddRoster = (newRoster: Omit<DutyRoster, 'id' | 'assignedBy' | 'assignedAt'>) => {

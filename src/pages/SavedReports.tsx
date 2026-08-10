@@ -8,8 +8,7 @@ import FeaturePlaceholder from '../components/FeaturePlaceholder';
 import {
   BRANCHES, EMP_DATA, INITIAL_LOCKS, INITIAL_REPORTS,
   nameGrad, getIni, SHARED_CSS,
-  Branch, EmpRecord, LockState, SavedReport,
-  STATUS_CFG, SHIFT_STYLE, STATUS_STYLE,
+  SavedReport, SHIFT_STYLE, STATUS_STYLE,
 } from './attendanceTypes';
 
 // ── Toast hook (same pattern) ─────────────────────────────────────────────────
@@ -142,17 +141,6 @@ export default function SavedReports() {
   const { activeRole } = useAuth();
   const { show: toast, ToastEl } = useToast();
 
-  // Guard
-  if (activeRole !== 'super_admin' && activeRole !== 'head_hr') {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 12, color: '#94a3b8' }}>
-        <span style={{ fontSize: 40 }}></span>
-        <span style={{ fontSize: 14, fontWeight: 700 }}>Access Restricted</span>
-        <span style={{ fontSize: 12 }}>Only SuperAdmin and Head HR can access this page.</span>
-      </div>
-    );
-  }
-
   // ── State ─────────────────────────────────────────────────────────────────
   const [reports,      setReports]      = useState<SavedReport[]>(INITIAL_REPORTS);
   const [locks,        setLocks]        = useState(INITIAL_LOCKS);
@@ -182,6 +170,17 @@ export default function SavedReports() {
     if (searchReport) list = list.filter(r => r.branch.toLowerCase().includes(searchReport.toLowerCase()));
     return list;
   }, [finalizedReports, monthFilter, searchReport]);
+
+  // Guard after all hooks so switching roles never changes hook order.
+  if (activeRole !== 'super_admin' && activeRole !== 'head_hr') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 12, color: '#94a3b8' }}>
+        <span style={{ fontSize: 40 }}></span>
+        <span style={{ fontSize: 14, fontWeight: 700 }}>Access Restricted</span>
+        <span style={{ fontSize: 12 }}>Only SuperAdmin and Head HR can access this page.</span>
+      </div>
+    );
+  }
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const exportReport = (r: SavedReport) => {

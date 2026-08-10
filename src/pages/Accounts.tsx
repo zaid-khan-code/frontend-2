@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Filter, KeyRound, Save, Search, ShieldCheck, ShieldOff, Users, UserCheck, UserX, X } from "lucide-react";
+import { KeyRound, Save, Search, ShieldCheck, ShieldOff, Users, UserCheck, UserX, X } from "lucide-react";
 import Modal from "../components/common/Modal";
 import { useToastContext } from "../context/ToastContext";
 import { useDepartments, useRoles } from "../hooks/useConfig";

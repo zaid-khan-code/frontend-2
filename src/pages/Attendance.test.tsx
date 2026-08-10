@@ -230,7 +230,7 @@ describe("Attendance", () => {
       });
     });
 
-    let attendanceTable = screen.getByRole("table");
+    const attendanceTable = screen.getByRole("table");
     await waitFor(() => {
       expect(within(attendanceTable).getByText("Ayesha Khan")).toBeTruthy();
     });

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -7,28 +7,23 @@ import {
   CalendarCheck,
   CalendarDays,
   DollarSign,
-  TrendingUp,
   Settings,
   Building2,
-  Briefcase,
   Monitor,
   MapPin,
   UserCheck,
   ClipboardList,
   CheckCircle2,
-  Clock,
   CalendarRange,
   Wallet,
   AlertTriangle,
   ShieldCheck,
-  Bell,
   ScrollText,
   LogOut,
   ChevronDown,
   ChevronRight,
   Zap,
 } from "lucide-react";
-import { useData } from "../../context/DataContext";
 import { useToastContext } from "../../context/ToastContext";
 import logo from "../../images/logo.png";
 import { settingsNavigationGroups } from "../../pages/settings/settingsConfig";
@@ -44,7 +39,6 @@ type SidebarLink = {
 
 export default function Sidebar() {
   const { user, activeRole, logout } = useAuth();
-  const { allAttendanceToday, leaveRequests } = useData();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const location = useLocation();
   const isSettingsActive = location.pathname.startsWith("/settings");
@@ -195,18 +189,6 @@ export default function Sidebar() {
     { to: "/my-penalties", icon: AlertTriangle, label: "My Penalties" },
     { to: "/my-profile", icon: UserCheck, label: "My Profile" },
   ];
-
-  const liveAttendance = useMemo(() => {
-    const total = allAttendanceToday.length || 1;
-    const present = allAttendanceToday.filter(
-      (row: any) => row.status === "Present",
-    ).length;
-    return Math.round((present / total) * 100);
-  }, [allAttendanceToday]);
-
-  const pendingLeave = leaveRequests.filter(
-    (row: any) => row.status === "Pending",
-  ).length;
 
   return (
     <div className="sidebar">
