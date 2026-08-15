@@ -14,7 +14,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   if (user) {
-    return <Navigate to="/" />;
+    return <Navigate to="/launchpad" />;
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,7 +28,7 @@ export default function Login() {
           if (result.mustChangePassword) {
             navigate("/change-password");
           } else {
-            navigate("/");
+            navigate("/launchpad");
           }
         } else {
           setError(result.error);
@@ -57,8 +57,8 @@ export default function Login() {
             }}
           />
         </div>
-        <div className="login-title">Employee Management System</div>
-        <div className="login-sub">Sign in to your account</div>
+        <div className="login-title">ERP</div>
+        <div className="login-sub">Enterprise Resource Planning</div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Email</label>

@@ -1,194 +1,199 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import { CalendarCheck, CalendarRange, FolderKanban, LayoutGrid, Megaphone, ShieldCheck, Users, Wallet, AlertTriangle, MapPin } from "lucide-react";
+import { useNavigate, Navigate } from "react-router-dom";
+import {
+  Users,
+  FolderKanban,
+  Landmark,
+  Package,
+  LogOut,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useAuthStore } from "../store/useAuthStore";
+import logo from "../images/logo.png";
 
-type ModuleCard = {
+type ERPModule = {
+  id: string;
   title: string;
   description: string;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
   to: string;
-  icon: React.ComponentType<{ size?: number }>;
-  roles: string[];
-  permission?: string;
   external?: boolean;
   disabled?: boolean;
+  permission?: string;
+  /** Roles allowed to see this module. Empty = all authenticated users. */
+  roles?: string[];
 };
 
-const modules: ModuleCard[] = [
+const ALL_ROLES = [
+  "super_admin",
+  "ceo",
+  "head_hr",
+  "branch_hr",
+  "department_hr",
+  "department_head",
+  "hr_manager",
+  "hr_executive",
+  "employee",
+];
+
+const erpModules: ERPModule[] = [
   {
-    title: "Project Management",
-    description: "Plan projects, coordinate teams, and track delivery",
-    to: "/project-management",
-    icon: FolderKanban,
-    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive", "employee"],
-    permission: "project_management.access",
-    external: true,
-  },
-  {
-    title: "HR Dashboard",
-    description: "Branch-wise people analytics and lock controls",
-    to: "/hr/branch-dashboard",
-    icon: LayoutGrid,
-    roles: ["super_admin", "hr"],
-  },
-  {
-    title: "Attendance",
-    description: "Live attendance feed and status management",
-    to: "/attendance",
-    icon: CalendarCheck,
-    roles: ["super_admin", "hr"],
-  },
-  {
-    title: "Employees",
-    description: "Employee records, onboarding and contracts",
-    to: "/employees",
+    id: "ems",
+    title: "HR & Employee Management",
+    description:
+      "Manage employees, attendance, leave, payroll, and organizational workflows",
     icon: Users,
-    roles: ["super_admin", "hr"],
+    to: "/dashboard",
+    roles: ALL_ROLES,
   },
   {
-    title: "Payroll",
-    description: "Payroll module placeholder and payslip readiness notes",
-    to: "/payroll",
-    icon: Wallet,
-    roles: ["super_admin", "head_hr", "hr_manager"],
+    id: "pms",
+    title: "Project Management",
+    description:
+      "Plan projects, coordinate teams, track milestones and delivery",
+    icon: FolderKanban,
+    to: "/project-management",
+    external: true,
+    permission: "project_management.access",
+    roles: ALL_ROLES,
+  },
+  {
+    id: "finance",
+    title: "Finance & Accounting",
+    description:
+      "Invoicing, budgets, expenses, financial reporting and compliance",
+    icon: Landmark,
+    to: "/finance",
     disabled: true,
+    roles: ALL_ROLES,
   },
   {
-    title: "Announcements",
-    description: "Broadcast updates to branch and departments",
-    to: "/announcements",
-    icon: Megaphone,
-    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive", "employee"],
-  },
-  {
-    title: "Calendar Events",
-    description: "View holidays, events, and birthday markers",
-    to: "/calendar",
-    icon: CalendarRange,
-    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive", "employee"],
-  },
-  {
-    title: "Directory",
-    description: "Find employees and contact people quickly",
-    to: "/directory",
-    icon: MapPin,
-    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive", "employee"],
-  },
-  {
-    title: "Penalty",
-    description: "Apply and review employee penalties",
-    to: "/penalty",
-    icon: AlertTriangle,
-    roles: ["super_admin", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive"],
-  },
-  {
-    title: "Penalty Workflow",
-    description: "Branch to HO approvals and decisions",
-    to: "/penalty-workflow",
-    icon: ShieldCheck,
-    roles: ["super_admin", "head_hr", "hr_manager"],
+    id: "inventory",
+    title: "Inventory & Assets",
+    description:
+      "Track inventory, manage assets, procurement and supply chain",
+    icon: Package,
+    to: "/inventory",
+    disabled: true,
+    roles: ALL_ROLES,
   },
 ];
 
-const hrRoles = new Set(["hr", "head_hr", "branch_hr", "department_hr", "department_head", "hr_manager", "hr_executive"]);
-
-function roleMatches(module: ModuleCard, role: string) {
-  if (module.roles.includes(role)) return true;
-  return module.roles.includes("hr") && hrRoles.has(role);
-}
-
 export default function Launchpad() {
   const navigate = useNavigate();
-  const { activeRole } = useAuth();
+  const { user, activeRole, logout } = useAuth();
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const projectManagementUrl =
     import.meta.env.VITE_PROJECT_MANAGEMENT_URL?.trim() || "/project-management";
-  const visibleModules = modules.filter(
-    (module) => roleMatches(module, activeRole) && (!module.permission || hasPermission(module.permission)),
-  );
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  const visibleModules = erpModules.filter((mod) => {
+    if (mod.roles && mod.roles.length > 0 && !mod.roles.includes(activeRole))
+      return false;
+    if (mod.permission && !hasPermission(mod.permission)) return false;
+    return true;
+  });
+
+  const getEMSRoute = () => {
+    if (activeRole === "employee") return "/my-dashboard";
+    if (activeRole === "branch_hr") return "/hr/branch-dashboard";
+    if (activeRole === "head_hr") return "/attendance-head-review";
+    return "/dashboard";
+  };
+
+  const handleModuleClick = (mod: ERPModule) => {
+    if (mod.disabled) return;
+
+    if (mod.id === "ems") {
+      navigate(getEMSRoute());
+      return;
+    }
+
+    if (mod.external) {
+      const url = mod.id === "pms" ? projectManagementUrl : mod.to;
+      if (url.startsWith("http")) {
+        window.location.href = url;
+      } else {
+        navigate(url);
+      }
+      return;
+    }
+
+    navigate(mod.to);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to logout?")) {
+      logout();
+      navigate("/login");
+    }
+  };
 
   return (
-    <div>
-      <div className="pg-head">
-        <div>
-          <div className="pg-greet">Launchpad</div>
-          <div className="pg-sub">Open modules by role with quick context.</div>
-        </div>
-        <span className="live-badge">
-          <span className="live-dot" />
-          Active Session
-        </span>
-      </div>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-          gap: 14,
-        }}
-      >
-        {visibleModules.map((module) => {
-          const content = (
-            <>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <div className="ct-ico blue">
-                <module.icon size={16} />
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--t1)" }}>
-                {activeRole === "department_head" && module.title === "Employees" ? "Department Team" : module.title}
-              </div>
-            </div>
-            <p style={{ color: "var(--t3)", fontSize: 12 }}>{module.description}</p>
-            {module.disabled && <span className="pill pill-steel">Coming Soon</span>}
-            </>
-          );
-
-          if (module.external) {
-            return (
-              <a
-                key={module.title}
-                className="card"
-                href={module.title === "Project Management" ? projectManagementUrl : module.to}
-                style={{ display: "block", textAlign: "left", cursor: "pointer", textDecoration: "none" }}
-              >
-                {content}
-              </a>
-            );
-          }
-
-          return (
-            <button
-              key={module.title}
-              className="card"
-              onClick={() => {
-                if (!module.disabled) navigate(module.to);
-              }}
-              style={{ textAlign: "left", cursor: module.disabled ? "not-allowed" : "pointer", opacity: module.disabled ? 0.62 : 1 }}
-              disabled={module.disabled}
-            >
-              {content}
-          </button>
-          );
-        })}
-      </div>
-
-      {activeRole !== "employee" && activeRole !== "department_head" && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="ct" style={{ marginBottom: 8 }}>
-            <div className="ct-ico teal">
-              <ShieldCheck size={16} />
-            </div>
-            Quick Controls
+    <div className="erp-launchpad">
+      {/* Header */}
+      <header className="erp-lp-header">
+        <div className="erp-lp-brand">
+          <img src={logo} alt="Company Logo" className="erp-lp-logo" />
+          <div>
+            <div className="erp-lp-title">ERP</div>
+            <div className="erp-lp-subtitle">Enterprise Resource Planning</div>
           </div>
-          <p style={{ color: "var(--t3)", fontSize: 12, marginBottom: 12 }}>
-            Jump directly to branch lock controls for attendance sheets.
-          </p>
-          <button className="btn btn-primary" onClick={() => navigate("/hr/branch-dashboard")}>
-            Open Branch Lock Center
+        </div>
+        <div className="erp-lp-user">
+          <div className="erp-lp-user-info">
+            <span className="erp-lp-username">{user.username || "User"}</span>
+            <span className="erp-lp-role">{activeRole.replace(/_/g, " ")}</span>
+          </div>
+          <button
+            className="erp-lp-logout"
+            onClick={handleLogout}
+            title="Sign out"
+          >
+            <LogOut size={18} strokeWidth={2} />
           </button>
         </div>
-      )}
+      </header>
+
+      {/* Main content */}
+      <main className="erp-lp-main">
+        <div className="erp-lp-hero">
+          <h1>Select a Module</h1>
+          <p>Choose a module to continue working</p>
+        </div>
+
+        <div className="erp-lp-grid">
+          {visibleModules.map((mod) => {
+            const IconComp = mod.icon;
+            return (
+              <button
+                key={mod.id}
+                className={`erp-lp-card${mod.disabled ? " erp-lp-card--disabled" : ""}`}
+                onClick={() => handleModuleClick(mod)}
+                disabled={mod.disabled}
+                type="button"
+              >
+                <div className="erp-lp-card-icon">
+                  <IconComp size={28} strokeWidth={1.5} />
+                </div>
+                <div className="erp-lp-card-body">
+                  <h2>{mod.title}</h2>
+                  <p>{mod.description}</p>
+                </div>
+                {mod.disabled && (
+                  <span className="erp-lp-badge">Coming Soon</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="erp-lp-footer">
+        <span>&copy; {new Date().getFullYear()} ERP System</span>
+      </footer>
     </div>
   );
 }

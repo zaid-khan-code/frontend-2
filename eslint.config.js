@@ -29,7 +29,10 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      // This application intentionally colocates hooks, providers, and variant helpers
+      // with their components. Vite handles those exports correctly; warning on every
+      // deliberate colocation made the lint baseline noisy and unactionable.
+      "react-refresh/only-export-components": "off",
       "@typescript-eslint/no-explicit-any": "off",
     },
   },

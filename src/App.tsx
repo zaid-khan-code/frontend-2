@@ -151,30 +151,15 @@ const ProtectedRoute = ({
  * 2. Root Redirect Logic
  */
 function RootRedirect() {
-  const { user, activeRole } = useAuth();
+  const { user } = useAuth();
   if (!user) return <Navigate to="/login" />;
 
   if (user.mustChangePassword) {
     return <Navigate to="/change-password" />;
   }
 
-  // Route based on role to appropriate dashboard
-  if (activeRole === "employee") {
-    return <Navigate to="/my-dashboard" />;
-  } else if (activeRole === "branch_hr") {
-    return <Navigate to="/hr/branch-dashboard" />; // Branch HR sees branch-specific dashboard
-  } else if (activeRole === "department_hr") {
-    return <Navigate to="/dashboard" />; // Department HR sees filtered dashboard
-  } else if (activeRole === "department_head" || activeRole === "ceo") {
-    return <Navigate to="/dashboard" />;
-  } else if (activeRole === "head_hr") {
-    return <Navigate to="/attendance-head-review" />; // Head HR sees head office review
-  } else if (activeRole === "hr_manager" || activeRole === "hr_executive") {
-    return <Navigate to="/dashboard" />;
-  } else {
-    // super_admin
-    return <Navigate to="/launchpad" />;
-  }
+  // All roles go to the ERP module selector
+  return <Navigate to="/launchpad" />;
 }
 
 const App = () => (
@@ -195,6 +180,27 @@ const App = () => (
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="/" element={<RootRedirect />} />
 
+            {/* --- ERP LAUNCHPAD (standalone, no layout) --- */}
+            <Route
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    "super_admin",
+                    "ceo",
+                    "head_hr",
+                    "branch_hr",
+                    "department_hr",
+                    "department_head",
+                    "hr_manager",
+                    "hr_executive",
+                    "employee",
+                  ]}
+                />
+              }
+            >
+              <Route path="/launchpad" element={<Launchpad />} />
+            </Route>
+
             {/* --- ADMIN & HR ROUTES (MainLayout) --- */}
             <Route
               element={
@@ -213,12 +219,6 @@ const App = () => (
               }
             >
               <Route element={<MainLayout />}>
-                {/* Shared routes: both HR and SuperAdmin */}
-                <Route
-                  element={<ProtectedRoute allowedRoles={["super_admin"]} />}
-                >
-                  <Route path="/launchpad" element={<Launchpad />} />
-                </Route>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/directory" element={<Directory />} />
                 <Route path="/employees" element={<Employees />} />

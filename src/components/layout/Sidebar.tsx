@@ -59,7 +59,7 @@ export default function Sidebar() {
 
   const superAdminLinks: SidebarLink[] = [
     // Active/Enabled first
-    { to: "/launchpad", icon: Zap, label: "Launchpad" },
+    { to: "/launchpad", icon: Zap, label: "Switch Module" },
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/employees", icon: Users, label: "Employees" },
     { to: "/attendance", icon: CalendarCheck, label: "Attendance" },
@@ -197,7 +197,7 @@ export default function Sidebar() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <img src={logo} alt="Company Logo" className="sb-logo-img" />
             <div>
-              <div className="sb-title">EMS</div>
+              <div className="sb-title">HR & People</div>
               <div className="sb-subtitle">Employee Management</div>
             </div>
           </div>
